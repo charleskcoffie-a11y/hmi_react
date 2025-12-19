@@ -1,0 +1,121 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build React App",
+			"type": "shell",
+			"command": "npm run build"
+		},
+		{
+			"label": "Build React App",
+			"type": "shell",
+			"command": "npm run build"
+		},
+		{
+			"label": "Build React App",
+			"type": "shell",
+			"command": "npm run build"
+		},
+		{
+			"label": "Build React App",
+			"type": "shell",
+			"command": "npm run build"
+		},
+		{
+			"label": "Build React App",
+			"type": "shell",
+			"command": "npm run build"
+		},
+		{
+			"label": "Build React App",
+			"type": "shell",
+			"command": "npm run build"
+		},
+		{
+			"label": "Build React App",
+			"type": "shell",
+			"command": "npm run build"
+		},
+		{
+			"label": "Build React App",
+			"type": "shell",
+			"command": "npm run build"
+		},
+		{
+			"label": "Build React App",
+			"type": "shell",
+			"command": "npm run build"
+		},
+		{
+			"label": "Build React App",
+			"type": "shell",
+			"command": "npm run build"
+		},
+		{
+			"label": "Build React App",
+			"type": "shell",
+			"command": "npm run build",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [
+				"$tsc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Build React App",
+			"type": "shell",
+			"command": "npm run build",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [
+				"$tsc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Build React App",
+			"type": "shell",
+			"command": "npm run build",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [
+				"$tsc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Build React App",
+			"type": "shell",
+			"command": "npm run build",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [
+				"$tsc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Build React App",
+			"type": "shell",
+			"command": "npm run build",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [
+				"$tsc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Build React App",
+			"type": "shell",
+			"command": "npm run build",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [
+				"$tsc"
+			],
+			"group": "build"
+		}
+	]
+}

@@ -1,0 +1,31 @@
+{
+  "name": "hmi-electron",
+  "version": "1.0.0",
+  "main": "main.js",
+  "description": "Electron wrapper for HMI React app",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "dist32": "electron-builder --win --ia32"
+  },
+  "devDependencies": {
+    "electron": "^39.2.7",
+    "electron-builder": "^24.6.0"
+  },
+  "author": "Your Name",
+  "build": {
+    "appId": "com.yourcompany.hmi",
+    "productName": "HMI_React",
+    "directories": {
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "../build/**/*"
+    ],
+    "win": {
+      "target": "nsis"
+    }
+  }
+}

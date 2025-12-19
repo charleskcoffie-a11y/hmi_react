@@ -1,0 +1,109 @@
+.virtual-keyboard {
+  background: linear-gradient(135deg, #1a1a1a 0%, #0d0d0d 100%);
+  border: 2px solid #0066cc;
+  border-radius: 8px;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.keyboard-display {
+  margin-bottom: 10px;
+}
+
+.keyboard-input {
+  width: 100%;
+  padding: 15px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 2px solid #0066cc;
+  border-radius: 6px;
+  color: #0088ff;
+  font-size: 16px;
+  font-weight: 600;
+  font-family: 'Courier New', monospace;
+  text-align: center;
+  letter-spacing: 2px;
+}
+
+.keyboard-input::placeholder {
+  color: #666;
+}
+
+.keyboard-keys {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.keyboard-row {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 6px;
+}
+
+.keyboard-row-special {
+  grid-template-columns: 4fr 3fr;
+}
+
+.keyboard-row-action {
+  grid-template-columns: 1fr;
+}
+
+.keyboard-key {
+  padding: 12px 8px;
+  background: linear-gradient(135deg, #1a5f9e 0%, #0d3a5c 100%);
+  border: 1px solid #0066cc;
+  border-radius: 4px;
+  color: #0088ff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.keyboard-key:hover {
+  background: linear-gradient(135deg, #0088ff 0%, #0066cc 100%);
+  box-shadow: 0 0 10px rgba(0, 136, 255, 0.5);
+  transform: translateY(-2px);
+}
+
+.keyboard-key:active {
+  transform: translateY(0);
+}
+
+.spacebar {
+  font-size: 11px;
+}
+
+.backspace-key {
+  font-size: 11px;
+}
+
+.enter-key {
+  background: linear-gradient(135deg, #28a745 0%, #1d6e2d 100%);
+  border-color: #28a745;
+  color: white;
+  font-size: 13px;
+  padding: 14px;
+  font-weight: 700;
+}
+
+.enter-key:hover {
+  background: linear-gradient(135deg, #32c857 0%, #28a745 100%);
+  box-shadow: 0 0 12px rgba(40, 167, 69, 0.6);
+}
+
+.keyboard-info {
+  text-align: center;
+  font-size: 11px;
+  color: #888;
+  padding-top: 8px;
+  border-top: 1px solid #444;
+}
+
+.keyboard-info p {
+  margin: 0;
+}

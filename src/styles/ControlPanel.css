@@ -1,0 +1,535 @@
+.control-panel {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: linear-gradient(90deg, #0a0a0a 0%, #1a1a1a 100%);
+  border-radius: 8px;
+  border: 2px solid #0066cc;
+  min-height: auto;
+}
+
+.left-side-section {
+  display: flex;
+  gap: 8px;
+  flex: 0 0 auto;
+  align-items: center;
+}
+
+.center-section {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.right-side-section {
+  display: flex;
+  gap: 8px;
+  flex: 0 0 auto;
+  align-items: center;
+}
+
+.control-section {
+  display: flex;
+  gap: 10px;
+}
+
+.program-controls {
+  display: flex;
+  gap: 15px;
+}
+
+.mode-controls {
+  display: flex;
+  gap: 15px;
+}
+
+.recipe-controls {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.start-position-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.start-position-btn {
+  background: linear-gradient(135deg, #17a2b8 0%, #0e6674 100%);
+  border-color: #17a2b8;
+  font-size: 11px;
+  padding: 8px 12px;
+}
+
+.start-position-btn:hover {
+  background: linear-gradient(135deg, #1fc8e3 0%, #17a2b8 100%);
+  box-shadow: 0 0 15px rgba(23, 162, 184, 0.5);
+}
+
+.start-left-btn {
+  border-color: #0088ff;
+}
+
+.start-right-btn {
+  border-color: #ff6b6b;
+}
+
+.parameter-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.param-btn {
+  font-size: 11px;
+  padding: 8px 14px;
+}
+
+.param-btn-right {
+  background: linear-gradient(135deg, #17a2b8 0%, #0e6674 100%);
+  border-color: #17a2b8;
+}
+
+.param-btn-right:hover {
+  background: linear-gradient(135deg, #1fc8e3 0%, #17a2b8 100%);
+  box-shadow: 0 0 15px rgba(23, 162, 184, 0.5);
+}
+
+.param-btn-left {
+  background: linear-gradient(135deg, #fd7e14 0%, #c5590f 100%);
+  border-color: #fd7e14;
+}
+
+.param-btn-left:hover {
+  background: linear-gradient(135deg, #ff9a3c 0%, #fd7e14 100%);
+  box-shadow: 0 0 15px rgba(253, 126, 20, 0.5);
+}
+
+.control-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #1a5f9e 0%, #0d3a5c 100%);
+  color: white;
+  border: 2px solid #0066cc;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.control-btn:hover {
+  background: linear-gradient(135deg, #0088ff 0%, #0066cc 100%);
+  box-shadow: 0 0 15px rgba(0, 136, 255, 0.5);
+  transform: translateY(-2px);
+}
+
+.control-btn:active {
+  transform: translateY(0);
+}
+
+.control-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: linear-gradient(135deg, #333333 0%, #1a1a1a 100%);
+  border-color: #555555;
+}
+
+.control-btn:disabled:hover {
+  box-shadow: none;
+  transform: none;
+}
+
+.control-btn.active {
+  background: linear-gradient(135deg, #ff6b6b 0%, #cc3333 100%);
+  border-color: #ff4444;
+  box-shadow: 0 0 15px rgba(255, 107, 107, 0.6);
+}
+
+.enable-btn {
+  background: linear-gradient(135deg, #fd7e14 0%, #c5590f 100%);
+  border-color: #fd7e14;
+}
+
+.enable-btn:hover {
+  background: linear-gradient(135deg, #ff9a3c 0%, #fd7e14 100%);
+  box-shadow: 0 0 15px rgba(253, 126, 20, 0.5);
+}
+
+.start-position-btn {
+  background: linear-gradient(135deg, #17a2b8 0%, #0e6674 100%);
+  border-color: #17a2b8;
+}
+
+.start-position-btn:hover {
+  background: linear-gradient(135deg, #1fc8e3 0%, #17a2b8 100%);
+  box-shadow: 0 0 15px rgba(23, 162, 184, 0.5);
+}
+
+.add-btn {
+  background: linear-gradient(135deg, #28a745 0%, #1d6e2d 100%);
+  border-color: #28a745;
+}
+
+.add-btn:hover {
+  background: linear-gradient(135deg, #32c857 0%, #28a745 100%);
+  box-shadow: 0 0 15px rgba(40, 167, 69, 0.5);
+}
+
+.auto-teach-btn {
+  background: linear-gradient(135deg, #6366f1 0%, #4338ca 100%);
+  border-color: #6366f1;
+}
+
+.auto-teach-btn:hover {
+  background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
+  box-shadow: 0 0 15px rgba(99, 102, 241, 0.5);
+}
+
+.edit-btn {
+  background: linear-gradient(135deg, #ffc107 0%, #cc9900 100%);
+  border-color: #ffc107;
+  color: #000;
+}
+
+.edit-btn:hover {
+  background: linear-gradient(135deg, #ffd700 0%, #ffc107 100%);
+  box-shadow: 0 0 15px rgba(255, 193, 7, 0.5);
+  color: #000;
+}
+
+.jog-btn {
+  background: linear-gradient(135deg, #6f42c1 0%, #4a2d7f 100%);
+  border-color: #6f42c1;
+}
+
+.jog-btn:hover {
+  background: linear-gradient(135deg, #8e5ede 0%, #6f42c1 100%);
+  box-shadow: 0 0 15px rgba(111, 66, 193, 0.5);
+}
+
+.run-btn {
+  background: linear-gradient(135deg, #28a745 0%, #1d6e2d 100%);
+  border-color: #28a745;
+}
+
+.run-btn:hover {
+  background: linear-gradient(135deg, #32c857 0%, #28a745 100%);
+  box-shadow: 0 0 15px rgba(40, 167, 69, 0.5);
+}
+
+.recipe-btn {
+  background: linear-gradient(135deg, #e83e8c 0%, #a02a5e 100%);
+  border-color: #e83e8c;
+}
+
+.recipe-btn:hover {
+  background: linear-gradient(135deg, #ff5a9d 0%, #e83e8c 100%);
+  box-shadow: 0 0 15px rgba(232, 62, 140, 0.5);
+}
+
+.machine-params-btn {
+  background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+  border-color: #8b5cf6;
+}
+
+.machine-params-btn:hover {
+  background: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%);
+  box-shadow: 0 0 15px rgba(139, 92, 246, 0.5);
+}
+
+.btn-icon {
+  font-size: 20px;
+  display: inline-block;
+}
+
+.control-status {
+  display: flex;
+  gap: 10px;
+  justify-self: end;
+}
+
+.status-badge {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  animation: pulse 1s infinite;
+}
+
+.jog-status {
+  background: #6f42c1;
+  color: white;
+  box-shadow: 0 0 12px rgba(111, 66, 193, 0.6);
+}
+
+.run-status {
+  background: #28a745;
+  color: white;
+  box-shadow: 0 0 12px rgba(40, 167, 69, 0.6);
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .control-panel {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 12px 15px;
+  }
+
+  .control-section {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .control-btn {
+    padding: 10px 14px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .control-panel {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 10px 12px;
+  }
+
+  .control-section {
+    gap: 8px;
+  }
+
+  .program-controls {
+    gap: 8px;
+  }
+
+  .control-btn {
+    padding: 8px 12px;
+    font-size: 11px;
+  }
+
+  .control-section {
+    flex-wrap: wrap;
+  }
+
+  .control-status {
+    justify-self: auto;
+  }
+
+  .param-btn {
+    font-size: 10px;
+    padding: 6px 12px;
+  }
+}
+
+/* Modal Overlay for Action Selector */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%);
+  border: 2px solid #0066cc;
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+  box-shadow: 0 0 30px rgba(0, 102, 204, 0.5);
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.modal-title {
+  color: #0088ff;
+  margin: 0 0 20px 0;
+  font-size: 16px;
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  font-size: 13px;
+  font-weight: bold;
+  border: 2px solid;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.action-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+}
+
+.expand-btn {
+  background: linear-gradient(135deg, #28a745 0%, #1d6e2d 100%);
+  border-color: #28a745;
+  color: white;
+}
+
+.expand-btn:hover {
+  background: linear-gradient(135deg, #32c857 0%, #28a745 100%);
+  box-shadow: 0 0 20px rgba(40, 167, 69, 0.6);
+}
+
+.reduce-btn {
+  background: linear-gradient(135deg, #dc3545 0%, #a02a30 100%);
+  border-color: #dc3545;
+  color: white;
+}
+
+.reduce-btn:hover {
+  background: linear-gradient(135deg, #e74c3c 0%, #dc3545 100%);
+  box-shadow: 0 0 20px rgba(220, 53, 69, 0.6);
+}
+
+.action-icon {
+  font-size: 16px;
+}
+
+@media (max-width: 768px) {
+  .control-panel {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .control-btn {
+    padding: 8px 10px;
+    font-size: 10px;
+  }
+
+  .btn-icon {
+    font-size: 14px;
+  }
+
+  .control-section {
+    gap: 6px;
+  }
+}
+
+.enable-config {
+  padding: 15px 0;
+  text-align: left;
+}
+
+.jog-mode-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  color: #00ccff;
+  font-size: 14px;
+  font-weight: 500;
+  user-select: none;
+}
+
+.jog-mode-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #00ccff;
+}
+
+.jog-mode-text {
+  flex: 1;
+}
+
+.config-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 15px;
+}
+
+.config-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  font-size: 12px;
+  font-weight: bold;
+  border: 2px solid;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.config-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+}
+
+.confirm-btn {
+  background: linear-gradient(135deg, #28a745 0%, #1d6e2d 100%);
+  border-color: #28a745;
+  color: white;
+}
+
+.confirm-btn:hover {
+  background: linear-gradient(135deg, #32c857 0%, #28a745 100%);
+  box-shadow: 0 0 20px rgba(40, 167, 69, 0.6);
+}
+
+.cancel-btn {
+  background: linear-gradient(135deg, #6f42c1 0%, #4a2d7f 100%);
+  border-color: #6f42c1;
+  color: white;
+}
+
+.cancel-btn:hover {
+  background: linear-gradient(135deg, #8e5ede 0%, #6f42c1 100%);
+  box-shadow: 0 0 20px rgba(111, 66, 193, 0.6);
+}

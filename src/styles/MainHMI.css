@@ -1,0 +1,454 @@
+.main-hmi {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%);
+  color: #fff;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  overflow: hidden;
+}
+
+.hmi-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 30px;
+  background: linear-gradient(90deg, #0066cc 0%, #004399 100%);
+  border-bottom: 3px solid #003366;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.user-info-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  padding: 10px 16px;
+}
+
+.user-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-icon {
+  font-size: 20px;
+}
+
+.user-role {
+  font-size: 15px;
+  font-weight: 700;
+  color: #00ffff;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.change-user-btn {
+  background: linear-gradient(135deg, #ff6b35 0%, #ff8c42 100%);
+  border: 2px solid #ff6b35;
+  border-radius: 6px;
+  color: #ffffff;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.change-user-btn:hover {
+  background: linear-gradient(135deg, #ff8c42 0%, #ff6b35 100%);
+  box-shadow: 0 0 15px rgba(255, 107, 53, 0.6);
+  transform: translateY(-1px);
+}
+
+.change-user-btn:active {
+  transform: translateY(0);
+}
+
+.current-recipes {
+  display: none;
+}
+
+.recipe-indicator {
+  display: none;
+}
+
+.recipe-indicator-label {
+  display: none;
+}
+
+.recipe-indicator-value {
+  display: none;
+}
+
+.shift-counts {
+  display: flex;
+  gap: 12px;
+}
+
+.shift-count-card {
+  background: rgba(0, 0, 0, 0.3);
+  border: 2px solid rgba(0, 255, 255, 0.3);
+  border-radius: 8px;
+  padding: 12px 20px;
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  align-items: center;
+  min-width: 200px;
+}
+
+.shift-label {
+  font-size: 14px;
+  letter-spacing: 0.5px;
+  color: #8abfff;
+  font-weight: 600;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.shift-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: #00ffff;
+  line-height: 1;
+  font-family: 'Courier New', monospace;
+  text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+  letter-spacing: 2px;
+  min-width: 80px;
+  text-align: right;
+}
+
+.shift-tag {
+  display: none;
+}
+
+.hmi-header h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.header-status {
+  display: flex;
+  gap: 15px;
+}
+
+.mode-indicator {
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  font-weight: bold;
+  font-size: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  transition: all 0.3s ease;
+}
+
+.mode-indicator.active {
+  background: #ff6b6b;
+  border-color: #ff4444;
+  box-shadow: 0 0 15px rgba(255, 107, 107, 0.5);
+}
+
+.hmi-content {
+  flex: 1;
+  padding: 16px 20px 10px;
+  overflow: hidden;
+}
+
+.panels-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  height: 100%;
+  overflow: hidden;
+}
+
+.hmi-mode-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 16px 20px;
+  background: linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
+  border-bottom: 2px solid rgba(0, 102, 204, 0.3);
+}
+
+.mode-button-group {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+.mode-control-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 32px;
+  font-size: 14px;
+  font-weight: 700;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(100, 100, 200, 0.3) 0%, rgba(80, 80, 180, 0.2) 100%);
+  color: #e0e0ff;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  white-space: nowrap;
+}
+
+.mode-control-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(120, 120, 220, 0.4) 0%, rgba(100, 100, 200, 0.3) 100%);
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+.mode-control-btn.active {
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+  border-color: #a78bfa;
+  color: #ffffff;
+  box-shadow: 0 0 20px rgba(124, 58, 237, 0.6);
+}
+
+.mode-control-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: linear-gradient(135deg, rgba(80, 80, 80, 0.3) 0%, rgba(60, 60, 60, 0.2) 100%);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #888;
+}
+
+.mode-control-btn.jog-control {
+  border-color: rgba(147, 112, 219, 0.3);
+}
+
+.mode-control-btn.jog-control.active {
+  background: linear-gradient(135deg, #9370db 0%, #7851a9 100%);
+  border-color: #b19cd9;
+}
+
+.mode-control-btn.homing-btn {
+  border-color: rgba(100, 150, 200, 0.3);
+  background: linear-gradient(135deg, rgba(100, 150, 200, 0.3) 0%, rgba(80, 120, 180, 0.2) 100%);
+}
+
+.mode-control-btn.homing-btn.active {
+  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+  border-color: #38bdf8;
+  box-shadow: 0 0 20px rgba(14, 165, 233, 0.6);
+}
+
+.mode-control-btn.run-control {
+  border-color: rgba(34, 197, 94, 0.3);
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.3) 0%, rgba(22, 163, 74, 0.2) 100%);
+  font-size: 16px;
+  padding: 18px 48px;
+  min-width: 200px;
+}
+
+.mode-control-btn.run-control.active {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  border-color: #86efac;
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.6);
+}
+
+.mode-control-btn.enable-jog-btn {
+  border-color: rgba(253, 126, 20, 0.3);
+  background: linear-gradient(135deg, rgba(253, 126, 20, 0.3) 0%, rgba(225, 100, 20, 0.2) 100%);
+}
+
+.mode-control-btn.enable-jog-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(253, 126, 20, 0.5) 0%, rgba(225, 100, 20, 0.4) 100%);
+  border-color: rgba(253, 126, 20, 0.6);
+}
+
+.mode-control-btn.enable-jog-btn.active {
+  background: linear-gradient(135deg, #fd7e14 0%, #e16514 100%);
+  border-color: #ff9a3c;
+  box-shadow: 0 0 20px rgba(253, 126, 20, 0.6);
+}
+
+.mode-icon {
+  font-size: 20px;
+}
+
+.hmi-bottom {
+  padding: 20px;
+  background: linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
+  border-top: 3px solid #0066cc;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.5);
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .panels-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Scrollbar Styling */
+.hmi-content::-webkit-scrollbar {
+  width: 10px;
+}
+
+.hmi-content::-webkit-scrollbar-track {
+  background: #1e1e1e;
+}
+
+.hmi-content::-webkit-scrollbar-thumb {
+  background: #0066cc;
+  border-radius: 5px;
+}
+
+.hmi-content::-webkit-scrollbar-thumb:hover {
+  background: #004399;
+}
+
+/* Responsive Design for different screen sizes */
+@media (max-width: 1200px) {
+  .panels-container {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+
+  .hmi-header {
+    padding: 10px 20px;
+    flex-wrap: wrap;
+  }
+
+  .hmi-header h1 {
+    font-size: 18px;
+  }
+
+  .header-right {
+    gap: 15px;
+  }
+
+  .mode-control-btn {
+    padding: 10px 18px;
+    font-size: 12px;
+  }
+
+  .control-btn {
+    padding: 10px 14px;
+    font-size: 12px;
+  }
+
+  .shift-count-card {
+    min-width: 120px;
+    padding: 8px 12px;
+  }
+
+  .shift-value {
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .main-hmi {
+    height: 100vh;
+  }
+
+  .hmi-header {
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 15px;
+  }
+
+  .header-right {
+    width: 100%;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .current-recipes {
+    flex-direction: row;
+    gap: 10px;
+  }
+
+  .recipe-indicator {
+    font-size: 11px;
+    padding: 4px 10px;
+  }
+
+  .recipe-indicator-value {
+    font-size: 12px;
+    min-width: 100px;
+  }
+
+  .mode-button-group {
+    gap: 10px;
+  }
+
+  .mode-control-btn {
+    padding: 8px 12px;
+    font-size: 11px;
+  }
+
+  .hmi-content {
+    padding: 10px 12px 8px;
+  }
+
+  .panels-container {
+    gap: 10px;
+  }
+
+  .shift-count-card {
+    min-width: 110px;
+    padding: 6px 10px;
+  }
+
+  .shift-label {
+    font-size: 10px;
+  }
+
+  .shift-value {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .hmi-header {
+    padding: 8px 10px;
+  }
+
+  .hmi-header h1 {
+    font-size: 16px;
+  }
+
+  .recipe-indicator {
+    font-size: 10px;
+    padding: 3px 8px;
+  }
+
+  .mode-control-btn {
+    padding: 6px 10px;
+    font-size: 10px;
+  }
+
+  .control-btn {
+    padding: 8px 12px;
+    font-size: 10px;
+  }
+
+  .hmi-mode-controls {
+    padding: 10px 12px;
+  }
+
+  .hmi-bottom {
+    padding: 12px;
+  }
+}

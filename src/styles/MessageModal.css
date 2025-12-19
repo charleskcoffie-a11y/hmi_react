@@ -1,0 +1,142 @@
+.message-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  backdrop-filter: blur(3px);
+  animation: fadeIn 0.2s ease-in;
+}
+
+.message-modal {
+  background: linear-gradient(135deg, #1f1f1f 0%, #0d0d0d 100%);
+  border: 2px solid #0066cc;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 450px;
+  box-shadow: 0 10px 50px rgba(0, 102, 204, 0.5);
+  animation: slideIn 0.3s ease-out;
+}
+
+.message-modal.success {
+  border-color: #28a745;
+}
+
+.message-modal.error {
+  border-color: #dc3545;
+}
+
+.message-modal.warning {
+  border-color: #ffc107;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-30px) scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.message-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 25px 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.message-icon {
+  font-size: 28px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(0, 102, 204, 0.2);
+  color: #0088ff;
+}
+
+.message-modal.success .message-icon {
+  background: rgba(40, 167, 69, 0.2);
+  color: #28a745;
+}
+
+.message-modal.error .message-icon {
+  background: rgba(220, 53, 69, 0.2);
+  color: #dc3545;
+}
+
+.message-modal.warning .message-icon {
+  background: rgba(255, 193, 7, 0.2);
+  color: #ffc107;
+}
+
+.message-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.message-body {
+  padding: 20px 25px;
+}
+
+.message-body p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #d7e6ff;
+}
+
+.message-footer {
+  padding: 15px 25px 20px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.message-ok-btn {
+  background: linear-gradient(135deg, #0066cc 0%, #0055aa 100%);
+  border: none;
+  color: white;
+  padding: 10px 30px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.3);
+}
+
+.message-ok-btn:hover {
+  background: linear-gradient(135deg, #0055aa 0%, #004499 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 102, 204, 0.5);
+}
+
+.message-ok-btn:active {
+  transform: translateY(0);
+}
+
+.message-modal.success .message-ok-btn {
+  background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+}
+
+.message-modal.error .message-ok-btn {
+  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+}
+
+.message-modal.warning .message-ok-btn {
+  background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+  color: #000;
+}

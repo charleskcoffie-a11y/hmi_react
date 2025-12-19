@@ -1,0 +1,24 @@
+.recipe-textarea {
+  width: 100%;
+  padding: 12px 14px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid #0066cc;
+  border-radius: 6px;
+  color: #9cc3ff;
+  font-size: 13px;
+  font-weight: 400;
+  margin-bottom: 12px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 60px;
+}
+
+.recipe-textarea:focus {
+  outline: none;
+  border-color: #0088ff;
+  background: rgba(0, 102, 204, 0.1);
+}
+
+.recipe-textarea::placeholder {
+  color: rgba(156, 195, 255, 0.5);
+}
