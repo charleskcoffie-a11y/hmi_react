@@ -13,7 +13,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
   const [keypadValue, setKeypadValue] = useState('');
   const [programSpeed, setProgramSpeed] = useState(100);
   const [programDwell, setProgramDwell] = useState(500);
-  const [stepDialog, setStepDialog] = useState({ open: false, mode: 'add', stepNumber: '', pattern: 0 });
+  const [stepDialog, setStepDialog] = useState({ open: false, mode: 'add', stepNumber: '', pattern: 0, repeatTargetStep: 1, repeatCount: 1 });
   const [jogHint, setJogHint] = useState(false);
   const [downloadDialog, setDownloadDialog] = useState({ open: false });
   const [loading, setLoading] = useState(false);
@@ -184,7 +184,12 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
         pattern: step.pattern,
         timestamp: step.timestamp,
         dwell: step.dwell ?? (program.dwell || 500),
-        speed: step.speed ?? program.speed ?? 100
+        speed: step.speed ?? program.speed ?? 100,
+        enabled: step.enabled !== false, // Preserve enabled state
+        ...(step.pattern === 5 ? { // Include repeat fields for pattern 5
+          repeatTargetStep: step.repeatTargetStep || 1,
+          repeatCount: step.repeatCount || 1
+        } : {})
       };
     });
 
@@ -248,13 +253,13 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                     setDialog({ open: true, title: 'Step Limit', message: 'Maximum of 10 steps allowed.' });
                     return;
                   }
-                  setStepDialog({ open: true, mode: 'add', stepNumber: editedSteps.length + 1, pattern: 0 });
+                  setStepDialog({ open: true, mode: 'add', stepNumber: editedSteps.length + 1, pattern: 0, repeatTargetStep: 1, repeatCount: 1 });
                 }}
                 disabled={editedSteps.length >= 10}
               >
                 ➕ Add Step
               </button>
-              <button className="step-action-btn delete" onClick={() => setStepDialog({ open: true, mode: 'delete', stepNumber: '', pattern: 0 })}>
+              <button className="step-action-btn delete" onClick={() => setStepDialog({ open: true, mode: 'delete', stepNumber: '', pattern: 0, repeatTargetStep: 1, repeatCount: 1 })}>
                 🗑️ Delete Step
               </button>
             </div>
@@ -345,6 +350,22 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                             {step.dwell || programDwell} ms
                           </div>
                         </div>
+                        {step.pattern === 5 && (
+                          <>
+                            <div className="settings-row">
+                              <label>Repeat Step:</label>
+                              <div className="setting-value">
+                                {step.repeatTargetStep || 1}
+                              </div>
+                            </div>
+                            <div className="settings-row">
+                              <label>Repeat Count:</label>
+                              <div className="setting-value">
+                                {step.repeatCount || 1}
+                              </div>
+                            </div>
+                          </>
+                        )}
                       </div>
 
                       <div className="pattern-section">
@@ -440,7 +461,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
         <ModernDialog
           isOpen={stepDialog.open}
           title={stepDialog.mode === 'delete' ? 'Delete Step' : 'Add Step'}
-          onCancel={() => setStepDialog({ open: false, mode: 'add', stepNumber: '', pattern: 0 })}
+          onCancel={() => setStepDialog({ open: false, mode: 'add', stepNumber: '', pattern: 0, repeatTargetStep: 1, repeatCount: 1 })}
           onConfirm={() => {
             const target = parseInt(stepDialog.stepNumber, 10);
             if (stepDialog.mode === 'delete') {
@@ -465,7 +486,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
             } else {
               if (editedSteps.length >= 10) {
                 setDialog({ open: true, title: 'Step Limit Reached', message: 'Cannot add more than 10 steps.' });
-                setStepDialog({ open: false, mode: 'add', stepNumber: '', pattern: 0 });
+                setStepDialog({ open: false, mode: 'add', stepNumber: '', pattern: 0, repeatTargetStep: 1, repeatCount: 1 });
                 return;
               }
               const insertAtRaw = isNaN(target) ? editedSteps.length + 1 : target;
@@ -477,7 +498,11 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                 pattern: stepDialog.pattern ?? 0,
                 dwell: [1, 3, 4].includes(Number(stepDialog.pattern)) ? 0 : programDwell,
                 speed: programSpeed,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                ...(stepDialog.pattern === 5 ? {
+                  repeatTargetStep: stepDialog.repeatTargetStep || 1,
+                  repeatCount: stepDialog.repeatCount || 1
+                } : {})
               };
               const merged = [...editedSteps];
               merged.splice(insertAt - 1, 0, newStep);
@@ -489,7 +514,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
               setEditedSteps(renumbered);
               setJogHint(true);
             }
-            setStepDialog({ open: false, mode: 'add', stepNumber: '', pattern: 0 });
+            setStepDialog({ open: false, mode: 'add', stepNumber: '', pattern: 0, repeatTargetStep: 1, repeatCount: 1 });
           }}
           confirmText="Confirm"
         >
@@ -546,6 +571,34 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                     </select>
                   </div>
                 </div>
+                {stepDialog.pattern === 5 && (
+                  <div className="step-dialog-section two-col">
+                    <div>
+                      <label className="dialog-label">Repeat Step (Target)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max={Math.max(1, editedSteps.length)}
+                        value={stepDialog.repeatTargetStep}
+                        onChange={(e) => setStepDialog((prev) => ({ ...prev, repeatTargetStep: parseInt(e.target.value, 10) || 1 }))}
+                        className="step-dialog-input modern"
+                      />
+                      <div className="dialog-hint">Which step to repeat</div>
+                    </div>
+                    <div>
+                      <label className="dialog-label">Repeat Count</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="999"
+                        value={stepDialog.repeatCount}
+                        onChange={(e) => setStepDialog((prev) => ({ ...prev, repeatCount: parseInt(e.target.value, 10) || 1 }))}
+                        className="step-dialog-input modern"
+                      />
+                      <div className="dialog-hint">Number of repetitions</div>
+                    </div>
+                  </div>
+                )}
                 <div className="dialog-hint accent">After adding, jog mode will be active to teach the new step.</div>
               </>
             )}
