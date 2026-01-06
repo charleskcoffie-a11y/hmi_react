@@ -324,8 +324,8 @@
 
 .steps-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
   flex: 1;
   overflow: visible;
 }
@@ -408,7 +408,7 @@
   color: #00ffff;
   font-weight: 700;
   font-family: 'Courier New', monospace;
-  font-size: 0.84rem;
+  font-size: 1rem;
 }
 
 .position-value.editable,
