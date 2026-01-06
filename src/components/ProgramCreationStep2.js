@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
+import ModernDialog from './ModernDialog';
 import '../styles/ProgramCreationStep2.css';
 
 export default function ProgramCreationStep2({ programName, side, onStepComplete, onCancel, onPrevious }) {
-  const [jogMode, setJogMode] = useState(true);
+  const [dwell, setDwell] = useState('');
+  const [jogMode] = useState(true);
   const [axis1Value, setAxis1Value] = useState(0);
   const [axis2Value, setAxis2Value] = useState(0);
   const [axis1Recorded, setAxis1Recorded] = useState(false);
@@ -10,6 +12,7 @@ export default function ProgramCreationStep2({ programName, side, onStepComplete
   const [recordedPositions, setRecordedPositions] = useState({});
   const [stepMessage, setStepMessage] = useState('');
   const [patternCode, setPatternCode] = useState(8); // Default to All off
+  const [dialog, setDialog] = useState({ open: false, title: '', message: '' });
 
   const sideLabel = side === 'right' ? 'Right Side' : 'Left Side';
   const axis1Name = side === 'right' ? 'Axis 1 (ID)' : 'Axis 3 (ID)';
@@ -47,15 +50,20 @@ export default function ProgramCreationStep2({ programName, side, onStepComplete
 
   const handleComplete = () => {
     if (!axis1Recorded || !axis2Recorded) {
-      alert('Please record positions for both axes before continuing');
+      setDialog({ open: true, title: 'Positions Required', message: 'Please record positions for both axes before continuing.' });
       return;
     }
+
+    const dwellMs = Number.isFinite(parseFloat(dwell))
+      ? parseFloat(dwell)
+      : ([1, 3, 4].includes(patternCode) ? 0 : 500);
 
     onStepComplete({
       step: 2,
       stepName: 'Work Position',
       positions: recordedPositions,
       pattern: patternCode,
+      dwell: dwellMs,
       timestamp: new Date().toISOString()
     });
   };
@@ -242,6 +250,16 @@ export default function ProgramCreationStep2({ programName, side, onStepComplete
           </div>
         </div>
 
+        <div className="dwell-input-row">
+          <label>Dwell (ms, optional for this step):</label>
+          <input
+            type="number"
+            min="0"
+            value={dwell}
+            onChange={e => setDwell(e.target.value)}
+            placeholder="Enter dwell for this step"
+          />
+        </div>
         <div className="step-actions">
           <button className="previous-btn" onClick={onPrevious}>
             ← Previous Step
@@ -258,6 +276,19 @@ export default function ProgramCreationStep2({ programName, side, onStepComplete
           </button>
         </div>
       </div>
+
+      <ModernDialog
+        isOpen={dialog.open}
+        title={dialog.title || 'Notice'}
+        onClose={() => setDialog({ open: false, title: '', message: '' })}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <span>{dialog.message}</span>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button onClick={() => setDialog({ open: false, title: '', message: '' })}>Close</button>
+          </div>
+        </div>
+      </ModernDialog>
     </div>
   );
 }

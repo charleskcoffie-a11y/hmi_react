@@ -199,6 +199,178 @@
   font-family: 'Courier New', monospace;
 }
 
+/* Repeat Configuration Popup Styles */
+.repeat-config-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  text-align: left;
+  min-width: 400px;
+  padding: 8px 0;
+}
+
+.repeat-config-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.config-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  font-size: 1rem;
+  color: #1976d2;
+}
+
+.config-icon {
+  font-size: 1.3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+  border-radius: 8px;
+  border: 2px solid #1976d2;
+}
+
+.repeat-config-select,
+.repeat-config-input {
+  padding: 14px 16px;
+  font-size: 1rem;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  background: #f9fafb;
+  color: #333;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  outline: none;
+}
+
+.repeat-config-select:hover,
+.repeat-config-input:hover {
+  border-color: #1976d2;
+  background: #fff;
+}
+
+.repeat-config-select:focus,
+.repeat-config-input:focus {
+  border-color: #1976d2;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(25, 118, 210, 0.1);
+}
+
+.repeat-config-input {
+  font-family: 'Courier New', monospace;
+  font-weight: 700;
+  text-align: center;
+  font-size: 1.2rem;
+}
+
+.repeat-config-input.keypad-button {
+  width: 100%;
+  cursor: pointer;
+  background: #f9fafb;
+  transition: all 0.2s ease;
+}
+
+.repeat-config-input.keypad-button:hover {
+  border-color: #1976d2;
+  background: #fff;
+}
+
+.repeat-config-hint {
+  color: #5c6f82;
+  font-size: 0.85rem;
+  margin-top: 6px;
+}
+
+.repeat-info-box {
+  display: flex;
+  gap: 12px;
+  background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%);
+  border: 2px solid #ffa726;
+  border-radius: 10px;
+  padding: 16px;
+  align-items: flex-start;
+}
+
+.info-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: #fff;
+  border-radius: 50%;
+  border: 2px solid #ffa726;
+}
+
+.info-text {
+  color: #e65100;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  font-weight: 500;
+}
+
+.save-confirm-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.save-confirm-body.side-right {
+  background: linear-gradient(135deg, rgba(23, 162, 184, 0.18) 0%, rgba(23, 162, 184, 0.05) 100%);
+  border-color: rgba(23, 162, 184, 0.5);
+}
+
+.save-confirm-body.side-left {
+  background: linear-gradient(135deg, rgba(253, 126, 20, 0.18) 0%, rgba(253, 126, 20, 0.05) 100%);
+  border-color: rgba(253, 126, 20, 0.5);
+}
+
+.save-confirm-header {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #e8f1ff;
+}
+
+.save-confirm-tagline {
+  font-size: 0.95rem;
+  color: #c9daf7;
+}
+
+.save-confirm-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.save-pill {
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #f0f4ff;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 0.3px;
+}
+
+.save-confirm-note {
+  font-size: 0.85rem;
+  color: #9fb4d6;
+}
+
 .current-position-display {
   background: rgba(0, 0, 0, 0.4);
   border: 1px solid #2a4a7f;
@@ -307,6 +479,57 @@
 
 .pattern-select {
   cursor: pointer;
+}
+
+.pattern-hint {
+  margin-top: 6px;
+  color: #9fbff5;
+  font-size: 0.8rem;
+}
+
+/* Active step inline controls */
+.active-step-card {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px dashed #4a9eff;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
+.active-step-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.active-step-label {
+  background: linear-gradient(135deg, #4a9eff 0%, #2a7fd9 100%);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.step-name-input.inline {
+  flex: 1;
+}
+
+.pattern-select.inline {
+  min-width: 220px;
+}
+
+.record-btn.inline {
+  padding: 10px 16px;
+}
+
+.pattern-display.mini {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid #2a4a7f;
+  border-radius: 4px;
+  padding: 6px 10px;
+  color: #88c0ff;
+  font-size: 0.85rem;
 }
 
 .record-btn {
@@ -545,6 +768,17 @@
 .step-pattern {
   color: #88c0ff;
   font-size: 0.85rem;
+}
+
+.reteach-pill {
+  background: #ffefc1;
+  color: #b36b00;
+  border: 1px solid #ffc107;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin-right: 8px;
 }
 
 .auto-teach-footer {

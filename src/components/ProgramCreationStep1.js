@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import ModernDialog from './ModernDialog';
 import '../styles/ProgramCreationStep1.css';
 
 export default function ProgramCreationStep1({ programName, side, onPositionRecorded, onCancel }) {
+  const [dwell, setDwell] = useState('');
   const [jogMode, setJogMode] = useState(true);
   const [axis1Value, setAxis1Value] = useState(0);
   const [axis2Value, setAxis2Value] = useState(0);
@@ -9,6 +11,7 @@ export default function ProgramCreationStep1({ programName, side, onPositionReco
   const [axis2Recorded, setAxis2Recorded] = useState(false);
   const [recordedPositions, setRecordedPositions] = useState({});
   const [stepMessage, setStepMessage] = useState('');
+  const [dialog, setDialog] = useState({ open: false, title: '', message: '' });
 
   useEffect(() => {
     // Automatically enable jog mode
@@ -51,7 +54,7 @@ export default function ProgramCreationStep1({ programName, side, onPositionReco
 
   const handleComplete = () => {
     if (!axis1Recorded || !axis2Recorded) {
-      alert('Please record positions for both axes before continuing');
+      setDialog({ open: true, title: 'Positions Required', message: 'Please record positions for both axes before continuing.' });
       return;
     }
 
@@ -213,6 +216,16 @@ export default function ProgramCreationStep1({ programName, side, onPositionReco
         </div>
       )}
 
+      <div className="dwell-input-row">
+        <label>Dwell (ms, optional for this step):</label>
+        <input
+          type="number"
+          min="0"
+          value={dwell}
+          onChange={e => setDwell(e.target.value)}
+          placeholder="Enter dwell for this step"
+        />
+      </div>
       <div className="step1-footer">
         <div className="step-progress">
           <span className="progress-item">
@@ -241,6 +254,19 @@ export default function ProgramCreationStep1({ programName, side, onPositionReco
           </button>
         </div>
       </div>
+
+      <ModernDialog
+        isOpen={dialog.open}
+        title={dialog.title || 'Notice'}
+        onClose={() => setDialog({ open: false, title: '', message: '' })}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <span>{dialog.message}</span>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button onClick={() => setDialog({ open: false, title: '', message: '' })}>Close</button>
+          </div>
+        </div>
+      </ModernDialog>
     </div>
   );
 }

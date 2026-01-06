@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import AxisPanel from './components/AxisPanel';
+import ModernDialog from './components/ModernDialog';
 import ControlPanel from './components/ControlPanel';
 import RecipeManager from './components/RecipeManager';
 import RecipeParameters from './components/RecipeParameters';
@@ -15,9 +16,11 @@ import AutoTeach from './components/AutoTeach';
 import LoginModal from './components/LoginModal';
 import EditProgramSideSelector from './components/EditProgramSideSelector';
 import ProgramEditor from './components/ProgramEditor';
+import AutoAdjustProgram from './components/AutoAdjustProgram';
 import DownloadProgramModal from './components/DownloadProgramModal';
 import './styles/MainHMI.css';
 import { readPLCVar, writePLCVar } from './services/plcApiService';
+import { saveRecipeToFile, loadRecipesFromFolder, deleteRecipeFile } from './services/recipeService';
 
 // Define step configurations
 const STEP_CONFIG = {
@@ -35,20 +38,25 @@ const STEP_CONFIG = {
 
 export default function MainHMI() {
   const [currentUser, setCurrentUser] = useState('operator');
+  const [userPasswords, setUserPasswords] = useState({
+    operator: 'op123',
+    setup: 'setup123',
+    engineering: 'eng123'
+  });
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [recipeOpen, setRecipeOpen] = useState(false);
   const [recipeSideSelectorOpen, setRecipeSideSelectorOpen] = useState(false);
   const [recipeSide, setRecipeSide] = useState(null);
-  const [axis1State, setAxis1State] = useState({ status: 'idle' });
-  const [axis2State, setAxis2State] = useState({ status: 'idle' });
-  const [axis3State, setAxis3State] = useState({ status: 'idle' });
-  const [axis4State, setAxis4State] = useState({ status: 'idle' });
-  const [jogMode, setJogMode] = useState(false);
+  const [axis1State] = useState({ status: 'idle' });
+  const [axis2State] = useState({ status: 'idle' });
+  const [axis3State] = useState({ status: 'idle' });
+  const [axis4State] = useState({ status: 'idle' });
   const [runMode, setRunMode] = useState(null);
   const [homedSides, setHomedSides] = useState({ right: false, left: false });
   const [showRunSideSelector, setShowRunSideSelector] = useState(false);
   const [showHomingSideSelector, setShowHomingSideSelector] = useState(false);
-  const [machineCount, setMachineCount] = useState(0);
+  const [machineCount] = useState(0);
+  const [unitSystem, setUnitSystem] = useState('mm');
   const [actualPositions, setActualPositions] = useState({
     right: { axis1: 0, axis2: 0 }, // PLC tags: lAxis1ActPos, lAxis2ActPos
     left: { axis1: 0, axis2: 0 }   // PLC tags: lAxis3ActPos, lAxis4ActPos
@@ -58,6 +66,7 @@ export default function MainHMI() {
     left: { state: 0, desc: 'Idle' }
   });
 
+  const [plcStatus, setPlcStatus] = useState('unknown');
   useEffect(() => {
     let timer;
     const poll = async () => {
@@ -66,7 +75,9 @@ export default function MainHMI() {
         const plcData = await readPLCVar();
         setActualPositions(plcData.actualPositions || { right: { axis1: 0, axis2: 0 }, left: { axis1: 0, axis2: 0 } });
         setSideStates(plcData.sideStates || { right: { state: 0, desc: 'Idle' }, left: { state: 0, desc: 'Idle' } });
+        setPlcStatus('good');
       } catch (err) {
+        setPlcStatus('bad');
         console.warn('Actual position read failed:', err.message || err);
       }
     };
@@ -81,7 +92,15 @@ export default function MainHMI() {
   const [showProgramNameModal, setShowProgramNameModal] = useState(false);
   const [currentProgram, setCurrentProgram] = useState(null);
   const [createdPrograms, setCreatedPrograms] = useState([]);
-  const [programSteps, setProgramSteps] = useState({});
+  const [, setProgramSteps] = useState({});
+
+  // Load recipes from filesystem on mount
+  useEffect(() => {
+    const rightRecipes = loadRecipesFromFolder('right');
+    const leftRecipes = loadRecipesFromFolder('left');
+    if (rightRecipes.length > 0) setRecipesRight(rightRecipes);
+    if (leftRecipes.length > 0) setRecipesLeft(leftRecipes);
+  }, []);
 
   const [recipesRight, setRecipesRight] = useState([
     { 
@@ -109,11 +128,7 @@ export default function MainHMI() {
       description: 'Recipe for part D on right side',
       parameters: { tubeID: 28.0, tubeOD: 35.0, finalSize: 34.0, sizeType: 'OD', tubeLength: 180, idFingerRadius: 2.8, depth: 55, recipeSpeed: 100, stepDelay: 500 }
     },
-    { 
-      name: 'Right_Recipe_E', 
-      description: 'Default recipe for right side (INDEX 5)',
-      parameters: { tubeID: 25.0, tubeOD: 32.0, finalSize: 31.0, sizeType: 'OD', tubeLength: 110, idFingerRadius: 2.4, depth: 52, recipeSpeed: 100, stepDelay: 500 }
-    }
+    // Default recipe removed
   ]);
 
   const [recipesLeft, setRecipesLeft] = useState([
@@ -150,8 +165,8 @@ export default function MainHMI() {
   ]);
 
   const [currentRecipe, setCurrentRecipe] = useState({
-    right: 'Right_Recipe_E',
-    left: 'Left_Recipe_E'
+    right: null,
+    left: null
   });
 
   const [messageModal, setMessageModal] = useState({
@@ -167,100 +182,65 @@ export default function MainHMI() {
   const [showParameterSideSelector, setShowParameterSideSelector] = useState(false);
 
   const [machineParametersOpen, setMachineParametersOpen] = useState(false);
-  const [currentStep, setCurrentStep] = useState({ step: 1, description: 'Ready to start' });
+  const [currentStep, setCurrentStep] = useState(1);
 
   const [showEnableSideSelector, setShowEnableSideSelector] = useState(false);
-  const [enableActionSide, setEnableActionSide] = useState(null);
-  const [enableJogMode, setEnableJogMode] = useState(false);
-
-  const [showStartPosSideSelector, setShowStartPosSideSelector] = useState(false);
 
   const [autoTeachOpen, setAutoTeachOpen] = useState(false);
   const [autoTeachSide, setAutoTeachSide] = useState(null);
   const [autoTeachProgramName, setAutoTeachProgramName] = useState('');
   const [showAutoTeachSelector, setShowAutoTeachSelector] = useState(false);
   const [showAutoTeachNameModal, setShowAutoTeachNameModal] = useState(false);
-  const [editingProgram, setEditingProgram] = useState(null);
 
   const [showEditProgramSideSelector, setShowEditProgramSideSelector] = useState(false);
   const [showProgramEditor, setShowProgramEditor] = useState(false);
   const [programToEdit, setProgramToEdit] = useState(null);
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [programToDownload, setProgramToDownload] = useState(null);
+  const [showEditModeDialog, setShowEditModeDialog] = useState(false);
+  const [showAutoAdjust, setShowAutoAdjust] = useState(false);
 
   const handleAxisChange = (axisName, value, mode) => {
     console.log(`${axisName} changed to ${value} (${mode})`);
   };
 
-  const handleAddProgram = () => {
-    setShowSideSelector(true);
-  };
-
-  const handleUserLogin = (role) => {
-    if (role) {
-      setCurrentUser(role);
-      setShowLoginModal(false);
-      showMessage('Login Successful', `Logged in as ${role === 'operator' ? 'Operator' : role === 'setup' ? 'Setup' : 'Engineering'}`, 'success');
-    }
-  };
-
-  const handleAutoTeach = () => {
-    // Check role-based access
+  const handleLoadRecipe = (recipe, side) => {
     if (currentUser === 'operator') {
-      showMessage('Access Denied', 'Operators can only Home and Run the machine', 'warning');
+      showMessage('Access Denied', 'Operators cannot change recipes.', 'warning');
       return;
     }
-    setShowAutoTeachSelector(true);
+    const recipeName = typeof recipe === 'string' ? recipe : recipe?.name;
+    if (!recipeName || !side) return;
+    setCurrentRecipe((prev) => ({ ...prev, [side]: recipeName }));
+    
+    const recipeObj = typeof recipe === 'string'
+      ? (side === 'right' ? recipesRight : recipesLeft).find((r) => r.name === recipeName)
+      : recipe;
+    setCurrentParameters(recipeObj?.parameters ?? null);
+    
+    // Close the recipe manager after loading
+    setRecipeOpen(false);
+    setRecipeSide(null);
+    
+    showMessage('Recipe Loaded', `Recipe "${recipeName}" loaded for ${side} side`, 'success');
   };
 
-  const handleAutoTeachSelectSide = (side) => {
-    setAutoTeachSide(side);
-    setShowAutoTeachSelector(false);
-    setShowAutoTeachNameModal(true);
-  };
-
-  const handleAutoTeachProgramNameConfirm = (programName) => {
-    if (programName && programName.trim()) {
-      setAutoTeachProgramName(programName.trim());
-      setShowAutoTeachNameModal(false);
-      // Open parameters first - Reset to default recipe at index 5
-      setParametersSide(autoTeachSide);
-      const recipes = autoTeachSide === 'right' ? recipesRight : recipesLeft;
-      setCurrentParameters(recipes[5]?.parameters || { tubeID: 0, tubeOD: 0, finalSize: 0, sizeType: 'OD', tubeLength: 0, idFingerRadius: 0, depth: 0, recipeSpeed: 100, stepDelay: 500 });
-      setParametersOpen(true);
+  const handleOpenRecipeSelector = (side) => {
+    if (currentUser === 'operator') {
+      showMessage('Access Denied', 'Operators cannot change recipes.', 'warning');
+      return;
     }
-  };
-
-  const handleSaveAutoTeachProgram = (programData) => {
-    setCreatedPrograms([...createdPrograms, programData]);
-    showMessage('Program Saved', `Auto-teach program "${programData.name}" saved successfully!`, 'success');
-    setAutoTeachOpen(false);
-    setAutoTeachSide(null);
-    setAutoTeachProgramName('');
-  };
-
-  const handleOpenRecipe = () => {
-    setRecipeSideSelectorOpen(true);
-  };
-
-  const handleSelectRecipeSide = (side) => {
     setRecipeSide(side);
-    setRecipeSideSelectorOpen(false);
     setRecipeOpen(true);
   };
 
-  const handleLoadRecipe = (recipe, side) => {
-    const recipeName = typeof recipe === 'string' ? recipe : recipe.name;
-    setCurrentRecipe(prev => ({
-      ...prev,
-      [side]: recipeName
-    }));
-    showMessage('Recipe Loaded', `Recipe "${recipeName}" loaded on ${side === 'right' ? 'Right' : 'Left'} side`, 'success');
-    setRecipeOpen(false);
-    setRecipeSide(null);
-  };
+  // ...existing code...
 
   const handleCreateRecipe = (recipeName, recipeDescription, side) => {
+    if (currentUser === 'operator') {
+      showMessage('Access Denied', 'Operators cannot create recipes.', 'warning');
+      return;
+    }
     const newRecipe = {
       name: recipeName,
       description: recipeDescription,
@@ -277,151 +257,53 @@ export default function MainHMI() {
       }
     };
     
-    if (side === 'right') {
-      setRecipesRight([...recipesRight, newRecipe]);
-    } else {
-      setRecipesLeft([...recipesLeft, newRecipe]);
-    }
+    // Save to filesystem
+    saveRecipeToFile(newRecipe, side);
     
-    showMessage('Recipe Created', `Recipe "${recipeName}" created successfully`, 'success');
+    if (side === 'right') {
+      setRecipesRight(prev => {
+        const updated = [...prev, newRecipe];
+        setCurrentRecipe(cr => ({ ...cr, right: recipeName }));
+        setTimeout(() => handleLoadRecipe(newRecipe, 'right'), 0);
+        return updated;
+      });
+    } else {
+      setRecipesLeft(prev => {
+        const updated = [...prev, newRecipe];
+        setCurrentRecipe(cr => ({ ...cr, left: recipeName }));
+        setTimeout(() => handleLoadRecipe(newRecipe, 'left'), 0);
+        return updated;
+      });
+    }
+    showMessage('Recipe Created', `Recipe "${recipeName}" created and loaded`, 'success');
   };
 
   const handleEditRecipe = (oldRecipe, newName, newDescription, side) => {
+    if (currentUser === 'operator') {
+      showMessage('Access Denied', 'Operators cannot edit recipes.', 'warning');
+      return;
+    }
     const updateRecipes = side === 'right' ? setRecipesRight : setRecipesLeft;
     const recipes = side === 'right' ? recipesRight : recipesLeft;
     
-    const updatedRecipes = recipes.map(r => 
-      r === oldRecipe ? { ...r, name: newName, description: newDescription } : r
-    );
+    const updatedRecipes = recipes.map(r => {
+      if (r === oldRecipe) {
+        const updated = { ...r, name: newName, description: newDescription };
+        // If name changed, delete old file and save with new name
+        if (oldRecipe.name !== newName) {
+          deleteRecipeFile(oldRecipe.name, side);
+        }
+        saveRecipeToFile(updated, side);
+        return updated;
+      }
+      return r;
+    });
     
     updateRecipes(updatedRecipes);
     showMessage('Recipe Updated', `Recipe "${newName}" updated successfully`, 'success');
   };
 
-  const handleDeleteRecipe = (recipe, side) => {
-    const updateRecipes = side === 'right' ? setRecipesRight : setRecipesLeft;
-    const recipes = side === 'right' ? recipesRight : recipesLeft;
-    
-    const filteredRecipes = recipes.filter(r => r !== recipe);
-    updateRecipes(filteredRecipes);
-    
-    const recipeName = typeof recipe === 'string' ? recipe : recipe.name;
-    showMessage('Recipe Deleted', `Recipe "${recipeName}" deleted successfully`, 'success');
-  };
-
-  const handleOpenParameters = () => {
-    // Check role-based access
-    if (currentUser === 'operator') {
-      showMessage('Access Denied', 'Operators cannot modify part parameters', 'warning');
-      return;
-    }
-    setShowParameterSideSelector(true);
-  };
-
-  const handleParameterSideSelect = (side) => {
-    setParametersSide(side);
-    const recipes = side === 'right' ? recipesRight : recipesLeft;
-    const currentRecipeName = currentRecipe[side];
-    const recipe = recipes.find(r => r.name === currentRecipeName);
-    setCurrentParameters(recipe?.parameters || { tubeID: 0, tubeOD: 0, finalSize: 0, sizeType: 'OD', tubeLength: 0, idFingerRadius: 0 });
-    setShowParameterSideSelector(false);
-    setParametersOpen(true);
-  };
-
-  const handleEnable = (side, action, jogModeEnabled = false) => {
-    // Handle expand/reduce operations for each side with optional jog mode
-    if (action === 'expand') {
-      if (jogModeEnabled) {
-        // TODO: Add PLC command to enable jog mode for the side
-        // This integrates enable with jog mode activation
-      }
-      showMessage('Enable', `${side.toUpperCase()} side enabled${jogModeEnabled ? ' with Jog Mode' : ''}.`, 'info');
-      // TODO: Add PLC command to enable/expand the specified side
-    } else if (action === 'reduce') {
-      showMessage('Enable', `${side.toUpperCase()} side disabled.`, 'info');
-      // TODO: Add PLC command to reduce the specified side
-    }
-  };
-
-  const handleSaveParameters = (params) => {
-    if (parametersSide) {
-      // If coming from AutoTeach flow
-      if (autoTeachSide === parametersSide) {
-        // Save parameters and proceed to teaching
-        setCurrentParameters(params);
-        setParametersOpen(false);
-        setAutoTeachOpen(true);
-        return;
-      }
-      
-      // Normal parameter edit from Recipe Manager
-      if (currentRecipe[parametersSide]) {
-        const recipeName = currentRecipe[parametersSide];
-        const updateRecipes = parametersSide === 'right' ? setRecipesRight : setRecipesLeft;
-        const recipes = parametersSide === 'right' ? recipesRight : recipesLeft;
-        
-        const updatedRecipes = recipes.map(r => 
-          r.name === recipeName ? { ...r, parameters: params } : r
-        );
-        
-        updateRecipes(updatedRecipes);
-        showMessage('Parameters Saved', `Parameters updated for recipe "${recipeName}"`, 'success');
-      }
-    }
-  };
-
-  const handleSelectSide = (side) => {
-    setSelectedSide(side);
-    setShowSideSelector(false);
-    setShowProgramNameModal(true);
-  };
-
-  const handleProgramNameConfirm = (programName) => {
-    setCurrentProgram({
-      name: programName,
-      side: selectedSide,
-      createdAt: new Date().toISOString()
-    });
-    setShowProgramNameModal(false);
-    setCurrentStep(1);
-    setProgramSteps({});
-  };
-
-  const handleStepComplete = (stepData) => {
-    const updatedSteps = { ...programSteps, [stepData.step]: stepData };
-    setProgramSteps(updatedSteps);
-
-    if (stepData.step === 10) {
-      // Program complete - save all steps
-      handleProgramComplete(updatedSteps);
-    } else {
-      // Move to next step
-      setCurrentStep(stepData.step + 1);
-    }
-  };
-
-  const handleStepPrevious = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
-    }
-  };
-
-  const handleProgramComplete = (allSteps) => {
-    const completedProgram = {
-      ...currentProgram,
-      steps: allSteps,
-      completedAt: new Date().toISOString()
-    };
-
-    setCreatedPrograms([...createdPrograms, completedProgram]);
-    
-    // Send to PLC
-    console.log('Sending program to PLC:', completedProgram);
-    sendProgramToPLC(completedProgram);
-
-    showMessage('Program Complete', `Program "${currentProgram.name}" completed and saved!`, 'success');
-    handleCancelProgram();
-  };
+  // Duplicate handleSelectSideForEdit removed to fix redeclaration error
 
   const showMessage = (title, message, type = 'info') => {
     setMessageModal({ isOpen: true, title, message, type });
@@ -431,69 +313,280 @@ export default function MainHMI() {
     setMessageModal({ isOpen: false, title: '', message: '', type: 'info' });
   };
 
-  const sendProgramToPLC = (programData) => {
-    // This function prepares data for PLC integration
-    const plcData = {
-      programName: programData.name,
-      side: programData.side === 'right' ? 0 : 1,
-      steps: Object.keys(programData.steps).map(stepNum => {
-        const step = programData.steps[stepNum];
-        return {
-          step: step.step,
-          positions: step.positions,
-          pattern: step.pattern
-        };
-      })
-    };
-
-    console.log('PLC Data structure:', plcData);
-    // TODO: Send to Beckhoff TwinCAT via ADS
-  };
-
-  const handleCancelProgram = () => {
-    setCurrentStep(0);
-    setShowProgramNameModal(false);
-    setShowSideSelector(false);
-    setCurrentProgram(null);
-    setSelectedSide(null);
-    setProgramSteps({});
+  const handleUserLogin = (userRole) => {
+    if (userRole) setCurrentUser(userRole);
+    setShowLoginModal(false);
   };
 
   const handleEditProgram = () => {
-    if (createdPrograms.length === 0) {
-      showMessage('No Programs', 'No programs available to edit', 'warning');
+    if (currentUser === 'operator') {
+      showMessage('Access Denied', 'Operators cannot edit programs.', 'warning');
       return;
     }
     setShowEditProgramSideSelector(true);
   };
 
+  const handleOpenParameters = () => {
+    setShowParameterSideSelector(true);
+  };
+
+  const handleAutoTeach = () => {
+    if (currentUser === 'operator') {
+      showMessage('Access Denied', 'Operators cannot create programs.', 'warning');
+      return;
+    }
+    setShowAutoTeachSelector(true);
+  };
+
+  const handleSelectSide = (side) => {
+    setSelectedSide(side);
+    setShowSideSelector(false);
+    setShowProgramNameModal(true);
+  };
+
+  const handleProgramNameConfirm = (name) => {
+    const programName = name?.trim() ? name.trim() : 'New Program';
+    setCurrentProgram({ name: programName, side: selectedSide, steps: {} });
+    setProgramSteps({});
+    setCurrentStep(1);
+    setShowProgramNameModal(false);
+  };
+
+  const handleStepComplete = (stepData) => {
+    if (!currentProgram) return;
+    setProgramSteps((prev) => ({ ...prev, [currentStep]: stepData }));
+    setCurrentProgram((prev) => {
+      if (!prev) return prev;
+      return { ...prev, steps: { ...(prev.steps || {}), [currentStep]: stepData } };
+    });
+
+    if (currentStep >= 10) {
+      setCreatedPrograms((prev) => [...prev, { ...currentProgram, steps: { ...(currentProgram.steps || {}), [currentStep]: stepData } }]);
+      setCurrentRecipe(prev => ({ ...prev, [currentProgram.side]: currentProgram.name }));
+      showMessage('Program Created', `Program "${currentProgram.name}" saved`, 'success');
+      setCurrentProgram(null);
+      setSelectedSide(null);
+      setCurrentStep(1);
+      return;
+    }
+    setCurrentStep((prev) => prev + 1);
+  };
+
+  const handleStepPrevious = () => {
+    setCurrentStep((prev) => Math.max(1, prev - 1));
+  };
+
+  const handleCancelProgram = () => {
+    setShowSideSelector(false);
+    setShowProgramNameModal(false);
+    setSelectedSide(null);
+    setCurrentProgram(null);
+    setProgramSteps({});
+    setCurrentStep(1);
+  };
+
+  const handleSelectRecipeSide = (side) => {
+    setRecipeSide(side);
+    setRecipeSideSelectorOpen(false);
+    setRecipeOpen(true);
+  };
+
+  const handleParameterSideSelect = (side) => {
+    setParametersSide(side);
+    setShowParameterSideSelector(false);
+    const recipeName = currentRecipe?.[side];
+    const recipes = side === 'right' ? recipesRight : recipesLeft;
+    const recipe = recipes.find((r) => r.name === recipeName);
+    setCurrentParameters(recipe?.parameters ?? null);
+    setParametersOpen(true);
+  };
+
+  const handleSaveParameters = (updatedParameters) => {
+    setCurrentParameters(updatedParameters);
+    
+    // Update recipe in state and save to file
+    if (parametersSide) {
+      const recipeName = currentRecipe?.[parametersSide];
+      if (recipeName) {
+        const updateRecipes = parametersSide === 'right' ? setRecipesRight : setRecipesLeft;
+        
+        updateRecipes(prev => prev.map(r => {
+          if (r.name === recipeName) {
+            const updated = { ...r, parameters: updatedParameters };
+            saveRecipeToFile(updated, parametersSide);
+            return updated;
+          }
+          return r;
+        }));
+      }
+    }
+    
+    setParametersOpen(false);
+  };
+
+  const handleDeleteRecipe = (recipe, sideParam) => {
+    if (currentUser === 'operator') {
+      showMessage('Access Denied', 'Operators cannot delete recipes.', 'warning');
+      return;
+    }
+    const side = sideParam ?? recipeSide;
+    const recipeName = typeof recipe === 'string' ? recipe : recipe?.name;
+    if (!side || !recipeName) return;
+
+    // Delete from filesystem
+    deleteRecipeFile(recipeName, side);
+
+    if (side === 'right') {
+      setRecipesRight((prev) => prev.filter((r) => r.name !== recipeName));
+      setCurrentRecipe((prev) => ({ ...prev, right: prev.right === recipeName ? null : prev.right }));
+    } else {
+      setRecipesLeft((prev) => prev.filter((r) => r.name !== recipeName));
+      setCurrentRecipe((prev) => ({ ...prev, left: prev.left === recipeName ? null : prev.left }));
+    }
+    showMessage('Recipe Deleted', `Recipe "${recipeName}" deleted`, 'success');
+  };
+
+  const handleAutoTeachSelectSide = (side) => {
+    setAutoTeachSide(side);
+    setShowAutoTeachSelector(false);
+    setShowAutoTeachNameModal(true);
+  };
+
+  const handleAutoTeachProgramNameConfirm = (name) => {
+    const programName = name?.trim() ? name.trim() : 'AutoTeach Program';
+    setAutoTeachProgramName(programName);
+    setShowAutoTeachNameModal(false);
+    setAutoTeachOpen(true);
+  };
+
+  const handleSaveAutoTeachProgram = (stepsArray) => {
+    const steps = {};
+    (stepsArray || []).forEach((s) => {
+      if (s?.step != null) steps[s.step] = s;
+    });
+    const program = { name: autoTeachProgramName, side: autoTeachSide, steps };
+    setCreatedPrograms((prev) => [...prev, program]);
+    
+    // Create a recipe from the auto teach program
+    const newRecipe = {
+      name: autoTeachProgramName,
+      description: `Auto Teach program for ${autoTeachSide} side`,
+      parameters: {
+        tubeID: 0,
+        tubeOD: 0,
+        finalSize: 0,
+        sizeType: 'OD',
+        tubeLength: 0,
+        idFingerRadius: 0,
+        depth: 0,
+        recipeSpeed: 100,
+        stepDelay: 500
+      },
+      program: program // Store the program data within the recipe
+    };
+
+    // Add to appropriate recipe list and set as current
+    if (autoTeachSide === 'right') {
+      setRecipesRight(prev => {
+        // Check if recipe already exists and update it, or add new
+        const existingIndex = prev.findIndex(r => r.name === autoTeachProgramName);
+        let recipeToSave;
+        if (existingIndex >= 0) {
+          const updated = [...prev];
+          updated[existingIndex] = { ...updated[existingIndex], program: program };
+          recipeToSave = updated[existingIndex];
+          saveRecipeToFile(recipeToSave, 'right');
+          return updated;
+        }
+        recipeToSave = newRecipe;
+        saveRecipeToFile(recipeToSave, 'right');
+        return [...prev, newRecipe];
+      });
+      setCurrentRecipe(cr => ({ ...cr, right: autoTeachProgramName }));
+    } else {
+      setRecipesLeft(prev => {
+        // Check if recipe already exists and update it, or add new
+        const existingIndex = prev.findIndex(r => r.name === autoTeachProgramName);
+        let recipeToSave;
+        if (existingIndex >= 0) {
+          const updated = [...prev];
+          updated[existingIndex] = { ...updated[existingIndex], program: program };
+          recipeToSave = updated[existingIndex];
+          saveRecipeToFile(recipeToSave, 'left');
+          return updated;
+        }
+        recipeToSave = newRecipe;
+        saveRecipeToFile(recipeToSave, 'left');
+        return [...prev, newRecipe];
+      });
+      setCurrentRecipe(cr => ({ ...cr, left: autoTeachProgramName }));
+    }
+
+    showMessage('Auto Teach Saved', `Program "${program.name}" saved and loaded as active recipe`, 'success');
+    
+    // Close the AutoTeach modal
+    setAutoTeachOpen(false);
+    setAutoTeachSide(null);
+    setAutoTeachProgramName('');
+  };
+
+  // Duplicate handleSelectSideForEdit removed to fix redeclaration error
+// ...existing code...
+
+  // Handle user choice in edit mode dialog
+  const handleEditModeChoice = (mode) => {
+    setShowEditModeDialog(false);
+    if (mode === 'manual') {
+      setShowProgramEditor(true);
+    } else if (mode === 'auto') {
+      setShowAutoAdjust(true);
+    }
+  };
+
   const handleSelectSideForEdit = (side) => {
-    const sidePrograms = createdPrograms.filter(p => p.side === side);
+    const recipeName = currentRecipe?.[side];
+    const recipes = side === 'right' ? recipesRight : recipesLeft;
+
+    // Prefer the currently selected recipe/program for this side.
+    const preferredProgram = (() => {
+      const namedProgram = createdPrograms.find((p) => p.side === side && p.name === recipeName);
+      if (namedProgram) return namedProgram;
+      const recipe = recipes.find((r) => r.name === recipeName);
+      if (recipe?.program) return { ...recipe.program, name: recipe.name, side };
+      return null;
+    })();
+
+    if (preferredProgram) {
+      setProgramToEdit(preferredProgram);
+      setShowProgramEditor(true);
+      setShowEditProgramSideSelector(false);
+      return;
+    }
+
+    const sidePrograms = createdPrograms.filter((p) => p.side === side);
     if (sidePrograms.length === 0) {
       // Fallback: use currently selected recipe to create a temporary program for editing
-      const recipeName = currentRecipe[side];
-      if (!recipeName) {
+      const fallbackName = recipeName;
+      if (!fallbackName) {
         showMessage('No Program', `No programs found for ${side} side. Please select a recipe first.`, 'warning');
         setShowEditProgramSideSelector(false);
         return;
       }
-      const recipes = side === 'right' ? recipesRight : recipesLeft;
-      const recipe = recipes.find(r => r.name === recipeName);
+      const recipe = recipes.find((r) => r.name === fallbackName);
       const params = recipe?.parameters || { recipeSpeed: 100, stepDelay: 500 };
 
-      const steps = {};
-      for (let i = 1; i <= 10; i++) {
-        steps[i] = {
-          step: i,
-          stepName: `Step ${i}`,
+      const steps = {
+        1: {
+          step: 1,
+          stepName: 'Start Position',
           positions: { axis1Cmd: 0, axis2Cmd: 0 },
-          pattern: i === 1 ? 5 : 0,
+          pattern: 6,
           timestamp: new Date().toISOString()
-        };
-      }
+        }
+      };
 
       const tempProgram = {
-        name: recipeName,
+        name: fallbackName,
         side,
         steps,
         speed: params.recipeSpeed || 100,
@@ -513,7 +606,7 @@ export default function MainHMI() {
       setShowProgramEditor(true);
       setShowEditProgramSideSelector(false);
     } else {
-      // Multiple programs, show selection prompt
+      // Multiple programs, show selection prompt (default is current recipe if present)
       const programList = sidePrograms.map((p, i) => `${i + 1}. ${p.name}`).join('\n');
       const selection = prompt(`Select program to edit (enter number):\n\n${programList}`);
       if (selection && !isNaN(selection)) {
@@ -585,7 +678,6 @@ export default function MainHMI() {
       showMessage('Error', `Failed to enable jog: ${error.message}`, 'error');
     }
   };
-
   const handleRunSideSelect = async (side) => {
     try {
       await writePLCVar({ command: 'run', side });
@@ -598,10 +690,22 @@ export default function MainHMI() {
     }
   };
 
+  const convertPos = (val) => unitSystem === 'mm' ? val * 25.4 : val;
+  const displayPositions = {
+    right: {
+      axis1: convertPos(actualPositions.right.axis1 || 0),
+      axis2: convertPos(actualPositions.right.axis2 || 0)
+    },
+    left: {
+      axis1: convertPos(actualPositions.left.axis1 || 0),
+      axis2: convertPos(actualPositions.left.axis2 || 0)
+    }
+  };
+
   return (
     <div className="main-hmi">
       <div className="hmi-header">
-        <h1>UFM CNC ENDFORM</h1>
+        <h1 className="modern-header">UFM CNC ENDFORMER</h1>
         <div className="header-right">
           <div className="shift-counts">
             <div className="shift-count-card">
@@ -628,7 +732,8 @@ export default function MainHMI() {
       <LoginModal 
         isOpen={showLoginModal} 
         onLogin={handleUserLogin}
-        currentUser={null}
+        currentUser={currentUser}
+        userPasswords={userPasswords}
         onClose={() => setShowLoginModal(false)}
       />
 
@@ -641,12 +746,15 @@ export default function MainHMI() {
             onAxisChange={handleAxisChange}
             axis1State={axis1State}
             axis2State={axis2State}
-            actualPositions={actualPositions.right}
+            actualPositions={displayPositions.right}
+            unitSystem={unitSystem}
             step={sideStates.right.state}
             stepDescription={sideStates.right.desc}
             recipe={currentRecipe.right}
             recipes={recipesRight}
             onRecipeChange={(recipe) => setCurrentRecipe(prev => ({ ...prev, right: recipe }))}
+            onOpenRecipeSelector={handleOpenRecipeSelector}
+            userRole={currentUser}
           />
           <AxisPanel
             side="Left"
@@ -655,12 +763,15 @@ export default function MainHMI() {
             onAxisChange={handleAxisChange}
             axis1State={axis3State}
             axis2State={axis4State}
-            actualPositions={actualPositions.left}
+            actualPositions={displayPositions.left}
+            unitSystem={unitSystem}
             step={sideStates.left.state}
             stepDescription={sideStates.left.desc}
             recipe={currentRecipe.left}
             recipes={recipesLeft}
             onRecipeChange={(recipe) => setCurrentRecipe(prev => ({ ...prev, left: recipe }))}
+            onOpenRecipeSelector={handleOpenRecipeSelector}
+            userRole={currentUser}
           />
         </div>
       </div>
@@ -724,11 +835,18 @@ export default function MainHMI() {
         onCreateRecipe={handleCreateRecipe}
         onEditRecipe={handleEditRecipe}
         onDeleteRecipe={handleDeleteRecipe}
+        userRole={currentUser}
       />
 
       <MachineParameters
         isOpen={machineParametersOpen}
         onClose={() => setMachineParametersOpen(false)}
+        plcStatus={plcStatus}
+        unitSystem={unitSystem}
+        onUnitChange={setUnitSystem}
+        userRole={currentUser}
+        userPasswords={userPasswords}
+        onUpdatePasswords={setUserPasswords}
       />
 
       {showSideSelector && (
@@ -827,6 +945,7 @@ export default function MainHMI() {
           onSelectSide={handleAutoTeachSelectSide}
           onCancel={() => setShowAutoTeachSelector(false)}
           title="Select Side for Auto Teach"
+          showBothOption={false}
         />
       )}
 
@@ -875,51 +994,74 @@ export default function MainHMI() {
           setShowProgramEditor(false);
           setProgramToEdit(null);
         }}
-        program={programToEdit}
+        program={{ ...programToEdit, recipeName: programToEdit?.side ? currentRecipe[programToEdit.side] : undefined }}
         onSaveProgram={handleSaveProgramChanges}
       />
 
-      <DownloadProgramModal
-        isOpen={showDownloadModal}
-        program={programToDownload}
-        onConfirm={async () => {
-          if (!programToDownload) return;
-          try {
-            await writePLCVar({ command: 'downloadProgram', program: programToDownload });
-            showMessage('Program Downloaded', `Program "${programToDownload.name}" downloaded to ${programToDownload.side} side`, 'success');
-          } catch (e) {
-            showMessage('Download Failed', `Failed to download program "${programToDownload.name}"`, 'error');
-          }
-          setShowDownloadModal(false);
-          setProgramToDownload(null);
-        }}
-        onCancel={() => {
-          setShowDownloadModal(false);
-          setProgramToDownload(null);
-        }}
+      <AutoAdjustProgram
+        isOpen={showAutoAdjust}
+        onClose={() => setShowAutoAdjust(false)}
+        side={programToEdit?.side || ''}
+        stepCount={programToEdit ? Object.keys(programToEdit.steps).length : 10}
+        stroke={programToEdit?.side === 'right' ? parametersOpen ? undefined : undefined : undefined}
       />
+      <>
+        {/* ModernDialog for manual/auto choice */}
+        {showEditModeDialog && (
+          <ModernDialog
+            isOpen={showEditModeDialog}
+            title="Choose Edit Mode"
+            onClose={() => setShowEditModeDialog(false)}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <button onClick={() => handleEditModeChoice('manual')}>Edit Manually</button>
+              <button onClick={() => handleEditModeChoice('auto')}>Auto Adjust</button>
+            </div>
+          </ModernDialog>
+        )}
 
-      {showRunSideSelector && (
-        <SideSelector
-          onSelectSide={handleRunSideSelect}
-          onCancel={() => setShowRunSideSelector(false)}
-          title="Select Side(s) to Run"
+        <DownloadProgramModal
+          isOpen={showDownloadModal}
+          program={programToDownload}
+          onConfirm={async () => {
+            if (!programToDownload) return;
+            try {
+              await writePLCVar({ command: 'downloadProgram', program: programToDownload });
+              showMessage('Program Downloaded', `Program "${programToDownload.name}" downloaded to ${programToDownload.side} side`, 'success');
+            } catch (e) {
+              showMessage('Download Failed', `Failed to download program "${programToDownload.name}"`, 'error');
+            }
+            setShowDownloadModal(false);
+            setProgramToDownload(null);
+          }}
+          onCancel={() => {
+            setShowDownloadModal(false);
+            setProgramToDownload(null);
+          }}
         />
-      )}
 
-      <AutoTeach
-        isOpen={autoTeachOpen}
-        onClose={() => {
-          setAutoTeachOpen(false);
-          setAutoTeachSide(null);
-          setAutoTeachProgramName('');
-        }}
-        programName={autoTeachProgramName}
-        side={autoTeachSide}
-        actualPositions={autoTeachSide === 'right' ? actualPositions.right : actualPositions.left}
-        parameters={currentParameters}
-        onSaveProgram={handleSaveAutoTeachProgram}
-      />
+        {showRunSideSelector && (
+          <SideSelector
+            onSelectSide={handleRunSideSelect}
+            onCancel={() => setShowRunSideSelector(false)}
+            title="Select Side(s) to Run"
+          />
+        )}
+
+        <AutoTeach
+          isOpen={autoTeachOpen}
+          onClose={() => {
+            setAutoTeachOpen(false);
+            setAutoTeachSide(null);
+            setAutoTeachProgramName('');
+          }}
+          programName={autoTeachProgramName}
+          side={autoTeachSide}
+          actualPositions={autoTeachSide === 'right' ? actualPositions.right : actualPositions.left}
+          parameters={currentParameters}
+          onSaveProgram={handleSaveAutoTeachProgram}
+        />
+      </>
     </div>
   );
 }

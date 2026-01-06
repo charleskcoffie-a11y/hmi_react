@@ -1,20 +1,21 @@
 import React, { useState } from 'react';
+import ModernDialog from './ModernDialog';
 import '../styles/ProgramCreationStep3.css';
 
 export default function ProgramCreationStep3({ programName, side, onStepComplete, onCancel, onPrevious }) {
-  const [jogMode, setJogMode] = useState(true);
+  const [jogMode] = useState(true);
   const [idExpandValue, setIdExpandValue] = useState(0);
   const [idRetractValue, setIdRetractValue] = useState(0);
   const [odExpandValue, setOdExpandValue] = useState(0);
   const [odRetractValue, setOdRetractValue] = useState(0);
-  
   const [idExpandRecorded, setIdExpandRecorded] = useState(false);
   const [idRetractRecorded, setIdRetractRecorded] = useState(false);
   const [odExpandRecorded, setOdExpandRecorded] = useState(false);
   const [odRetractRecorded, setOdRetractRecorded] = useState(false);
-  
   const [stepMessage, setStepMessage] = useState('');
   const [patternCode, setPatternCode] = useState(8); // Default to All off
+  const [dwell, setDwell] = useState('');
+  const [dialog, setDialog] = useState({ open: false, title: '', message: '' });
 
   const sideLabel = side === 'right' ? 'Right Side' : 'Left Side';
   const axis1Name = side === 'right' ? 'Axis 1 (ID)' : 'Axis 3 (ID)';
@@ -54,9 +55,17 @@ export default function ProgramCreationStep3({ programName, side, onStepComplete
 
   const handleComplete = () => {
     if (!idExpandRecorded || !idRetractRecorded || !odExpandRecorded || !odRetractRecorded) {
-      alert('Please record all four positions (ID Expand, ID Retract, OD Expand, OD Retract) before continuing');
+      setDialog({
+        open: true,
+        title: 'Positions Required',
+        message: 'Please record all four positions (ID Expand, ID Retract, OD Expand, OD Retract) before continuing.'
+      });
       return;
     }
+
+    const dwellMs = Number.isFinite(parseFloat(dwell))
+      ? parseFloat(dwell)
+      : ([1, 3, 4].includes(patternCode) ? 0 : 500);
 
     onStepComplete({
       step: 3,
@@ -72,6 +81,7 @@ export default function ProgramCreationStep3({ programName, side, onStepComplete
         }
       },
       pattern: patternCode,
+      dwell: dwellMs,
       timestamp: new Date().toISOString()
     });
   };
@@ -210,6 +220,17 @@ export default function ProgramCreationStep3({ programName, side, onStepComplete
     </div>
   );
 
+
+  // Handler for moving both ID/OD to start position for left or right
+  const handleStartSide = (side) => {
+    // TODO: Implement logic to move both ID/OD to their start positions for the given side
+    setDialog({
+      open: true,
+      title: 'Move to Start',
+      message: `Move both ID/OD to their start position for ${side === 'right' ? 'Right' : 'Left'} Side.`
+    });
+  };
+
   return (
     <div className="program-creation-step3">
       <div className="step-header">
@@ -226,23 +247,42 @@ export default function ProgramCreationStep3({ programName, side, onStepComplete
           {jogMode && <div className="jog-active">🎮 JOG MODE ACTIVE</div>}
         </div>
 
-        <div className="position-cards-grid">
-          <PositionCard
-            title={`${axis1Name} (ID)`}
-            axis="idExpand"
-            expandValue={idExpandValue}
-            expandRecorded={idExpandRecorded}
-            retractValue={idRetractValue}
-            retractRecorded={idRetractRecorded}
-          />
-          <PositionCard
-            title={`${axis2Name} (OD)`}
-            axis="odExpand"
-            expandValue={odExpandValue}
-            expandRecorded={odExpandRecorded}
-            retractValue={odRetractValue}
-            retractRecorded={odRetractRecorded}
-          />
+
+        <div className="position-cards-grid" style={{ display: 'flex', justifyContent: 'space-between', gap: 40 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '45%' }}>
+            <PositionCard
+              title={`${axis1Name} (ID)`}
+              axis="idExpand"
+              expandValue={idExpandValue}
+              expandRecorded={idExpandRecorded}
+              retractValue={idRetractValue}
+              retractRecorded={idRetractRecorded}
+            />
+            <button
+              className="start-side-btn"
+              style={{ marginTop: 12, alignSelf: 'flex-start' }}
+              onClick={() => handleStartSide('left')}
+            >
+              Start Left
+            </button>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', width: '45%' }}>
+            <PositionCard
+              title={`${axis2Name} (OD)`}
+              axis="odExpand"
+              expandValue={odExpandValue}
+              expandRecorded={odExpandRecorded}
+              retractValue={odRetractValue}
+              retractRecorded={odRetractRecorded}
+            />
+            <button
+              className="start-side-btn"
+              style={{ marginTop: 12, alignSelf: 'flex-end' }}
+              onClick={() => handleStartSide('right')}
+            >
+              Start Right
+            </button>
+          </div>
         </div>
 
         <div className="pattern-selector">
@@ -285,6 +325,16 @@ export default function ProgramCreationStep3({ programName, side, onStepComplete
           </div>
         </div>
 
+        <div className="dwell-input-row">
+          <label>Dwell (ms, optional for this step):</label>
+          <input
+            type="number"
+            min="0"
+            value={dwell}
+            onChange={e => setDwell(e.target.value)}
+            placeholder="Enter dwell for this step"
+          />
+        </div>
         <div className="step-actions">
           <button className="previous-btn" onClick={onPrevious}>
             ← Previous Step
@@ -301,6 +351,19 @@ export default function ProgramCreationStep3({ programName, side, onStepComplete
           </button>
         </div>
       </div>
+
+      <ModernDialog
+        isOpen={dialog.open}
+        title={dialog.title || 'Notice'}
+        onClose={() => setDialog({ open: false, title: '', message: '' })}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <span>{dialog.message}</span>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button onClick={() => setDialog({ open: false, title: '', message: '' })}>Close</button>
+          </div>
+        </div>
+      </ModernDialog>
     </div>
   );
 }

@@ -1,19 +1,63 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import ModernDialog from './ModernDialog';
 import '../styles/RecipeManager.css';
 import '../styles/RecipeManagerSide.css';
 import '../styles/RecipeTextarea.css';
 
-export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRecipe, onCreateRecipe, onEditRecipe, onDeleteRecipe }) {
+export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRecipe, onCreateRecipe, onEditRecipe, onDeleteRecipe, userRole }) {
+  const isOperator = userRole === 'operator';
+    // Auto-close modal if isOpen becomes false (e.g., navigation)
+    useEffect(() => {
+      if (!isOpen) {
+        setAction(null);
+        setSelectedRecipe(null);
+      }
+    }, [isOpen]);
+
+    // Auto-close modal if user clicks outside the modal
+    const modalRef = useRef();
+    useEffect(() => {
+      function handleClickOutside(event) {
+        if (modalRef.current && !modalRef.current.contains(event.target)) {
+          onClose();
+        }
+      }
+      if (isOpen) {
+        document.addEventListener('mousedown', handleClickOutside);
+      }
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }, [isOpen, onClose]);
+
+    // Close modal with ESC key
+    useEffect(() => {
+      function handleEscKey(event) {
+        if (event.key === 'Escape' && isOpen) {
+          onClose();
+        }
+      }
+      if (isOpen) {
+        document.addEventListener('keydown', handleEscKey);
+      }
+      return () => {
+        document.removeEventListener('keydown', handleEscKey);
+      };
+    }, [isOpen, onClose]);
+
   const [selectedRecipe, setSelectedRecipe] = useState(recipes && recipes.length > 5 ? recipes[5] : recipes?.[0] || null);
   const [action, setAction] = useState(null);
   const [newRecipeName, setNewRecipeName] = useState('');
   const [newRecipeDescription, setNewRecipeDescription] = useState('');
+  const [dialog, setDialog] = useState({ open: false, title: '', message: '', mode: 'info' });
+  const [pendingDelete, setPendingDelete] = useState(null);
 
   // Ref for file input (import)
   const fileInputRef = useRef(null);
 
   const handleLoad = () => {
     if (selectedRecipe) {
+      if (isOperator) return;
       console.log('Loading recipe:', selectedRecipe);
       onLoadRecipe && onLoadRecipe(selectedRecipe, side);
     }
@@ -21,6 +65,7 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
 
   const handleEdit = () => {
     if (selectedRecipe) {
+      if (isOperator) return;
       const recipeName = typeof selectedRecipe === 'string' ? selectedRecipe : selectedRecipe.name;
       const recipeDesc = typeof selectedRecipe === 'object' ? selectedRecipe.description : '';
       setNewRecipeName(recipeName);
@@ -31,6 +76,7 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
 
   const handleCopy = () => {
     if (selectedRecipe) {
+      if (isOperator) return;
       const recipeName = typeof selectedRecipe === 'string' ? selectedRecipe : selectedRecipe.name;
       const recipeDesc = typeof selectedRecipe === 'object' ? selectedRecipe.description : '';
       setNewRecipeName(`${recipeName} - Copy`);
@@ -41,14 +87,19 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
 
   const handleDelete = () => {
     if (selectedRecipe) {
-      if (window.confirm(`Are you sure you want to delete this recipe?`)) {
-        onDeleteRecipe && onDeleteRecipe(selectedRecipe, side);
-        setSelectedRecipe(null);
-      }
+      if (isOperator) return;
+      setPendingDelete(selectedRecipe);
+      setDialog({
+        open: true,
+        title: 'Delete Recipe?',
+        message: `Are you sure you want to delete "${selectedRecipe}"? This cannot be undone.`,
+        mode: 'confirm'
+      });
     }
   };
 
   const handleCreate = () => {
+    if (isOperator) return;
     setAction('create');
     setNewRecipeName('');
     setNewRecipeDescription('');
@@ -57,6 +108,7 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
   // Export selected recipe as JSON file
   const handleExport = () => {
     if (!selectedRecipe) return;
+    if (isOperator) return;
     const recipeObj = typeof selectedRecipe === 'object' ? selectedRecipe : recipes.find(r => r.name === selectedRecipe);
     if (!recipeObj) return;
     const dataStr = JSON.stringify(recipeObj, null, 2);
@@ -73,6 +125,7 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
 
   // Trigger file input for import
   const handleImportClick = () => {
+    if (isOperator) return;
     if (fileInputRef.current) fileInputRef.current.value = null;
     fileInputRef.current?.click();
   };
@@ -90,13 +143,14 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
         setSelectedRecipe(importedRecipe);
         setAction(null);
       } catch (err) {
-        alert('Invalid recipe file.');
+        setDialog({ open: true, title: 'Invalid Recipe', message: 'The selected file is not a valid recipe file.', mode: 'info' });
       }
     };
     reader.readAsText(file);
   };
 
   const handleSave = () => {
+    if (isOperator) return;
     if (newRecipeName.trim()) {
       if (action === 'create' || action === 'copy') {
         onCreateRecipe && onCreateRecipe(newRecipeName.trim(), newRecipeDescription.trim(), side);
@@ -112,8 +166,8 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
   if (!isOpen) return null;
 
   return (
-    <div className="recipe-modal-overlay" onClick={onClose}>
-      <div className="recipe-modal" onClick={(e) => e.stopPropagation()}>
+    <div className="recipe-modal-overlay">
+      <div className="recipe-modal" ref={modalRef}>
         <div className="recipe-header">
           <div className="recipe-title">
             <h2>Recipe Manager</h2>
@@ -156,47 +210,56 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
               <button 
                 className="recipe-action-btn load-btn"
                 onClick={handleLoad}
-                disabled={!selectedRecipe}
+                disabled={!selectedRecipe || isOperator}
+                title={isOperator ? 'Operators cannot change recipes' : 'Load selected recipe'}
               >
                 ↓ Load
               </button>
               <button 
                 className="recipe-action-btn edit-btn"
                 onClick={handleEdit}
-                disabled={!selectedRecipe}
+                disabled={!selectedRecipe || isOperator}
+                title={isOperator ? 'Operators cannot edit recipes' : 'Edit recipe name/description'}
               >
                 ✎ Edit
               </button>
               <button 
                 className="recipe-action-btn copy-btn"
                 onClick={handleCopy}
-                disabled={!selectedRecipe}
+                disabled={!selectedRecipe || isOperator}
+                title={isOperator ? 'Operators cannot copy recipes' : 'Copy recipe'}
               >
                 ⧉ Copy
               </button>
               <button 
                 className="recipe-action-btn delete-btn"
                 onClick={handleDelete}
-                disabled={!selectedRecipe}
+                disabled={!selectedRecipe || isOperator}
+                title={isOperator ? 'Operators cannot delete recipes' : 'Delete recipe'}
               >
                 🗑 Delete
               </button>
               <button 
                 className="recipe-action-btn create-btn"
                 onClick={handleCreate}
+                disabled={isOperator}
+                title={isOperator ? 'Operators cannot create recipes' : 'Create recipe'}
               >
                 + Create
               </button>
               <button
                 className="recipe-action-btn export-btn"
                 onClick={handleExport}
-                disabled={!selectedRecipe}
+                disabled={!selectedRecipe || isOperator}
+                title={isOperator ? 'Operators cannot export recipes' : 'Export recipe'}
               >
                 ⬇ Export
               </button>
               <button
                 className="recipe-action-btn import-btn"
                 onClick={handleImportClick}
+                disabled={isOperator}
+                title={isOperator ? 'Operators cannot import recipes' : 'Import recipe'}
               >
                 ⬆ Import
               </button>
@@ -239,6 +302,42 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
           <button className="close-recipe-btn" onClick={onClose}>Close</button>
         </div>
       </div>
+
+      <ModernDialog
+        isOpen={dialog.open}
+        title={dialog.title}
+        onClose={() => {
+          if (dialog.mode === 'confirm' && pendingDelete) {
+            onDeleteRecipe && onDeleteRecipe(pendingDelete, side);
+            setSelectedRecipe((prev) => (prev === pendingDelete ? null : prev));
+            setPendingDelete(null);
+          }
+          setDialog({ open: false, title: '', message: '', mode: 'info' });
+        }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <span>{dialog.message}</span>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            {dialog.mode === 'confirm' && (
+              <button
+                onClick={() => {
+                  if (pendingDelete) {
+                    onDeleteRecipe && onDeleteRecipe(pendingDelete, side);
+                    setSelectedRecipe((prev) => (prev === pendingDelete ? null : prev));
+                    setPendingDelete(null);
+                  }
+                  setDialog({ open: false, title: '', message: '', mode: 'info' });
+                }}
+              >
+                Delete
+              </button>
+            )}
+            <button onClick={() => setDialog({ open: false, title: '', message: '', mode: 'info' })}>
+              {dialog.mode === 'confirm' ? 'Cancel' : 'Close'}
+            </button>
+          </div>
+        </div>
+      </ModernDialog>
     </div>
   );
 }
