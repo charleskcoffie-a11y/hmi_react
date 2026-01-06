@@ -252,23 +252,18 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                 }}
                 disabled={editedSteps.length >= 10}
               >
-                + Add Step
+                ➕ Add Step
               </button>
               <button className="step-action-btn delete" onClick={() => setStepDialog({ open: true, mode: 'delete', stepNumber: '', pattern: 0 })}>
-                Delete Step
+                🗑️ Delete Step
               </button>
             </div>
-            <div className="header-divider"></div>
             <div className="program-actions-group">
               <button className="save-program-btn" onClick={handleSave}>
                 💾 Save Changes
               </button>
               <button className="cancel-program-btn" onClick={onClose}>
-                Cancel
-              </button>
-              <button className="modern-download" onClick={handleDownload}>
-                <span className="download-icon">⬇</span>
-                <span className="download-label">Download to PLC</span>
+                ❌ Cancel
               </button>
             </div>
           </div>
