@@ -15,6 +15,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram 
   const [programDwell, setProgramDwell] = useState(500);
   const [stepDialog, setStepDialog] = useState({ open: false, mode: 'add', stepNumber: '', pattern: 0 });
   const [jogHint, setJogHint] = useState(false);
+  const [downloadDialog, setDownloadDialog] = useState({ open: false });
 
   const getPatternAxes = (patternCode) => {
     const code = Number(patternCode ?? 0);
@@ -49,7 +50,13 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram 
     }
   }, [program]);
 
-  const handleDownload = async () => {
+  const handleDownload = () => {
+    if (!program) return;
+    setDownloadDialog({ open: true });
+  };
+
+  const confirmDownload = async () => {
+    setDownloadDialog({ open: false });
     if (!program) return;
     const updatedProgram = {
       ...program,
@@ -67,14 +74,14 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram 
       await writePLCVar(updatedProgram);
       setDialog({
         open: true,
-        title: 'Program Downloaded',
-        message: `Program "${updatedProgram.name}" downloaded to PLC (${updatedProgram.side} side)`
+        title: '✓ Download Success',
+        message: `Program "${updatedProgram.name}" successfully downloaded to ${updatedProgram.side} side PLC`
       });
     } catch (e) {
       setDialog({
         open: true,
-        title: 'Download Failed',
-        message: `Failed to download program "${updatedProgram.name}" to PLC`
+        title: '✗ Download Failed',
+        message: `Failed to download program "${updatedProgram.name}" to PLC. Please check connection.`
       });
     }
   };
@@ -386,6 +393,25 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram 
             setKeypadTarget(null);
           }}
         />
+
+        <ModernDialog
+          isOpen={downloadDialog.open}
+          title="📥 Download Program to PLC"
+          onConfirm={confirmDownload}
+          onCancel={() => setDownloadDialog({ open: false })}
+          confirmText="Download"
+          cancelText="Cancel"
+        >
+          <div className="download-confirm-content">
+            <div className="download-icon-large">⬇</div>
+            <p className="download-program-name">{program?.recipeName || program?.name}</p>
+            <p className="download-side-info">{program?.side === 'right' ? 'Right Side' : 'Left Side'} • {editedSteps.length} Steps</p>
+            <div className="download-warning">
+              <span className="warning-icon">⚠️</span>
+              <span>This will overwrite the current program on the PLC</span>
+            </div>
+          </div>
+        </ModernDialog>
 
         <ModernDialog
           isOpen={dialog.open}
