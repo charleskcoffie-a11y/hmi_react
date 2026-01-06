@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import ModernDialog from './ModernDialog';
+import NumericKeypad from './NumericKeypad';
 import '../styles/ProgramCreationStep2.css';
 
 export default function ProgramCreationStep2({ programName, side, onStepComplete, onCancel, onPrevious }) {
@@ -13,6 +14,9 @@ export default function ProgramCreationStep2({ programName, side, onStepComplete
   const [stepMessage, setStepMessage] = useState('');
   const [patternCode, setPatternCode] = useState(8); // Default to All off
   const [dialog, setDialog] = useState({ open: false, title: '', message: '' });
+  const [keypadOpen, setKeypadOpen] = useState(false);
+  const [keypadTarget, setKeypadTarget] = useState(null);
+  const [keypadVal, setKeypadVal] = useState(0);
 
   const sideLabel = side === 'right' ? 'Right Side' : 'Left Side';
   const axis1Name = side === 'right' ? 'Axis 1 (ID)' : 'Axis 3 (ID)';
@@ -132,7 +136,8 @@ export default function ProgramCreationStep2({ programName, side, onStepComplete
               <input
                 type="number"
                 value={axis1Value}
-                onChange={(e) => setAxis1Value(parseFloat(e.target.value))}
+                onFocus={() => { setKeypadTarget({ field: 'axis1' }); setKeypadVal(axis1Value); setKeypadOpen(true); }}
+                readOnly
                 disabled={!jogMode}
                 placeholder="Direct value"
                 className="direct-input"
@@ -193,7 +198,8 @@ export default function ProgramCreationStep2({ programName, side, onStepComplete
               <input
                 type="number"
                 value={axis2Value}
-                onChange={(e) => setAxis2Value(parseFloat(e.target.value))}
+                onFocus={() => { setKeypadTarget({ field: 'axis2' }); setKeypadVal(axis2Value); setKeypadOpen(true); }}
+                readOnly
                 disabled={!jogMode}
                 placeholder="Direct value"
                 className="direct-input"
@@ -256,7 +262,8 @@ export default function ProgramCreationStep2({ programName, side, onStepComplete
             type="number"
             min="0"
             value={dwell}
-            onChange={e => setDwell(e.target.value)}
+            onFocus={() => { setKeypadTarget({ field: 'dwell' }); setKeypadVal(parseFloat(dwell || '0')); setKeypadOpen(true); }}
+            readOnly
             placeholder="Enter dwell for this step"
           />
         </div>
@@ -289,6 +296,23 @@ export default function ProgramCreationStep2({ programName, side, onStepComplete
           </div>
         </div>
       </ModernDialog>
+
+      <NumericKeypad
+        isOpen={keypadOpen}
+        title={keypadTarget?.field === 'dwell' ? 'Enter Dwell (ms)' : 'Enter Position (mm)'}
+        unit={keypadTarget?.field === 'dwell' ? 'ms' : 'mm'}
+        initialValue={keypadVal}
+        decimals={keypadTarget?.field === 'dwell' ? 0 : 2}
+        allowNegative={false}
+        onSubmit={(num) => {
+          if (keypadTarget?.field === 'axis1') setAxis1Value(num);
+          else if (keypadTarget?.field === 'axis2') setAxis2Value(num);
+          else if (keypadTarget?.field === 'dwell') setDwell(String(num));
+          setKeypadOpen(false);
+          setKeypadTarget(null);
+        }}
+        onCancel={() => { setKeypadOpen(false); setKeypadTarget(null); }}
+      />
     </div>
   );
 }

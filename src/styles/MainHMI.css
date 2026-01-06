@@ -40,6 +40,29 @@
   gap: 20px;
 }
 
+.plc-dirty-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(255, 196, 0, 0.18);
+  border: 1px solid rgba(255, 196, 0, 0.6);
+  border-radius: 8px;
+  color: #ffe9a6;
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.plc-dirty-dot {
+  width: 10px;
+  height: 10px;
+  background: #ffc400;
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(255, 196, 0, 0.8);
+}
+
 .user-info-section {
   display: flex;
   align-items: center;

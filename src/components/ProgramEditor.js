@@ -4,7 +4,7 @@ import { writePLCVar } from '../services/plcApiService';
 import '../styles/ProgramEditor.css';
 import NumericKeypad from './NumericKeypad';
 
-export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram }) {
+export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram, onWriteToPLC }) {
   const [dialog, setDialog] = useState({ open: false, title: '', message: '' });
   const [editedSteps, setEditedSteps] = useState([]);
   // Removed unused editingStepId and setEditingStepId
@@ -16,6 +16,8 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram 
   const [stepDialog, setStepDialog] = useState({ open: false, mode: 'add', stepNumber: '', pattern: 0 });
   const [jogHint, setJogHint] = useState(false);
   const [downloadDialog, setDownloadDialog] = useState({ open: false });
+  const [loading, setLoading] = useState(false);
+  const [plcStatus, setPlcStatus] = useState('unknown');
 
   const getPatternAxes = (patternCode) => {
     const code = Number(patternCode ?? 0);
@@ -71,18 +73,24 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram 
       dwell: programDwell
     };
     try {
+      setLoading(true);
       await writePLCVar(updatedProgram);
+      setPlcStatus('good');
+      onWriteToPLC?.(updatedProgram);
       setDialog({
         open: true,
         title: '✓ Download Success',
         message: `Program "${updatedProgram.name}" successfully downloaded to ${updatedProgram.side} side PLC`
       });
     } catch (e) {
+      setPlcStatus('bad');
       setDialog({
         open: true,
         title: '✗ Download Failed',
         message: `Failed to download program "${updatedProgram.name}" to PLC. Please check connection.`
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -226,6 +234,9 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram 
                 {program.side === 'right' ? 'Right Side' : 'Left Side'}
               </span>
               <span className="program-steps-label">Steps {editedSteps.length}</span>
+              <span className={`plc-status-inline ${plcStatus}`}>
+                {loading ? 'Writing…' : plcStatus === 'good' ? 'PLC live' : plcStatus === 'bad' ? 'PLC offline' : 'PLC unknown'}
+              </span>
             </div>
           </div>
           <div className="program-header-actions">

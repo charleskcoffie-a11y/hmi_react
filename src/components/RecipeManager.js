@@ -3,6 +3,7 @@ import ModernDialog from './ModernDialog';
 import '../styles/RecipeManager.css';
 import '../styles/RecipeManagerSide.css';
 import '../styles/RecipeTextarea.css';
+import VirtualKeyboard from './VirtualKeyboard';
 
 export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRecipe, onCreateRecipe, onEditRecipe, onDeleteRecipe, userRole }) {
   const isOperator = userRole === 'operator';
@@ -46,11 +47,13 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
     }, [isOpen, onClose]);
 
   const [selectedRecipe, setSelectedRecipe] = useState(recipes && recipes.length > 5 ? recipes[5] : recipes?.[0] || null);
+  const [search, setSearch] = useState('');
   const [action, setAction] = useState(null);
   const [newRecipeName, setNewRecipeName] = useState('');
   const [newRecipeDescription, setNewRecipeDescription] = useState('');
   const [dialog, setDialog] = useState({ open: false, title: '', message: '', mode: 'info' });
   const [pendingDelete, setPendingDelete] = useState(null);
+  const [vk, setVk] = useState({ open: false, value: '' });
 
   // Ref for file input (import)
   const fileInputRef = useRef(null);
@@ -179,9 +182,23 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
         <div className="recipe-content">
           <div className="recipe-list-section">
             <h3>Available Recipes</h3>
+            <div className="recipe-search-row">
+              <input
+                type="text"
+                className="recipe-search-input"
+                placeholder="Search recipes by name..."
+                value={search}
+                onFocus={() => setVk({ open: true, value: search })}
+                onChange={(e) => setSearch(e.target.value)}
+                readOnly
+              />
+            </div>
             <div className="recipe-listbox">
               {recipes && recipes.length > 0 ? (
-                recipes.map((recipe, index) => {
+                (recipes.filter((r) => {
+                  const name = typeof r === 'string' ? r : r.name;
+                  return !search || (name && name.toLowerCase().includes(search.toLowerCase()));
+                })).map((recipe, index) => {
                   const recipeName = typeof recipe === 'string' ? recipe : recipe.name;
                   const recipeDesc = typeof recipe === 'object' ? recipe.description : '';
                   return (
@@ -338,6 +355,22 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
           </div>
         </div>
       </ModernDialog>
+
+      {vk.open && (
+        <div className="vk-overlay" onClick={() => setVk({ open: false, value: '' })}>
+          <div className="vk-modal" onClick={(e) => e.stopPropagation()}>
+            <VirtualKeyboard
+              value={vk.value}
+              onInput={(next) => setVk((prev) => ({ ...prev, value: next }))}
+              onBackspace={(next) => setVk((prev) => ({ ...prev, value: next }))}
+              onEnter={(finalVal) => {
+                setSearch(finalVal);
+                setVk({ open: false, value: '' });
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

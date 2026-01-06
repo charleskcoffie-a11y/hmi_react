@@ -398,6 +398,58 @@
   width: 8px;
 }
 
+/* Search Row and Input */
+.recipe-search-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.recipe-search-input {
+  width: 100%;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid #0066cc;
+  border-radius: 6px;
+  color: #0088ff;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.recipe-search-input::placeholder {
+  color: #7aa8d6;
+}
+
+.recipe-search-input:focus {
+  outline: none;
+  border-color: #0088ff;
+  background: rgba(0, 102, 204, 0.15);
+  box-shadow: 0 0 10px rgba(0, 136, 255, 0.3);
+}
+
+/* Virtual Keyboard Overlay for Recipe Search */
+.vk-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  backdrop-filter: blur(2px);
+}
+
+.vk-modal {
+  width: 600px;
+  max-width: 90vw;
+  border-radius: 10px;
+  box-shadow: 0 10px 40px rgba(0, 136, 255, 0.3);
+}
+
 .recipe-content::-webkit-scrollbar-track {
   background: rgba(0, 0, 0, 0.3);
   border-radius: 4px;

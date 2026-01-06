@@ -61,6 +61,7 @@ export default function MainHMI() {
     right: { axis1: 0, axis2: 0 }, // PLC tags: lAxis1ActPos, lAxis2ActPos
     left: { axis1: 0, axis2: 0 }   // PLC tags: lAxis3ActPos, lAxis4ActPos
   });
+  const [plcDirty, setPlcDirty] = useState({ right: false, left: false });
   const [sideStates, setSideStates] = useState({
     right: { state: 0, desc: 'Idle' },
     left: { state: 0, desc: 'Idle' }
@@ -459,6 +460,12 @@ export default function MainHMI() {
     setAutoTeachOpen(true);
   };
 
+  const handlePLCWrite = (programPayload) => {
+    const side = programPayload?.side;
+    if (!side) return;
+    setPlcDirty((prev) => ({ ...prev, [side]: true }));
+  };
+
   const handleSaveAutoTeachProgram = (stepsArray) => {
     const steps = {};
     (stepsArray || []).forEach((s) => {
@@ -523,6 +530,9 @@ export default function MainHMI() {
     }
 
     showMessage('Auto Teach Saved', `Program "${program.name}" saved and loaded as active recipe`, 'success');
+    if (autoTeachSide) {
+      setPlcDirty(prev => ({ ...prev, [autoTeachSide]: false }));
+    }
     
     // Close the AutoTeach modal
     setAutoTeachOpen(false);
@@ -633,6 +643,9 @@ export default function MainHMI() {
     });
     
     setCreatedPrograms(updatedPrograms);
+    if (updatedProgram?.side) {
+      setPlcDirty(prev => ({ ...prev, [updatedProgram.side]: false }));
+    }
     showMessage('Program Updated', `Program "${updatedProgram.name}" has been updated successfully`, 'success');
     setShowProgramEditor(false);
     setProgramToEdit(null);
@@ -726,6 +739,17 @@ export default function MainHMI() {
               Change User
             </button>
           </div>
+          {(plcDirty.left || plcDirty.right) && (
+            <div className="plc-dirty-indicator" title="PLC has live changes not saved to recipe">
+              <span className="plc-dirty-dot" />
+              <span>
+                PLC differs from recipe:
+                {plcDirty.left ? ' Left' : ''}
+                {plcDirty.left && plcDirty.right ? ' & ' : ''}
+                {plcDirty.right ? ' Right' : ''}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -996,6 +1020,7 @@ export default function MainHMI() {
         }}
         program={{ ...programToEdit, recipeName: programToEdit?.side ? currentRecipe[programToEdit.side] : undefined }}
         onSaveProgram={handleSaveProgramChanges}
+        onWriteToPLC={handlePLCWrite}
       />
 
       <AutoAdjustProgram
@@ -1060,6 +1085,7 @@ export default function MainHMI() {
           actualPositions={autoTeachSide === 'right' ? actualPositions.right : actualPositions.left}
           parameters={currentParameters}
           onSaveProgram={handleSaveAutoTeachProgram}
+          onWriteToPLC={handlePLCWrite}
         />
       </>
     </div>

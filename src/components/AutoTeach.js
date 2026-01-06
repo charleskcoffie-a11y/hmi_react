@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import ModernDialog from './ModernDialog';
 import NumericKeypad from './NumericKeypad';
+import { writePLCVar } from '../services/plcApiService';
 import '../styles/AutoTeach.css';
 
 export default function AutoTeach({
@@ -11,6 +12,7 @@ export default function AutoTeach({
   actualPositions,
   parameters,
   onSaveProgram,
+  onWriteToPLC,
 }) {
   const safeParameters = parameters ?? {};
   const safeActualPositions = actualPositions ?? { axis1: 0, axis2: 0 };
@@ -52,6 +54,8 @@ export default function AutoTeach({
   const [repeatTargetStep, setRepeatTargetStep] = useState(null);
   const [repeatCount, setRepeatCount] = useState(1);
   const [repeatKeypadOpen, setRepeatKeypadOpen] = useState(false);
+  const [plcStatus, setPlcStatus] = useState('unknown');
+  const [loading, setLoading] = useState(false);
   const activeCardRef = useRef(null);
 
   const activeStepNumber = Math.min(recordedSteps.length + 1, 10);
@@ -152,6 +156,54 @@ export default function AutoTeach({
 
   const closeDialog = () => setDialog({ open: false, title: '', message: '', confirm: null, cancel: null });
 
+  const buildProgramPayload = (stepsArray) => {
+    const steps = {};
+    (stepsArray || []).forEach((s) => {
+      if (s?.step == null) return;
+      steps[s.step] = {
+        step: s.step,
+        stepName: s.stepName,
+        pattern: s.pattern,
+        positions: s.positions,
+        dwell: s.dwell,
+        repeatTargetStep: s.repeatTargetStep,
+        repeatCount: s.repeatCount,
+        timestamp: s.timestamp || new Date().toISOString(),
+      };
+    });
+
+    return {
+      name: programName || 'AutoTeach Program',
+      recipeName: programName || 'AutoTeach Program',
+      side,
+      speed: parameters?.recipeSpeed ?? 100,
+      dwell: parameters?.stepDelay ?? 500,
+      steps,
+    };
+  };
+
+  const pushProgramToPLC = async (stepsArray) => {
+    if (!side || !Array.isArray(stepsArray) || stepsArray.length === 0) return;
+    const payload = buildProgramPayload(stepsArray);
+    try {
+      setLoading(true);
+      await writePLCVar(payload);
+      setPlcStatus('good');
+      onWriteToPLC?.(payload);
+    } catch (e) {
+      setPlcStatus('bad');
+      setDialog({
+        open: true,
+        title: 'PLC Write Failed',
+        message: 'Unable to write Auto Teach steps to PLC. Check connection and try again.',
+        confirm: closeDialog,
+        cancel: null,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleRecordPosition = () => {
     if (isRecording) return;
     if (recordedSteps.length >= 10) {
@@ -216,7 +268,11 @@ export default function AutoTeach({
         : {}),
     };
 
-    setRecordedSteps((prev) => [...prev, newStep]);
+    setRecordedSteps((prev) => {
+      const next = [...prev, newStep];
+      pushProgramToPLC(next);
+      return next;
+    });
     setStepName('');
     setIsRecording(false);
   };
@@ -256,8 +312,8 @@ export default function AutoTeach({
         return;
       }
     }
-    setRecordedSteps((prev) =>
-      prev.map((s, i) =>
+    setRecordedSteps((prev) => {
+      const next = prev.map((s, i) =>
         i === editingStepIndex
           ? {
               ...s,
@@ -271,8 +327,10 @@ export default function AutoTeach({
                     : s.needsReteach,
             }
           : s
-      )
-    );
+      );
+      pushProgramToPLC(next);
+      return next;
+    });
 
     if (original && original.step !== 1 && original.pattern !== editStepPattern) {
       setDialog({
@@ -289,6 +347,7 @@ export default function AutoTeach({
   const handleDeleteStep = (index) => {
     setRecordedSteps((prev) => {
       const next = prev.filter((_, i) => i !== index);
+      pushProgramToPLC(next);
       return next;
     });
     if (editingStepIndex === index) handleCancelEdit();
@@ -297,8 +356,11 @@ export default function AutoTeach({
   // Quick pattern changes are disabled; use Edit Step to modify the pattern.
 
 
-  const handleSaveProgram = () => {
+  const handleSaveProgram = async () => {
     try {
+      if (recordedSteps.length > 0) {
+        await pushProgramToPLC(recordedSteps);
+      }
       onSaveProgram?.(recordedSteps);
       setDialog({
         open: true,
@@ -339,6 +401,9 @@ export default function AutoTeach({
                 <span className="program-name">{programName}</span>
                 <span className={`side-badge ${side}`}>{side === 'right' ? 'Right Side' : 'Left Side'}</span>
                 <span className="jog-mode-indicator">🕹️ JOG MODE ACTIVE</span>
+                <span className={`plc-status-pill ${plcStatus}`}>
+                  {loading ? 'Writing to PLC…' : plcStatus === 'good' ? 'PLC live' : plcStatus === 'bad' ? 'PLC offline' : 'PLC unknown'}
+                </span>
               </div>
             </div>
             <button className="close-btn" onClick={onClose}>
@@ -801,8 +866,8 @@ export default function AutoTeach({
               title="Save Program"
               confirmText="Save & Exit"
               cancelText="Cancel"
-              onConfirm={() => {
-                handleSaveProgram();
+              onConfirm={async () => {
+                await handleSaveProgram();
                 setShowSaveConfirm(false);
                 onClose?.();
               }}

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import ModernDialog from './ModernDialog';
+import NumericKeypad from './NumericKeypad';
 import '../styles/ProgramCreationStep3.css';
 
 export default function ProgramCreationStep3({ programName, side, onStepComplete, onCancel, onPrevious }) {
@@ -16,6 +17,9 @@ export default function ProgramCreationStep3({ programName, side, onStepComplete
   const [patternCode, setPatternCode] = useState(8); // Default to All off
   const [dwell, setDwell] = useState('');
   const [dialog, setDialog] = useState({ open: false, title: '', message: '' });
+  const [keypadOpen, setKeypadOpen] = useState(false);
+  const [keypadTarget, setKeypadTarget] = useState(null);
+  const [keypadVal, setKeypadVal] = useState(0);
 
   const sideLabel = side === 'right' ? 'Right Side' : 'Left Side';
   const axis1Name = side === 'right' ? 'Axis 1 (ID)' : 'Axis 3 (ID)';
@@ -138,10 +142,13 @@ export default function ProgramCreationStep3({ programName, side, onStepComplete
         <input
           type="number"
           value={expandValue}
-          onChange={(e) => {
-            if (axis === 'idExpand') setIdExpandValue(parseFloat(e.target.value));
-            if (axis === 'odExpand') setOdExpandValue(parseFloat(e.target.value));
+          onFocus={() => {
+            const field = axis === 'idExpand' ? 'idExpand' : 'odExpand';
+            setKeypadTarget({ field });
+            setKeypadVal(expandValue);
+            setKeypadOpen(true);
           }}
+          readOnly
           disabled={!jogMode}
           className="direct-input"
         />
@@ -201,10 +208,13 @@ export default function ProgramCreationStep3({ programName, side, onStepComplete
         <input
           type="number"
           value={retractValue}
-          onChange={(e) => {
-            if (axis === 'idExpand') setIdRetractValue(parseFloat(e.target.value));
-            if (axis === 'odExpand') setOdRetractValue(parseFloat(e.target.value));
+          onFocus={() => {
+            const field = axis === 'idExpand' ? 'idRetract' : 'odRetract';
+            setKeypadTarget({ field });
+            setKeypadVal(retractValue);
+            setKeypadOpen(true);
           }}
+          readOnly
           disabled={!jogMode}
           className="direct-input"
         />
@@ -331,7 +341,8 @@ export default function ProgramCreationStep3({ programName, side, onStepComplete
             type="number"
             min="0"
             value={dwell}
-            onChange={e => setDwell(e.target.value)}
+            onFocus={() => { setKeypadTarget({ field: 'dwell' }); setKeypadVal(parseFloat(dwell || '0')); setKeypadOpen(true); }}
+            readOnly
             placeholder="Enter dwell for this step"
           />
         </div>
@@ -364,6 +375,28 @@ export default function ProgramCreationStep3({ programName, side, onStepComplete
           </div>
         </div>
       </ModernDialog>
+
+      <NumericKeypad
+        isOpen={keypadOpen}
+        title={keypadTarget?.field === 'dwell' ? 'Enter Dwell (ms)' : 'Enter Position (mm)'}
+        unit={keypadTarget?.field === 'dwell' ? 'ms' : 'mm'}
+        initialValue={keypadVal}
+        decimals={keypadTarget?.field === 'dwell' ? 0 : 2}
+        allowNegative={false}
+        onSubmit={(num) => {
+          switch (keypadTarget?.field) {
+            case 'idExpand': setIdExpandValue(num); break;
+            case 'idRetract': setIdRetractValue(num); break;
+            case 'odExpand': setOdExpandValue(num); break;
+            case 'odRetract': setOdRetractValue(num); break;
+            case 'dwell': setDwell(String(num)); break;
+            default: break;
+          }
+          setKeypadOpen(false);
+          setKeypadTarget(null);
+        }}
+        onCancel={() => { setKeypadOpen(false); setKeypadTarget(null); }}
+      />
     </div>
   );
 }
