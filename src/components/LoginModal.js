@@ -1,18 +1,11 @@
 import React, { useState } from 'react';
 import '../styles/LoginModal.css';
 
-export default function LoginModal({ isOpen, onLogin, currentUser, onClose }) {
+export default function LoginModal({ isOpen, onLogin, currentUser, onClose, userPasswords = { operator: 'op123', setup: 'setup123', engineering: 'eng123' } }) {
   const [selectedRole, setSelectedRole] = useState('operator');
   const [showPasswordInput, setShowPasswordInput] = useState(false);
   const [password, setPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
-
-  // Simple password storage - in production, this would be backend validated
-  const userPasswords = {
-    operator: 'op123',
-    setup: 'setup123',
-    engineering: 'eng123'
-  };
 
   const roles = [
     { id: 'operator', name: 'Operator', description: 'Home & Run only', icon: '▶️' },
@@ -52,8 +45,8 @@ export default function LoginModal({ isOpen, onLogin, currentUser, onClose }) {
 
   if (!isOpen && !currentUser) return null;
 
-  // If user is logged in, show logout button
-  if (currentUser) {
+  // If user is logged in and modal is not open, show logout badge
+  if (currentUser && !isOpen) {
     return (
       <div className="user-info-badge">
         <div className="user-role-display">

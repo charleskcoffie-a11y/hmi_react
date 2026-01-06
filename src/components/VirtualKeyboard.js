@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import '../styles/VirtualKeyboard.css';
 
 export default function VirtualKeyboard({ onInput, onEnter, onBackspace, value }) {

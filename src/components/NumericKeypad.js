@@ -15,7 +15,6 @@ export default function NumericKeypad({
   allowAddSub = false,
 }) {
   const [value, setValue] = useState('');
-  const [operation, setOperation] = useState('SET'); // 'SET', 'ADD', or 'SUB'
 
   useEffect(() => {
     if (isOpen) {
@@ -61,6 +60,15 @@ export default function NumericKeypad({
 
   const clearAll = () => setValue('');
 
+  const adjustValue = (delta) => {
+    setValue((v) => {
+      const current = parseFloat(v || '0');
+      const next = Number.isFinite(current) ? current + delta : delta;
+      const rounded = decimals >= 0 ? parseFloat(next.toFixed(decimals)) : next;
+      return String(rounded);
+    });
+  };
+
   const clampAndSubmit = () => {
     let num = parseFloat(value);
     if (isNaN(num)) num = 0;
@@ -82,6 +90,13 @@ export default function NumericKeypad({
           <button className="nk-close" onClick={onCancel}>✕</button>
         </div>
         <div className="nk-display">{value || '0'}</div>
+        {allowAddSub && (
+          <div className="nk-adjust-row">
+            <button className="nk-key nk-func" onClick={() => adjustValue(-(decimals > 0 ? 0.1 : 1))}>-Δ</button>
+            <span className="nk-adjust-label">Adjust</span>
+            <button className="nk-key nk-func" onClick={() => adjustValue(decimals > 0 ? 0.1 : 1)}>+Δ</button>
+          </div>
+        )}
         <div className="nk-grid">
           <button className="nk-key" onClick={() => addChar('7')}>7</button>
           <button className="nk-key" onClick={() => addChar('8')}>8</button>

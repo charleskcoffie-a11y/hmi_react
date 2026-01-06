@@ -79,11 +79,11 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram 
     }
   };
 
-  const handleEditPosition = (stepNumber, axis) => {
+  const handleEditPosition = (stepNumber, field) => {
     const step = editedSteps.find(s => s.stepNumber === stepNumber);
     if (step) {
-      setKeypadTarget({ stepNumber, axis, type: 'position' });
-      setKeypadValue(axis === 'axis1' ? step.positions.axis1Cmd : step.positions.axis2Cmd);
+      setKeypadTarget({ stepNumber, field, type: 'position' });
+      setKeypadValue(step.positions?.[field] ?? 0);
       setKeypadOpen(true);
     }
   };
@@ -111,12 +111,12 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram 
 
     const updatedSteps = editedSteps.map(step => {
       if (step.stepNumber === keypadTarget.stepNumber) {
-        if (keypadTarget.type === 'position') {
+        if (keypadTarget.type === 'position' && keypadTarget.field) {
           return {
             ...step,
             positions: {
               ...step.positions,
-              [keypadTarget.axis === 'axis1' ? 'axis1Cmd' : 'axis2Cmd']: parseFloat(value)
+              [keypadTarget.field]: parseFloat(value)
             }
           };
         } else if (keypadTarget.type === 'speed') {
@@ -195,6 +195,16 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram 
     { code: 8, name: 'All off' }
   ];
 
+  const getAxisLabelForKeypad = () => {
+    const map = {
+      axis1Cmd: 'Axis 1',
+      axis2Cmd: 'Axis 2',
+      axis3Cmd: 'Axis 3',
+      axis4Cmd: 'Axis 4'
+    };
+    return map[keypadTarget?.field] || 'Axis';
+  };
+
   if (!isOpen || !program) return null;
 
   return (
@@ -271,20 +281,20 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram 
                           const isRightSide = program.side === 'right';
                           const axisMap = isRightSide
                             ? {
-                                axis1: { label: 'Axis 1 Cmd:', value: step.positions.axis1Cmd, key: 'axis1' },
-                                axis2: { label: 'Axis 2 Cmd:', value: step.positions.axis2Cmd, key: 'axis2' }
+                                axis1: { label: 'Axis 1 Cmd:', value: step.positions.axis1Cmd, field: 'axis1Cmd' },
+                                axis2: { label: 'Axis 2 Cmd:', value: step.positions.axis2Cmd, field: 'axis2Cmd' }
                               }
                             : {
-                                axis1: { label: 'Axis 3 Cmd:', value: step.positions.axis3Cmd ?? step.positions.axis1Cmd, key: 'axis3' },
-                                axis2: { label: 'Axis 4 Cmd:', value: step.positions.axis4Cmd ?? step.positions.axis2Cmd, key: 'axis4' }
+                                axis1: { label: 'Axis 3 Cmd:', value: step.positions.axis3Cmd ?? step.positions.axis1Cmd, field: 'axis3Cmd' },
+                                axis2: { label: 'Axis 4 Cmd:', value: step.positions.axis4Cmd ?? step.positions.axis2Cmd, field: 'axis4Cmd' }
                               };
 
                           return axes.map((axis) => {
                             const cfg = axisMap[axis];
                             const valuePresent = cfg.value !== undefined && cfg.value !== null;
-                            const displayValue = valuePresent ? `${cfg.value.toFixed(3)} mm` : '--';
-                            const className = isRightSide ? 'position-value editable' : 'position-value disabled';
-                            const onClick = isRightSide ? () => handleEditPosition(step.stepNumber, axis) : undefined;
+                            const displayValue = valuePresent ? `${parseFloat(cfg.value).toFixed(3)} mm` : '--';
+                            const className = 'position-value editable';
+                            const onClick = () => handleEditPosition(step.stepNumber, cfg.field);
                             return (
                               <div className="position-row" key={cfg.label}>
                                 <label>{cfg.label}</label>
@@ -350,7 +360,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram 
           isOpen={keypadOpen}
           title={
             keypadTarget?.type === 'position' 
-              ? `Edit ${keypadTarget.axis === 'axis1' ? 'Axis 1' : 'Axis 2'} Position`
+              ? `Edit ${getAxisLabelForKeypad()} Position`
               : keypadTarget?.type === 'speed'
               ? 'Edit Step Speed'
               : keypadTarget?.type === 'dwell'

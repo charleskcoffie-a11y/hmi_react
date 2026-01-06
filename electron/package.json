@@ -7,23 +7,25 @@
     "start": "electron .",
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
+    "predist32": "node copy-build.js",
     "dist32": "electron-builder --win --ia32"
   },
   "devDependencies": {
-    "electron": "^39.2.7",
+    "electron": "^17.4.0",
     "electron-builder": "^24.6.0"
   },
   "author": "Your Name",
   "build": {
     "appId": "com.yourcompany.hmi",
-    "productName": "HMI_React",
+    "productName": "CNC Dual head",
     "directories": {
       "buildResources": "build"
     },
     "files": [
       "main.js",
-      "../build/**/*"
+      "build/**/*"
     ],
+    "asar": false,
     "win": {
       "target": "nsis"
     }

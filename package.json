@@ -1,4 +1,5 @@
 {
+  "homepage": "./",
   "name": "hmi_react",
   "version": "0.1.0",
   "private": true,
@@ -18,7 +19,8 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "build-and-package32": "npm run build && cd electron && npm install && npm run dist32"
   },
   "eslintConfig": {
     "extends": [
