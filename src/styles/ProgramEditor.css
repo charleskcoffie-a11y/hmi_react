@@ -40,6 +40,18 @@
   gap: 12px;
 }
 
+.program-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.step-actions-group {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
 .program-editor-header h2 {
   margin: 0;
   color: #ff6b35;
@@ -86,6 +98,98 @@
 
 .plc-status-inline {
   display: none !important;
+}
+
+.steps-action-bar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 24px;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 2px solid #2a4a7f;
+  margin-bottom: 12px;
+}
+
+.step-action-btn-large {
+  padding: 18px 28px;
+  border-radius: 10px;
+  border: 2px solid rgba(127, 201, 255, 0.85);
+  font-weight: 700;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+}
+
+.step-action-btn-large.add {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+  position: relative;
+  overflow: hidden;
+}
+
+.step-action-btn-large.add::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transition: left 0.5s;
+}
+
+.step-action-btn-large.add:hover::before {
+  left: 100%;
+}
+
+.step-action-btn-large.add:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(102, 126, 234, 0.6);
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+}
+
+.step-action-btn-large.delete {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(240, 147, 251, 0.4);
+  position: relative;
+  overflow: hidden;
+}
+
+.step-action-btn-large.delete::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transition: left 0.5s;
+}
+
+.step-action-btn-large.delete:hover::before {
+  left: 100%;
+}
+
+.step-action-btn-large.delete:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(240, 147, 251, 0.6);
+  background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%);
+}
+
+.step-action-btn-large:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .program-header-actions {
