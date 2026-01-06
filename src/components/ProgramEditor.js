@@ -229,13 +229,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram 
             </div>
           </div>
           <div className="program-header-actions">
-            <button className="close-btn" onClick={onClose}>✕</button>
-          </div>
-        </div>
-
-        <div className="program-editor-content no-scroll">
-          <div className="program-actions-panel">
-            <div className="actions-row">
+            <div className="step-actions-group">
               <button
                 className="step-action-btn add"
                 onClick={() => {
@@ -252,6 +246,9 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram 
               <button className="step-action-btn delete" onClick={() => setStepDialog({ open: true, mode: 'delete', stepNumber: '', pattern: 0 })}>
                 Delete Step
               </button>
+            </div>
+            <div className="header-divider"></div>
+            <div className="program-actions-group">
               <button className="save-program-btn" onClick={handleSave}>
                 💾 Save Changes
               </button>
@@ -264,11 +261,19 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram 
               </button>
             </div>
           </div>
+        </div>
+
+        {jogHint && (
+          <div className="jog-mode-banner">
+            <span className="jog-icon">🎮</span>
+            <span className="jog-text">JOG MODE ACTIVE</span>
+            <span className="jog-desc">Move axes to teach positions</span>
+          </div>
+        )}
+
+        <div className="program-editor-content no-scroll">
 
           <div className="steps-container">
-            {jogHint && (
-              <div className="jog-hint-banner">Jog mode activated—move axes to teach the new step.</div>
-            )}
             {editedSteps.length === 0 ? (
               <div className="no-steps">No steps in this program</div>
             ) : (
