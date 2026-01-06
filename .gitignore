@@ -11,6 +11,20 @@
 # production
 /build
 
+# electron build artifacts
+/electron/dist
+/electron/build
+
+# electron dependencies
+/electron/node_modules
+
+# installers and bundles
+*.exe
+*.blockmap
+*.asar
+*.dll
+*.pak
+
 # misc
 .DS_Store
 .env.local
