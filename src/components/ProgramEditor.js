@@ -354,16 +354,15 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                 ✕ Cancel
               </button>
             </div>
+            {jogHint && (
+              <div className="jog-mode-banner">
+                <span className="jog-icon">⇄</span>
+                <span className="jog-text">JOG MODE ACTIVE</span>
+                <span className="jog-desc">Move axes to teach positions</span>
+              </div>
+            )}
           </div>
         </div>
-
-        {jogHint && (
-          <div className="jog-mode-banner">
-            <span className="jog-icon">⇄</span>
-            <span className="jog-text">JOG MODE ACTIVE</span>
-            <span className="jog-desc">Move axes to teach positions</span>
-          </div>
-        )}
 
         <div className="program-editor-content no-scroll">
 
@@ -415,22 +414,24 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
 
                       <div className="settings-section">
                         <h4>⚙ Settings</h4>
-                        <div className="settings-row">
-                          <label>Speed:</label>
-                          <div 
-                            className="setting-value editable"
-                            onClick={() => handleEditSpeed(step.stepNumber)}
-                          >
-                            {step.speed || programSpeed}%
+                        <div className="settings-row-inline">
+                          <div className="settings-row">
+                            <label>Speed:</label>
+                            <div 
+                              className="setting-value editable"
+                              onClick={() => handleEditSpeed(step.stepNumber)}
+                            >
+                              {step.speed || programSpeed}%
+                            </div>
                           </div>
-                        </div>
-                        <div className="settings-row">
-                          <label>Dwell:</label>
-                          <div 
-                            className="setting-value editable"
-                            onClick={() => handleEditDwell(step.stepNumber)}
-                          >
-                            {step.dwell || programDwell} ms
+                          <div className="settings-row">
+                            <label>Dwell:</label>
+                            <div 
+                              className="setting-value editable"
+                              onClick={() => handleEditDwell(step.stepNumber)}
+                            >
+                              {step.dwell || programDwell} ms
+                            </div>
                           </div>
                         </div>
                         {step.pattern === 5 && (

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
+import PasswordKeypad from './PasswordKeypad';
 import '../styles/LoginModal.css';
 
-export default function LoginModal({ isOpen, onLogin, currentUser, onClose, userPasswords = { operator: 'op123', setup: 'setup123', engineering: 'eng123' } }) {
+export default function LoginModal({ isOpen, onLogin, currentUser, onClose, userPasswords = { operator: '1234', setup: '5678', engineering: '9999' } }) {
   const [selectedRole, setSelectedRole] = useState('operator');
   const [showPasswordInput, setShowPasswordInput] = useState(false);
   const [password, setPassword] = useState('');
@@ -43,21 +44,7 @@ export default function LoginModal({ isOpen, onLogin, currentUser, onClose, user
     }
   };
 
-  if (!isOpen && !currentUser) return null;
-
-  // If user is logged in and modal is not open, show logout badge
-  if (currentUser && !isOpen) {
-    return (
-      <div className="user-info-badge">
-        <div className="user-role-display">
-          {roles.find(r => r.id === currentUser)?.icon} {roles.find(r => r.id === currentUser)?.name}
-        </div>
-        <button className="logout-btn" onClick={handleLogout}>
-          Logout
-        </button>
-      </div>
-    );
-  }
+  if (!isOpen) return null;
 
   // Login modal
   return (
@@ -92,19 +79,21 @@ export default function LoginModal({ isOpen, onLogin, currentUser, onClose, user
         ) : (
           <div className="password-section">
             <p className="password-prompt">Enter password for {roles.find(r => r.id === selectedRole)?.name}</p>
-            <input
-              type="password"
-              className="password-input"
-              placeholder="Enter password"
+            <div className="password-display">
+              {password.split('').map((_, i) => (
+                <span key={i} className="password-dot">●</span>
+              ))}
+            </div>
+            {passwordError && <div className="password-error">{passwordError}</div>}
+            <PasswordKeypad
               value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
+              onValueChange={(newVal) => {
+                setPassword(newVal);
                 setPasswordError('');
               }}
-              onKeyPress={handleKeyPress}
-              autoFocus
+              onEnter={handleLogin}
+              maxLength={6}
             />
-            {passwordError && <div className="password-error">{passwordError}</div>}
             <div className="password-actions">
               <button className="password-submit-btn" onClick={handleLogin}>
                 Login
