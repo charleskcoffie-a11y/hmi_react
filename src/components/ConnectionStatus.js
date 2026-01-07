@@ -10,6 +10,8 @@ export default function ConnectionStatus({ isOpen, onClose }) {
   
   const [disconnectedTags, setDisconnectedTags] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [tagTestResults, setTagTestResults] = useState(null);
+  const [testingTags, setTestingTags] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -48,6 +50,28 @@ export default function ConnectionStatus({ isOpen, onClose }) {
       setDisconnectedTags([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const testTags = async () => {
+    setTestingTags(true);
+    try {
+      const res = await fetch('http://localhost:3001/test-tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tags: [] }) // empty = use default TEST_TAGS from backend
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTagTestResults(data.results || []);
+      } else {
+        setTagTestResults([]);
+      }
+    } catch (error) {
+      console.error('Tag test failed:', error);
+      setTagTestResults([]);
+    } finally {
+      setTestingTags(false);
     }
   };
 
@@ -121,6 +145,59 @@ export default function ConnectionStatus({ isOpen, onClose }) {
               <div className="all-good-desc">All PLC tags are responding normally.</div>
             </div>
           )}
+
+          {/* Tag Test Section */}
+          <div className="tag-test-section">
+            <div className="tag-test-header">
+              <h3>🔍 Test PLC Tags</h3>
+              <button 
+                className="test-tags-btn" 
+                onClick={testTags} 
+                disabled={testingTags}
+              >
+                {testingTags ? '⟳ Testing...' : '▶ Test Tags'}
+              </button>
+            </div>
+
+            {tagTestResults && tagTestResults.length > 0 && (
+              <div className="tag-test-results">
+                <table className="tag-results-table">
+                  <thead>
+                    <tr>
+                      <th>Status</th>
+                      <th>Tag Name</th>
+                      <th>Value</th>
+                      <th>Error Details</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tagTestResults.map((result, index) => (
+                      <tr key={index} className={`tag-row ${result.status}`}>
+                        <td className="tag-status">
+                          {result.status === 'ok' ? (
+                            <span className="status-ok">✓</span>
+                          ) : (
+                            <span className="status-error">✗</span>
+                          )}
+                        </td>
+                        <td className="tag-name">{result.tag}</td>
+                        <td className="tag-value">
+                          {result.value !== null ? String(result.value) : '—'}
+                        </td>
+                        <td className="tag-error">
+                          {result.error || '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {tagTestResults && tagTestResults.length === 0 && (
+              <div className="no-results">No tags configured for testing.</div>
+            )}
+          </div>
 
           {/* Troubleshooting Help Section */}
           <div className="help-section">

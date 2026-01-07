@@ -297,6 +297,149 @@
   color: #9cc3ff;
 }
 
+/* Tag Test Section */
+.tag-test-section {
+  background: linear-gradient(135deg, rgba(26, 33, 55, 0.8) 0%, rgba(30, 40, 70, 0.8) 100%);
+  border: 2px solid rgba(77, 163, 255, 0.4);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.tag-test-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.tag-test-header h3 {
+  margin: 0;
+  color: #4da3ff;
+  font-size: 1.3rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.test-tags-btn {
+  background: linear-gradient(135deg, #4da3ff 0%, #667eea 100%);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 6px 16px rgba(77, 163, 255, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.test-tags-btn:hover {
+  background: linear-gradient(135deg, #667eea 0%, #4da3ff 100%);
+  box-shadow: 0 8px 20px rgba(77, 163, 255, 0.5);
+  transform: translateY(-2px);
+}
+
+.test-tags-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.tag-test-results {
+  overflow-x: auto;
+}
+
+.tag-results-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.tag-results-table thead {
+  background: linear-gradient(135deg, #2a4a7f 0%, #1e3a5f 100%);
+}
+
+.tag-results-table th {
+  padding: 12px 16px;
+  text-align: left;
+  color: #d1e0ff;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid #4da3ff;
+}
+
+.tag-results-table tbody tr {
+  transition: all 0.2s;
+  border-bottom: 1px solid rgba(77, 163, 255, 0.2);
+}
+
+.tag-results-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.tag-results-table tbody tr:hover {
+  background: rgba(77, 163, 255, 0.08);
+}
+
+.tag-results-table td {
+  padding: 12px 16px;
+  color: #9cc3ff;
+  font-size: 0.95rem;
+}
+
+.tag-status {
+  text-align: center;
+  font-size: 1.2rem;
+}
+
+.status-ok {
+  color: #51cf66;
+  font-weight: 800;
+}
+
+.status-error {
+  color: #ff6b6b;
+  font-weight: 800;
+}
+
+.tag-name {
+  font-family: 'Courier New', monospace;
+  color: #d1e0ff;
+  font-weight: 600;
+}
+
+.tag-value {
+  font-family: 'Courier New', monospace;
+  color: #7ddb8e;
+}
+
+.tag-error {
+  color: #ff9999;
+  font-size: 0.9rem;
+}
+
+.tag-row.ok {
+  background: rgba(81, 207, 102, 0.05);
+}
+
+.tag-row.error {
+  background: rgba(255, 107, 107, 0.05);
+}
+
+.no-results {
+  text-align: center;
+  padding: 40px 20px;
+  color: #7fa8e8;
+  font-size: 1rem;
+}
+
 /* Help Section */
 .help-section {
   background: linear-gradient(135deg, rgba(26, 33, 55, 0.6) 0%, rgba(30, 40, 70, 0.6) 100%);
