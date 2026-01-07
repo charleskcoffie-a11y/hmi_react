@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import ModernDialog from './ModernDialog';
+import ConnectionStatus from './ConnectionStatus';
 import '../styles/MachineParameters.css';
 
 export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknown', unitSystem = 'mm', onUnitChange, userRole = 'operator', userPasswords = { operator: 'op123', setup: 'setup123', engineering: 'eng123' }, onUpdatePasswords }) {
@@ -21,6 +22,7 @@ export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknow
 
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showPasswords, setShowPasswords] = useState(false);
+    const [connectionStatusOpen, setConnectionStatusOpen] = useState(false);
 
   const [editingParam, setEditingParam] = useState(null);
   const [editValue, setEditValue] = useState('');
@@ -94,11 +96,24 @@ export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknow
       <div className="machine-params-overlay" onClick={onClose}>
         <div className="machine-params-modal" onClick={(e) => e.stopPropagation()}>
         <div className="params-header">
-          <h2>Machine Parameters</h2>
-          <div style={{ fontSize: '1em', color: plcStatus === 'good' ? 'green' : plcStatus === 'bad' ? 'red' : 'gray', marginTop: 4 }}>
-            PLC Connection: {plcStatus === 'good' ? 'Good' : plcStatus === 'bad' ? 'Bad' : 'Unknown'}
+            <div>
+              <h2>Machine Parameters</h2>
+              <div style={{ fontSize: '1em', color: plcStatus === 'good' ? 'green' : plcStatus === 'bad' ? 'red' : 'gray', marginTop: 4 }}>
+                PLC Connection: {plcStatus === 'good' ? 'Good' : plcStatus === 'bad' ? 'Bad' : 'Unknown'}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <button
+                className="connection-btn"
+                onClick={() => setConnectionStatusOpen(true)}
+                aria-label="Open Connection Diagnostics"
+              >
+                <span className="btn-icon">🔌</span>
+                <span className="btn-label">Connection</span>
+                <span className={`status-dot ${plcStatus}`}></span>
+              </button>
+              <button className="close-btn" onClick={onClose}>✕</button>
           </div>
-          <button className="close-btn" onClick={onClose}>✕</button>
         </div>
 
         <div className="params-content">
@@ -243,6 +258,11 @@ export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknow
           </div>
         </div>
       </ModernDialog>
+
+        <ConnectionStatus
+          isOpen={connectionStatusOpen}
+          onClose={() => setConnectionStatusOpen(false)}
+        />
     </>
   );
 }
