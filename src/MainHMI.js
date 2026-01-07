@@ -558,11 +558,16 @@ export default function MainHMI() {
     const recipes = side === 'right' ? recipesRight : recipesLeft;
 
     // Prefer the currently selected recipe/program for this side.
+    // Always load from recipes first since that's where we save updates
     const preferredProgram = (() => {
+      const recipe = recipes.find((r) => r.name === recipeName);
+      // Check if recipe has program data (steps, speed, dwell)
+      if (recipe && recipe.steps) {
+        return { ...recipe, name: recipe.name, side };
+      }
+      // Fallback to createdPrograms if recipe doesn't have program data
       const namedProgram = createdPrograms.find((p) => p.side === side && p.name === recipeName);
       if (namedProgram) return namedProgram;
-      const recipe = recipes.find((r) => r.name === recipeName);
-      if (recipe?.program) return { ...recipe.program, name: recipe.name, side };
       return null;
     })();
 
@@ -643,9 +648,39 @@ export default function MainHMI() {
     });
     
     setCreatedPrograms(updatedPrograms);
+    
+    // Save to recipe file to persist changes
     if (updatedProgram?.side) {
+      // Find the existing recipe and merge program data into it
+      const recipes = updatedProgram.side === 'right' ? recipesRight : recipesLeft;
+      const existingRecipe = recipes.find(r => r.name === updatedProgram.name);
+      
+      if (existingRecipe) {
+        // Merge program data into the existing recipe
+        const mergedRecipe = {
+          ...existingRecipe,
+          steps: updatedProgram.steps,
+          speed: updatedProgram.speed,
+          dwell: updatedProgram.dwell,
+          side: updatedProgram.side
+        };
+        saveRecipeToFile(mergedRecipe, updatedProgram.side);
+        
+        // Also update the recipesRight/recipesLeft state
+        const updateRecipes = updatedProgram.side === 'right' ? setRecipesRight : setRecipesLeft;
+        updateRecipes(prev => {
+          return prev.map(r => r.name === updatedProgram.name ? mergedRecipe : r);
+        });
+      } else {
+        // If no existing recipe, save program as-is
+        saveRecipeToFile(updatedProgram, updatedProgram.side);
+        const updateRecipes = updatedProgram.side === 'right' ? setRecipesRight : setRecipesLeft;
+        updateRecipes(prev => [...prev, updatedProgram]);
+      }
+      
       setPlcDirty(prev => ({ ...prev, [updatedProgram.side]: false }));
     }
+    
     showMessage('Program Updated', `Program "${updatedProgram.name}" has been updated successfully`, 'success');
     setShowProgramEditor(false);
     setProgramToEdit(null);

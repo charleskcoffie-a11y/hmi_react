@@ -5,7 +5,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1100;
+  z-index: 12000; /* Above dialogs (9999) so keypad stays on top */
 }
 
 .nk-modal {

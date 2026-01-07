@@ -324,11 +324,8 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
         isOpen={dialog.open}
         title={dialog.title}
         onClose={() => {
-          if (dialog.mode === 'confirm' && pendingDelete) {
-            onDeleteRecipe && onDeleteRecipe(pendingDelete, side);
-            setSelectedRecipe((prev) => (prev === pendingDelete ? null : prev));
-            setPendingDelete(null);
-          }
+          // Don't delete on close - only delete when user clicks Delete button
+          setPendingDelete(null);
           setDialog({ open: false, title: '', message: '', mode: 'info' });
         }}
       >
