@@ -708,14 +708,14 @@
 }
 
 .dialog-title-text {
-  color: #e0e7ff;
+  color: #ffffff;
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: 1.15rem;
 }
 
 .dialog-subtitle {
-  color: #9ab3d7;
-  font-size: 0.9rem;
+  color: #cfe3ff;
+  font-size: 0.95rem;
 }
 
 .dialog-pill {
@@ -742,19 +742,19 @@
 }
 
 .dialog-label {
-  color: #cddbf7;
-  font-weight: 600;
-  font-size: 0.9rem;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.95rem;
 }
 
 .step-dialog-input,
 .step-dialog-select {
-  padding: 10px 12px;
-  background: rgba(0, 0, 0, 0.5);
+  padding: 12px 14px;
+  background: rgba(0, 0, 0, 0.55);
   border: 1px solid #4a9eff;
-  border-radius: 6px;
-  color: #e8f2ff;
-  font-size: 0.95rem;
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 1rem;
 }
 
 .step-dialog-input:focus,
@@ -766,14 +766,14 @@
 
 .step-dialog-input.modern,
 .step-dialog-select.modern {
-  background: linear-gradient(135deg, rgba(26, 33, 55, 0.95) 0%, rgba(30, 35, 60, 0.95) 100%);
-  border: 2px solid rgba(102, 126, 234, 0.4);
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(102, 126, 234, 0.1);
+  background: linear-gradient(135deg, rgba(26, 33, 55, 0.98) 0%, rgba(30, 35, 60, 0.98) 100%);
+  border: 2px solid rgba(102, 126, 234, 0.5);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(102, 126, 234, 0.15);
   transition: all 0.3s ease;
   font-weight: 600;
   padding: 12px 14px;
-  font-size: 0.9rem;
-  color: #e8f2ff;
+  font-size: 1rem;
+  color: #ffffff;
 }
 
 .step-dialog-select.modern option {
@@ -797,8 +797,8 @@
 }
 
 .dialog-hint {
-  font-size: 0.85rem;
-  color: #9ab3d7;
+  font-size: 0.9rem;
+  color: #9cc3ff;
 }
 
 .dialog-hint.warning {
