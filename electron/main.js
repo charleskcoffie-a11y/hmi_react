@@ -6,6 +6,9 @@ const fs = require('fs');
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const url = require('url');
+const { startServer } = require('./backend/plc-server');
+
+let backendServer;
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -41,11 +44,24 @@ function createWindow() {
   }
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(async () => {
+  try {
+    backendServer = await startServer();
+  } catch (err) {
+    console.error('Failed to start PLC backend:', err.message);
+  }
+  createWindow();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
+  }
+});
+
+app.on('before-quit', async () => {
+  if (backendServer && backendServer.stop) {
+    await backendServer.stop();
   }
 });
 

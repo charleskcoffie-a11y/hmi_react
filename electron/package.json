@@ -15,6 +15,10 @@
     "electron": "^17.4.0",
     "electron-builder": "^24.6.0"
   },
+  "dependencies": {
+    "ads-client": "^2.1.0",
+    "express": "^4.19.2"
+  },
   "author": "Your Name",
   "build": {
     "appId": "com.yourcompany.hmi",
@@ -25,6 +29,7 @@
     "files": [
       "main.js",
       "preload.js",
+      "backend/**/*",
       "build/**/*"
     ],
     "asar": false,
