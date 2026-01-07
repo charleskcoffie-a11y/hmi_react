@@ -12,6 +12,7 @@ export default function ConnectionStatus({ isOpen, onClose }) {
   const [loading, setLoading] = useState(false);
   const [tagTestResults, setTagTestResults] = useState(null);
   const [testingTags, setTestingTags] = useState(false);
+  const [tagInput, setTagInput] = useState('GVL.Axis1Position\nGVL.Axis2Position\nGVL.Status\nMAIN.Speed\nMAIN.Temperature');
 
   useEffect(() => {
     if (isOpen) {
@@ -56,10 +57,22 @@ export default function ConnectionStatus({ isOpen, onClose }) {
   const testTags = async () => {
     setTestingTags(true);
     try {
+      // Parse tags from textarea (one per line, filter empty lines)
+      const tagsToTest = tagInput
+        .split('\n')
+        .map(t => t.trim())
+        .filter(t => t.length > 0);
+
+      if (tagsToTest.length === 0) {
+        setTagTestResults([]);
+        setTestingTags(false);
+        return;
+      }
+
       const res = await fetch('http://localhost:3001/test-tags', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tags: [] }) // empty = use default TEST_TAGS from backend
+        body: JSON.stringify({ tags: tagsToTest })
       });
       if (res.ok) {
         const data = await res.json();
@@ -157,6 +170,22 @@ export default function ConnectionStatus({ isOpen, onClose }) {
               >
                 {testingTags ? '⟳ Testing...' : '▶ Test Tags'}
               </button>
+            </div>
+
+            <div className="tag-input-container">
+              <label className="tag-input-label">
+                Tag Names (one per line):
+              </label>
+              <textarea
+                className="tag-input-textarea"
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                placeholder="Paste your PLC tag names here, one per line&#10;Example:&#10;GVL.Axis1Position&#10;MAIN.Speed&#10;MAIN.Temperature"
+                rows={8}
+              />
+              <div className="tag-input-hint">
+                💡 Paste all your tag names from TwinCAT—one per line. Click "Test Tags" to check them all at once.
+              </div>
             </div>
 
             {tagTestResults && tagTestResults.length > 0 && (

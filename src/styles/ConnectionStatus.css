@@ -348,6 +348,54 @@
   transform: none;
 }
 
+.tag-input-container {
+  margin-bottom: 20px;
+}
+
+.tag-input-label {
+  display: block;
+  margin-bottom: 8px;
+  color: #d1e0ff;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.tag-input-textarea {
+  width: 100%;
+  min-height: 160px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 2px solid rgba(77, 163, 255, 0.3);
+  border-radius: 8px;
+  padding: 12px;
+  color: #d1e0ff;
+  font-family: 'Courier New', monospace;
+  font-size: 0.95rem;
+  resize: vertical;
+  transition: all 0.2s;
+}
+
+.tag-input-textarea:focus {
+  outline: none;
+  border-color: #4da3ff;
+  background: rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 3px rgba(77, 163, 255, 0.15);
+}
+
+.tag-input-textarea::placeholder {
+  color: #7fa8e8;
+  opacity: 0.6;
+}
+
+.tag-input-hint {
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: #9cc3ff;
+  padding: 8px 12px;
+  background: rgba(77, 163, 255, 0.08);
+  border-radius: 6px;
+  border-left: 3px solid #4da3ff;
+}
+
 .tag-test-results {
   overflow-x: auto;
 }
