@@ -88,6 +88,112 @@ function createServer() {
       res.json({ results });
     } catch (err) {
       console.error('[plc-server] Test tags error:', err.message);
+
+        // Write 10-step program to PLC arrays
+        app.post('/write-program', async (req, res) => {
+          try {
+            if (!connected) {
+              return res.status(500).json({ success: false, error: 'PLC not connected' });
+            }
+
+            const { side, program } = req.body;
+            if (!side || !program || !program.steps) {
+              return res.status(400).json({ success: false, error: 'Missing side or program data' });
+            }
+
+            const gvlPrefix = side === 'left' ? 'GVL_GLEFTHEAD' : 'GVL_GRIGHTHEAD';
+            const headPrefix = side === 'left' ? 'Left' : 'Right';
+
+            // Pattern mapping:
+            // 0: Red Ext, 1: Red Ret, 2: Exp Ext, 3: Exp Ret,
+            // 4: RedRet+ExpRet, 5: Repeat, 6: RedExt+ExpExt, 7: RedExt+ExpRet, 8: All Off
+            const patternMap = {
+              0: { redExt: true, redRet: false, expExt: false, expRet: false, repeat: false },
+              1: { redExt: false, redRet: true, expExt: false, expRet: false, repeat: false },
+              2: { redExt: false, redRet: false, expExt: true, expRet: false, repeat: false },
+              3: { redExt: false, redRet: false, expExt: false, expRet: true, repeat: false },
+              4: { redExt: false, redRet: true, expExt: false, expRet: true, repeat: false },
+              5: { redExt: false, redRet: false, expExt: false, expRet: false, repeat: true },
+              6: { redExt: true, redRet: false, expExt: true, expRet: false, repeat: false },
+              7: { redExt: true, redRet: false, expExt: false, expRet: true, repeat: false },
+              8: { redExt: false, redRet: false, expExt: false, expRet: false, repeat: false }
+            };
+
+            const errors = [];
+
+            // Write each step (1-10)
+            for (let stepNum = 1; stepNum <= 10; stepNum++) {
+              const step = program.steps[stepNum];
+        
+              if (!step) {
+                // Write all enables to false for empty steps
+                try {
+                  await ads.writeSymbol(`${gvlPrefix}.aHmi${headPrefix}StepEna[${stepNum}]`, false);
+                  await ads.writeSymbol(`${gvlPrefix}.a${headPrefix}RedExtEna[${stepNum}]`, false);
+                  await ads.writeSymbol(`${gvlPrefix}.a${headPrefix}RedRetEna[${stepNum}]`, false);
+                  await ads.writeSymbol(`${gvlPrefix}.a${headPrefix}ExpExtEna[${stepNum}]`, false);
+                  await ads.writeSymbol(`${gvlPrefix}.a${headPrefix}ExpRetEna[${stepNum}]`, false);
+                  await ads.writeSymbol(`${gvlPrefix}.a${headPrefix}RepeatEna[${stepNum}]`, false);
+                } catch (err) {
+                  errors.push(`Step ${stepNum} (empty): ${err.message}`);
+                }
+                continue;
+              }
+
+              const pattern = patternMap[step.pattern] || patternMap[8]; // Default to All Off
+        
+              try {
+                // Enable step
+                await ads.writeSymbol(`${gvlPrefix}.aHmi${headPrefix}StepEna[${stepNum}]`, step.enabled !== false);
+
+                // Write pattern enables
+                await ads.writeSymbol(`${gvlPrefix}.a${headPrefix}RedExtEna[${stepNum}]`, pattern.redExt);
+                await ads.writeSymbol(`${gvlPrefix}.a${headPrefix}RedRetEna[${stepNum}]`, pattern.redRet);
+                await ads.writeSymbol(`${gvlPrefix}.a${headPrefix}ExpExtEna[${stepNum}]`, pattern.expExt);
+                await ads.writeSymbol(`${gvlPrefix}.a${headPrefix}ExpRetEna[${stepNum}]`, pattern.expRet);
+                await ads.writeSymbol(`${gvlPrefix}.a${headPrefix}RepeatEna[${stepNum}]`, pattern.repeat);
+
+                // Write positions (axis1 = Red/ID, axis2 = Exp/OD)
+                if (step.positions) {
+                  if (step.positions.axis1 !== undefined) {
+                    await ads.writeSymbol(`${gvlPrefix}.a${headPrefix}RedPos[${stepNum}]`, step.positions.axis1);
+                  }
+                  if (step.positions.axis2 !== undefined) {
+                    await ads.writeSymbol(`${gvlPrefix}.a${headPrefix}ExpPos[${stepNum}]`, step.positions.axis2);
+                  }
+                }
+
+                // Write dwell time
+                if (step.dwell !== undefined) {
+                  await ads.writeSymbol(`${gvlPrefix}.tHmi${headPrefix}StepDwell[${stepNum}]`, step.dwell);
+                }
+
+                // Write repeat settings
+                if (step.repeatTarget !== undefined) {
+                  await ads.writeSymbol(`${gvlPrefix}.d${headPrefix}RepeatTarget[${stepNum}]`, step.repeatTarget);
+                }
+                if (step.repeatCount !== undefined) {
+                  await ads.writeSymbol(`${gvlPrefix}.dHmi${headPrefix}RepeatTimes[${stepNum}]`, step.repeatCount);
+                }
+
+              } catch (err) {
+                errors.push(`Step ${stepNum}: ${err.message}`);
+              }
+            }
+
+            if (errors.length > 0) {
+              console.error('[plc-server] Write program errors:', errors);
+              return res.json({ success: false, error: `Write errors: ${errors.join(', ')}` });
+            }
+
+            console.log(`[plc-server] Program written successfully to ${side} side`);
+            res.json({ success: true });
+
+          } catch (err) {
+            console.error('[plc-server] Write program error:', err.message);
+            res.status(500).json({ success: false, error: err.message });
+          }
+        });
       res.status(500).json({ error: err.message });
     }
   });
