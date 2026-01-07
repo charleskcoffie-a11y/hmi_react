@@ -14,6 +14,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
   const [programSpeed, setProgramSpeed] = useState(100);
   const [programDwell, setProgramDwell] = useState(500);
   const [stepDialog, setStepDialog] = useState({ open: false, mode: 'add', stepNumber: '', pattern: 0, repeatTargetStep: 1, repeatCount: 1 });
+  const [repeatDialog, setRepeatDialog] = useState({ open: false, stepNumber: null, repeatTargetStep: 1, repeatCount: 1 });
   const [jogHint, setJogHint] = useState(false);
   const [downloadDialog, setDownloadDialog] = useState({ open: false });
   const [loading, setLoading] = useState(false);
@@ -124,6 +125,29 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
   const handleKeypadSubmit = (value) => {
     if (!keypadTarget) return;
 
+    if (keypadTarget.type === 'deleteStep') {
+      setStepDialog((prev) => ({ ...prev, stepNumber: value }));
+      setKeypadOpen(false);
+      setKeypadTarget(null);
+      return;
+    }
+
+    if (keypadTarget.type === 'repeatTargetStep') {
+      const parsed = parseInt(value, 10);
+      setRepeatDialog((prev) => ({ ...prev, repeatTargetStep: isNaN(parsed) ? '' : parsed }));
+      setKeypadOpen(false);
+      setKeypadTarget(null);
+      return;
+    }
+
+    if (keypadTarget.type === 'repeatCount') {
+      const parsed = parseInt(value, 10);
+      setRepeatDialog((prev) => ({ ...prev, repeatCount: isNaN(parsed) ? '' : parsed }));
+      setKeypadOpen(false);
+      setKeypadTarget(null);
+      return;
+    }
+
     const updatedSteps = editedSteps.map(step => {
       if (step.stepNumber === keypadTarget.stepNumber) {
         if (keypadTarget.type === 'position' && keypadTarget.field) {
@@ -164,9 +188,26 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
       });
       return;
     }
+    if (Number(newPattern) === 5) {
+      const step = editedSteps.find(s => s.stepNumber === stepNumber);
+      const fallbackTarget = Math.max(1, (step?.stepNumber || 2) - 1);
+      setRepeatDialog({
+        open: true,
+        stepNumber,
+        repeatTargetStep: step?.repeatTargetStep || fallbackTarget,
+        repeatCount: step?.repeatCount || 1
+      });
+      return;
+    }
+
     const updatedSteps = editedSteps.map(step => {
       if (step.stepNumber === stepNumber) {
-        return { ...step, pattern: newPattern };
+        const cleaned = { ...step, pattern: newPattern };
+        if (Number(newPattern) !== 5) {
+          delete cleaned.repeatTargetStep;
+          delete cleaned.repeatCount;
+        }
+        return cleaned;
       }
       return step;
     });
@@ -240,7 +281,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
               </span>
               <span className="program-steps-label">Steps {editedSteps.length}</span>
               <span className={`plc-status-inline ${plcStatus}`}>
-                {loading ? 'Writing…' : plcStatus === 'good' ? 'PLC live' : plcStatus === 'bad' ? 'PLC offline' : 'PLC unknown'}
+                {loading ? 'Writing...' : plcStatus === 'good' ? 'PLC live' : plcStatus === 'bad' ? 'PLC offline' : 'PLC unknown'}
               </span>
             </div>
           </div>
@@ -257,10 +298,10 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                 }}
                 disabled={editedSteps.length >= 10}
               >
-                ➕ Add Step
+                + Add Step
               </button>
               <button className="step-action-btn delete" onClick={() => setStepDialog({ open: true, mode: 'delete', stepNumber: '', pattern: 0, repeatTargetStep: 1, repeatCount: 1 })}>
-                🗑️ Delete Step
+                🗑 Delete Step
               </button>
             </div>
             <div className="program-actions-group">
@@ -268,7 +309,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                 💾 Save Changes
               </button>
               <button className="cancel-program-btn" onClick={onClose}>
-                ❌ Cancel
+                ✕ Cancel
               </button>
             </div>
           </div>
@@ -276,7 +317,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
 
         {jogHint && (
           <div className="jog-mode-banner">
-            <span className="jog-icon">🎮</span>
+            <span className="jog-icon">⇄</span>
             <span className="jog-text">JOG MODE ACTIVE</span>
             <span className="jog-desc">Move axes to teach positions</span>
           </div>
@@ -331,7 +372,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                       </div>
 
                       <div className="settings-section">
-                        <h4>⚙️ Settings</h4>
+                        <h4>⚙ Settings</h4>
                         <div className="settings-row">
                           <label>Speed:</label>
                           <div 
@@ -369,7 +410,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                       </div>
 
                       <div className="pattern-section">
-                        <h4>🎯 Pattern</h4>
+                        <h4>≋ Pattern</h4>
                         <select
                           value={step.pattern}
                           onChange={(e) => handleEditPattern(step.stepNumber, parseInt(e.target.value))}
@@ -398,7 +439,13 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
         <NumericKeypad
           isOpen={keypadOpen}
           title={
-            keypadTarget?.type === 'position' 
+            keypadTarget?.type === 'deleteStep'
+              ? 'Delete Step Number'
+              : keypadTarget?.type === 'repeatTargetStep'
+              ? 'Repeat: Target Step'
+              : keypadTarget?.type === 'repeatCount'
+              ? 'Repeat: Times'
+              : keypadTarget?.type === 'position' 
               ? `Edit ${getAxisLabelForKeypad()} Position`
               : keypadTarget?.type === 'speed'
               ? 'Edit Step Speed'
@@ -409,6 +456,9 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
               : 'Edit Program Dwell'
           }
           unit={
+            keypadTarget?.type === 'deleteStep' ? '' :
+            keypadTarget?.type === 'repeatTargetStep' ? '' :
+            keypadTarget?.type === 'repeatCount' ? '' :
             keypadTarget?.type === 'position' ? 'mm' :
             keypadTarget?.type === 'speed' || keypadTarget?.type === 'globalSpeed' ? '%' :
             'ms'
@@ -416,7 +466,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
           initialValue={keypadValue}
           decimals={keypadTarget?.type === 'position' ? 3 : 0}
           allowNegative={false}
-          allowAddSub={true}
+          allowAddSub={!(keypadTarget?.type === 'deleteStep' || keypadTarget?.type === 'repeatTargetStep' || keypadTarget?.type === 'repeatCount')}
           onSubmit={(val) => {
             handleKeypadSubmit(val);
           }}
@@ -428,18 +478,18 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
 
         <ModernDialog
           isOpen={downloadDialog.open}
-          title="📥 Download Program to PLC"
+          title="⬇ Download Program to PLC"
           onConfirm={confirmDownload}
           onCancel={() => setDownloadDialog({ open: false })}
           confirmText="Download"
           cancelText="Cancel"
         >
           <div className="download-confirm-content">
-            <div className="download-icon-large">⬇</div>
+            <div className="download-icon-large">📥</div>
             <p className="download-program-name">{program?.recipeName || program?.name}</p>
             <p className="download-side-info">{program?.side === 'right' ? 'Right Side' : 'Left Side'} • {editedSteps.length} Steps</p>
             <div className="download-warning">
-              <span className="warning-icon">⚠️</span>
+              <span className="warning-icon">⚠</span>
               <span>This will overwrite the current program on the PLC</span>
             </div>
           </div>
@@ -520,7 +570,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
         >
           <div className="step-dialog-modern">
             <div className="dialog-header-row">
-              <div className="dialog-icon">{stepDialog.mode === 'delete' ? '🗑' : '➕'}</div>
+              <div className="dialog-icon">{stepDialog.mode === 'delete' ? '🗑' : '+'}</div>
               <div className="dialog-heading">
                 <div className="dialog-title-text">{stepDialog.mode === 'delete' ? 'Remove a step' : 'Insert a new step'}</div>
                 <div className="dialog-subtitle">Maximum 10 steps allowed per program.</div>
@@ -537,7 +587,14 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                   max={editedSteps.length}
                   value={stepDialog.stepNumber}
                   onChange={(e) => setStepDialog((prev) => ({ ...prev, stepNumber: e.target.value }))}
+                  onClick={() => {
+                    setKeypadTarget({ type: 'deleteStep' });
+                    setKeypadValue(stepDialog.stepNumber || '');
+                    setKeypadOpen(true);
+                  }}
+                  readOnly
                   className="step-dialog-input modern"
+                  style={{ cursor: 'pointer' }}
                 />
                 <div className="dialog-hint warning">Step 1 is protected. Steps will be renumbered after deletion.</div>
               </div>
@@ -602,6 +659,93 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                 <div className="dialog-hint accent">After adding, jog mode will be active to teach the new step.</div>
               </>
             )}
+          </div>
+        </ModernDialog>
+
+        <ModernDialog
+          isOpen={repeatDialog.open}
+          title="Repeat Settings"
+          onCancel={() => setRepeatDialog({ open: false, stepNumber: null, repeatTargetStep: 1, repeatCount: 1 })}
+          onConfirm={() => {
+            if (!repeatDialog.stepNumber) {
+              setRepeatDialog({ open: false, stepNumber: null, repeatTargetStep: 1, repeatCount: 1 });
+              return;
+            }
+            const target = parseInt(repeatDialog.repeatTargetStep, 10);
+            const count = parseInt(repeatDialog.repeatCount, 10);
+            const safeTarget = (() => {
+              if (isNaN(target)) return 1;
+              const step = editedSteps.find(s => s.stepNumber === repeatDialog.stepNumber);
+              const maxTarget = Math.max(1, (step?.stepNumber || 2) - 1);
+              return Math.min(Math.max(1, target), maxTarget);
+            })();
+            const safeCount = isNaN(count) ? 1 : Math.min(Math.max(1, count), 999);
+
+            const updatedSteps = editedSteps.map(step => {
+              if (step.stepNumber === repeatDialog.stepNumber) {
+                return {
+                  ...step,
+                  pattern: 5,
+                  repeatTargetStep: safeTarget,
+                  repeatCount: safeCount
+                };
+              }
+              return step;
+            });
+            setEditedSteps(updatedSteps);
+            setRepeatDialog({ open: false, stepNumber: null, repeatTargetStep: 1, repeatCount: 1 });
+          }}
+          confirmText="Save"
+          cancelText="Cancel"
+        >
+          <div className="step-dialog-modern">
+            <div className="dialog-header-row">
+              <div className="dialog-icon">≋</div>
+              <div className="dialog-heading">
+                <div className="dialog-title-text">Configure Repeat</div>
+                <div className="dialog-subtitle">Choose target step and times</div>
+              </div>
+              <div className="dialog-pill">Pattern 5</div>
+            </div>
+
+            <div className="step-dialog-section two-col">
+              <div>
+                <label className="dialog-label">Repeat Step (Target)</label>
+                <input
+                  type="number"
+                  min="1"
+                  max={Math.max(1, (editedSteps.find(s => s.stepNumber === repeatDialog.stepNumber)?.stepNumber || 2) - 1)}
+                  value={repeatDialog.repeatTargetStep}
+                  onClick={() => {
+                    setKeypadTarget({ type: 'repeatTargetStep', stepNumber: repeatDialog.stepNumber });
+                    setKeypadValue(repeatDialog.repeatTargetStep || '');
+                    setKeypadOpen(true);
+                  }}
+                  readOnly
+                  className="step-dialog-input modern"
+                  style={{ cursor: 'pointer' }}
+                />
+                <div className="dialog-hint">Must be before current step</div>
+              </div>
+              <div>
+                <label className="dialog-label">Repeat Count</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="999"
+                  value={repeatDialog.repeatCount}
+                  onClick={() => {
+                    setKeypadTarget({ type: 'repeatCount', stepNumber: repeatDialog.stepNumber });
+                    setKeypadValue(repeatDialog.repeatCount || '');
+                    setKeypadOpen(true);
+                  }}
+                  readOnly
+                  className="step-dialog-input modern"
+                  style={{ cursor: 'pointer' }}
+                />
+                <div className="dialog-hint">1 - 999 times</div>
+              </div>
+            </div>
           </div>
         </ModernDialog>
       </div>
