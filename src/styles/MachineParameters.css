@@ -267,6 +267,82 @@
   cursor: pointer;
 }
 
+.connection-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(135deg, #4da3ff 0%, #667eea 100%);
+  color: #fff;
+  border: 2px solid rgba(77, 163, 255, 0.45);
+  border-radius: 999px;
+  padding: 10px 22px;
+  font-size: 0.98rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 8px 18px rgba(77, 163, 255, 0.28);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  position: relative;
+  overflow: hidden;
+}
+
+.connection-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -120%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.25), transparent);
+  transition: left 0.6s ease;
+}
+
+.connection-btn:hover::before { left: 130%; }
+
+.connection-btn:hover {
+  background: linear-gradient(135deg, #667eea 0%, #4da3ff 100%);
+  box-shadow: 0 10px 26px rgba(77, 163, 255, 0.45);
+  transform: translateY(-2px);
+}
+
+.connection-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.connection-btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(77, 163, 255, 0.35), 0 8px 18px rgba(77, 163, 255, 0.28);
+}
+
+.connection-btn .btn-icon {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1a1a2e 0%, #0e162a 100%);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35), inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  font-size: 1.1rem;
+}
+
+.connection-btn .btn-label {
+  letter-spacing: 0.6px;
+}
+
+.connection-btn .status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15), 0 4px 10px rgba(0, 0, 0, 0.35);
+}
+
+.connection-btn .status-dot.good { background: #51cf66; }
+.connection-btn .status-dot.bad { background: #ff6b6b; }
+.connection-btn .status-dot.unknown { background: #ffa94d; }
+
+
 .param-value {
   font-size: 16px;
   font-weight: 700;
@@ -478,6 +554,94 @@
   background: linear-gradient(135deg, #0088ff 0%, #0066cc 100%);
   box-shadow: 0 0 15px rgba(0, 136, 255, 0.4);
   transform: translateY(-2px);
+}
+
+/* Digital IO Status Styles */
+.dio-status {
+  margin-top: 20px;
+  margin-bottom: 24px;
+  background: linear-gradient(135deg, rgba(0, 102, 204, 0.08) 0%, rgba(0, 102, 204, 0.04) 100%);
+  border: 1px solid rgba(0, 102, 204, 0.3);
+  border-radius: 10px;
+  padding: 16px 18px;
+}
+
+.dio-title {
+  margin: 0 0 10px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #9cc3ff;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.dio-section {
+  margin-top: 12px;
+}
+
+.dio-subtitle {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #8aa7c4;
+  letter-spacing: 0.3px;
+}
+
+.dio-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.dio-item {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(100, 100, 150, 0.25);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.dio-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #d8e8ff;
+}
+
+.dio-led {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.12), 0 6px 12px rgba(0, 0, 0, 0.35);
+  transition: background 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
+}
+
+.dio-led.on {
+  background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15), 0 0 18px rgba(46, 204, 113, 0.45);
+  color: #0b3;
+}
+
+.dio-led.off {
+  background: linear-gradient(135deg, #3a3f4b 0%, #232833 100%);
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.4);
+  color: #aaa;
+}
+
+.dio-index {
+  font-size: 11px;
+  color: #889;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 4px 8px;
+  border-radius: 6px;
 }
 
 @media (max-width: 768px) {

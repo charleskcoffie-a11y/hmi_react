@@ -6,13 +6,18 @@
   "scripts": {
     "start": "electron .",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder",
+    "predist": "node copy-build.js",
+    "dist": "electron-builder --win --ia32",
     "predist32": "node copy-build.js",
     "dist32": "electron-builder --win --ia32"
   },
   "devDependencies": {
     "electron": "^17.4.0",
     "electron-builder": "^24.6.0"
+  },
+  "dependencies": {
+    "ads-client": "^2.1.0",
+    "express": "^4.19.2"
   },
   "author": "Your Name",
   "build": {
@@ -23,11 +28,20 @@
     },
     "files": [
       "main.js",
+      "preload.js",
+      "backend/**/*",
       "build/**/*"
     ],
     "asar": false,
     "win": {
-      "target": "nsis"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "ia32"
+          ]
+        }
+      ]
     }
   }
 }

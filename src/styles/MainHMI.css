@@ -202,23 +202,22 @@
 
 .hmi-content {
   flex: 1;
-  padding: 16px 20px 10px;
-  overflow: hidden;
+  padding: 10px 12px 8px;
+  overflow: hidden; /* no scrolling; ensure compact layout fits */
 }
 
 .panels-container {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
+  grid-template-columns: 1fr 1fr; /* always side-by-side */
+  gap: 12px;
   height: 100%;
-  overflow: hidden;
 }
 
 .hmi-mode-controls {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 16px 20px;
+  padding: 10px 12px;
   background: linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
   border-bottom: 2px solid rgba(0, 102, 204, 0.3);
 }
@@ -325,7 +324,7 @@
 }
 
 .hmi-bottom {
-  padding: 20px;
+  padding: 10px;
   background: linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
   border-top: 3px solid #0066cc;
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.5);
@@ -334,7 +333,7 @@
 /* Responsive Design */
 @media (max-width: 1200px) {
   .panels-container {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr; /* keep side-by-side at 1024 */
   }
 }
 
@@ -359,7 +358,7 @@
 /* Responsive Design for different screen sizes */
 @media (max-width: 1200px) {
   .panels-container {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr; /* keep side-by-side at 1024 */
     gap: 15px;
   }
 

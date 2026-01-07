@@ -2,8 +2,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: 6px;
+  padding: 6px 10px;
   background: linear-gradient(90deg, #0a0a0a 0%, #1a1a1a 100%);
   border-radius: 8px;
   border: 2px solid #0066cc;
@@ -19,11 +19,11 @@
 
 .center-section {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex: 1;
   justify-content: center;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .right-side-section {
@@ -113,19 +113,19 @@
 .control-btn {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 14px 20px;
+  gap: 6px;
+  padding: 9px 12px;
   background: linear-gradient(135deg, #1a5f9e 0%, #0d3a5c 100%);
   color: white;
   border: 2px solid #0066cc;
   border-radius: 10px;
-  font-size: 15px;
+  font-size: 12px;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.3s ease;
   white-space: nowrap;
   text-transform: uppercase;
-  letter-spacing: 0.6px;
+  letter-spacing: 0.4px;
 }
 
 .control-btn:hover {

@@ -3,7 +3,6 @@ import ModernDialog from './ModernDialog';
 import '../styles/RecipeManager.css';
 import '../styles/RecipeManagerSide.css';
 import '../styles/RecipeTextarea.css';
-import VirtualKeyboard from './VirtualKeyboard';
 
 export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRecipe, onCreateRecipe, onEditRecipe, onDeleteRecipe, userRole }) {
   const isOperator = userRole === 'operator';
@@ -47,13 +46,13 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
     }, [isOpen, onClose]);
 
   const [selectedRecipe, setSelectedRecipe] = useState(recipes && recipes.length > 5 ? recipes[5] : recipes?.[0] || null);
-  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [keypadOpen, setKeypadOpen] = useState(false);
   const [action, setAction] = useState(null);
   const [newRecipeName, setNewRecipeName] = useState('');
   const [newRecipeDescription, setNewRecipeDescription] = useState('');
   const [dialog, setDialog] = useState({ open: false, title: '', message: '', mode: 'info' });
   const [pendingDelete, setPendingDelete] = useState(null);
-  const [vk, setVk] = useState({ open: false, value: '' });
 
   // Ref for file input (import)
   const fileInputRef = useRef(null);
@@ -187,17 +186,68 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
                 type="text"
                 className="recipe-search-input"
                 placeholder="Search recipes by name..."
-                value={search}
-                onFocus={() => setVk({ open: true, value: search })}
-                onChange={(e) => setSearch(e.target.value)}
+                value={searchInput}
+                onFocus={() => setKeypadOpen(true)}
                 readOnly
               />
+              <button 
+                className="search-clear-btn"
+                onClick={() => setSearchInput('')}
+                style={{ display: searchInput ? 'block' : 'none' }}
+              >
+                ✕
+              </button>
             </div>
+            
+            {keypadOpen && (
+              <div className="recipe-keypad-container">
+                <div className="recipe-simple-keypad">
+                  <div className="recipe-keypad-row">
+                    {['1','2','3','4','5','6','7','8','9','0'].map((ch) => (
+                      <button key={ch} className="recipe-key" onClick={() => setSearchInput(searchInput + ch)}>{ch}</button>
+                    ))}
+                  </div>
+                  <div className="recipe-keypad-row">
+                    {['Q','W','E','R','T','Y','U','I','O','P'].map((ch) => (
+                      <button key={ch} className="recipe-key" onClick={() => setSearchInput(searchInput + ch)}>{ch}</button>
+                    ))}
+                  </div>
+                  <div className="recipe-keypad-row">
+                    {['A','S','D','F','G','H','J','K','L'].map((ch) => (
+                      <button key={ch} className="recipe-key" onClick={() => setSearchInput(searchInput + ch)}>{ch}</button>
+                    ))}
+                    <button
+                      className="recipe-key recipe-backspace"
+                      onClick={() => setSearchInput(searchInput.slice(0, -1))}
+                    >
+                      ← Back
+                    </button>
+                  </div>
+                  <div className="recipe-keypad-row">
+                    {['Z','X','C','V','B','N','M'].map((ch) => (
+                      <button key={ch} className="recipe-key" onClick={() => setSearchInput(searchInput + ch)}>{ch}</button>
+                    ))}
+                    {['-','_',' '].map((ch) => (
+                      <button key={ch === ' ' ? 'space' : ch} className="recipe-key" onClick={() => setSearchInput(searchInput + ch)}>
+                        {ch === ' ' ? 'Space' : ch}
+                      </button>
+                    ))}
+                    <button
+                      className="recipe-key recipe-clear"
+                      onClick={() => setSearchInput('')}
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <div className="recipe-listbox">
               {recipes && recipes.length > 0 ? (
                 (recipes.filter((r) => {
                   const name = typeof r === 'string' ? r : r.name;
-                  return !search || (name && name.toLowerCase().includes(search.toLowerCase()));
+                  return !searchInput || (name && name.toLowerCase().includes(searchInput.toLowerCase()));
                 })).map((recipe, index) => {
                   const recipeName = typeof recipe === 'string' ? recipe : recipe.name;
                   const recipeDesc = typeof recipe === 'object' ? recipe.description : '';
@@ -205,7 +255,10 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
                     <div
                       key={index}
                       className={`recipe-item ${selectedRecipe === recipe ? 'selected' : ''}`}
-                      onClick={() => setSelectedRecipe(recipe)}
+                      onClick={() => {
+                        setSelectedRecipe(recipe);
+                        setKeypadOpen(false);
+                      }}
                     >
                       <div className="recipe-item-header">
                         <span className="recipe-icon">📄</span>
@@ -352,22 +405,6 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
           </div>
         </div>
       </ModernDialog>
-
-      {vk.open && (
-        <div className="vk-overlay" onClick={() => setVk({ open: false, value: '' })}>
-          <div className="vk-modal" onClick={(e) => e.stopPropagation()}>
-            <VirtualKeyboard
-              value={vk.value}
-              onInput={(next) => setVk((prev) => ({ ...prev, value: next }))}
-              onBackspace={(next) => setVk((prev) => ({ ...prev, value: next }))}
-              onEnter={(finalVal) => {
-                setSearch(finalVal);
-                setVk({ open: false, value: '' });
-              }}
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -2,11 +2,11 @@
   background: linear-gradient(135deg, #2a2a2a 0%, #1f1f1f 100%);
   border: 2px solid #0066cc;
   border-radius: 10px;
-  padding: 20px;
+  padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 15px;
-  box-shadow: 0 4px 15px rgba(0, 102, 204, 0.2);
+  gap: 10px;
+  box-shadow: 0 4px 12px rgba(0, 102, 204, 0.2);
   transition: all 0.3s ease;
 }
 
@@ -26,12 +26,12 @@
 .panel-header {
   text-align: center;
   border-bottom: 2px solid #0066cc;
-  padding-bottom: 15px;
+  padding-bottom: 10px;
 }
 
 .panel-header h2 {
   margin: 0;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
   color: #ffffff;
 }
@@ -67,11 +67,11 @@
   border: 2px solid #00ffff;
   border-radius: 6px;
   color: #00ffff;
-  padding: 12px 16px;
-  font-size: 20px;
+  padding: 10px 12px;
+  font-size: 16px;
   font-weight: 700;
   flex: 1;
-  text-shadow: 0 0 10px rgba(0, 255, 255, 0.6);
+  text-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
   letter-spacing: 0.5px;
 }
 
@@ -196,14 +196,14 @@
 .positions-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: 8px;
 }
 
 .pos-item {
   background: rgba(0, 102, 204, 0.08);
   border: 1px solid #0066cc;
   border-radius: 8px;
-  padding: 10px 12px;
+  padding: 8px 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -211,9 +211,9 @@
 
 .pos-name {
   color: #8abfff;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
-  margin-right: 10px;
+  margin-right: 8px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -221,9 +221,9 @@
 .pos-value {
   color: #00ffff;
   font-family: 'Courier New', monospace;
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 700;
-  text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+  text-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
   letter-spacing: 1px;
 }
 
@@ -231,23 +231,23 @@
   background: linear-gradient(135deg, rgba(0, 170, 255, 0.1) 0%, rgba(0, 100, 200, 0.1) 100%);
   border: 1px solid #0066cc;
   border-radius: 8px;
-  padding: 12px 14px;
+  padding: 10px 12px;
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 10px;
 }
 
 .step-num {
   color: #ff9a3c;
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 700;
   text-transform: uppercase;
-  min-width: 90px;
+  min-width: 80px;
 }
 
 .step-desc {
   color: #8abfff;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   flex: 1;
 }

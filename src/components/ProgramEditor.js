@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import ModernDialog from './ModernDialog';
-import { writePLCVar } from '../services/plcApiService';
 import '../styles/ProgramEditor.css';
 import NumericKeypad from './NumericKeypad';
 
@@ -54,42 +53,65 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
     }
   }, [program]);
 
-  const handleDownload = () => {
-    if (!program) return;
-    setDownloadDialog({ open: true });
-  };
-
   const confirmDownload = async () => {
     setDownloadDialog({ open: false });
     if (!program) return;
-    const updatedProgram = {
-      ...program,
-      steps: Object.fromEntries(editedSteps.map(step => [step.stepNumber, {
-        step: step.stepNumber,
+    
+    // Prepare program with all step data
+    const stepsObject = {};
+    editedSteps.forEach(step => {
+      stepsObject[step.stepNumber] = {
+        stepNumber: step.stepNumber,
         stepName: step.stepName,
         positions: step.positions,
         pattern: step.pattern,
-        timestamp: step.timestamp
-      }])),
-      speed: programSpeed,
-      dwell: programDwell
+        speed: step.speed || programSpeed,
+        dwell: step.dwell || programDwell,
+        repeatTarget: step.repeatTarget,
+        repeatCount: step.repeatCount,
+        enabled: step.enabled !== false
+      };
+    });
+
+    const programData = {
+      side: program.side,
+      program: {
+        name: program.name,
+        steps: stepsObject,
+        speed: programSpeed,
+        dwell: programDwell
+      }
     };
+
     try {
       setLoading(true);
-      await writePLCVar(updatedProgram);
+      
+      // Call write-program endpoint
+      const response = await fetch('http://localhost:3001/write-program', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(programData)
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Unknown error writing program to PLC');
+      }
+
       setPlcStatus('good');
-      onWriteToPLC?.(updatedProgram);
+      onWriteToPLC?.(programData.program);
       setDialog({
         open: true,
         title: '✓ Download Success',
-        message: `Program "${updatedProgram.name}" successfully downloaded to ${updatedProgram.side} side PLC`
+        message: `Program "${program.name}" successfully downloaded to ${program.side} side PLC`
       });
     } catch (e) {
       setPlcStatus('bad');
       setDialog({
         open: true,
         title: '✗ Download Failed',
-        message: `Failed to download program "${updatedProgram.name}" to PLC. Please check connection.`
+        message: `Failed to download program "${program.name}" to PLC: ${e.message}`
       });
     } finally {
       setLoading(false);
@@ -332,16 +354,15 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                 ✕ Cancel
               </button>
             </div>
+            {jogHint && (
+              <div className="jog-mode-banner">
+                <span className="jog-icon">⇄</span>
+                <span className="jog-text">JOG MODE ACTIVE</span>
+                <span className="jog-desc">Move axes to teach positions</span>
+              </div>
+            )}
           </div>
         </div>
-
-        {jogHint && (
-          <div className="jog-mode-banner">
-            <span className="jog-icon">⇄</span>
-            <span className="jog-text">JOG MODE ACTIVE</span>
-            <span className="jog-desc">Move axes to teach positions</span>
-          </div>
-        )}
 
         <div className="program-editor-content no-scroll">
 
@@ -393,22 +414,24 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
 
                       <div className="settings-section">
                         <h4>⚙ Settings</h4>
-                        <div className="settings-row">
-                          <label>Speed:</label>
-                          <div 
-                            className="setting-value editable"
-                            onClick={() => handleEditSpeed(step.stepNumber)}
-                          >
-                            {step.speed || programSpeed}%
+                        <div className="settings-row-inline">
+                          <div className="settings-row">
+                            <label>Speed:</label>
+                            <div 
+                              className="setting-value editable"
+                              onClick={() => handleEditSpeed(step.stepNumber)}
+                            >
+                              {step.speed || programSpeed}%
+                            </div>
                           </div>
-                        </div>
-                        <div className="settings-row">
-                          <label>Dwell:</label>
-                          <div 
-                            className="setting-value editable"
-                            onClick={() => handleEditDwell(step.stepNumber)}
-                          >
-                            {step.dwell || programDwell} ms
+                          <div className="settings-row">
+                            <label>Dwell:</label>
+                            <div 
+                              className="setting-value editable"
+                              onClick={() => handleEditDwell(step.stepNumber)}
+                            >
+                              {step.dwell || programDwell} ms
+                            </div>
                           </div>
                         </div>
                         {step.pattern === 5 && (

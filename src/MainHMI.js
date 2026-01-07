@@ -39,9 +39,9 @@ const STEP_CONFIG = {
 export default function MainHMI() {
   const [currentUser, setCurrentUser] = useState('operator');
   const [userPasswords, setUserPasswords] = useState({
-    operator: 'op123',
-    setup: 'setup123',
-    engineering: 'eng123'
+    operator: '1234',
+    setup: '5678',
+    engineering: '9999'
   });
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [recipeOpen, setRecipeOpen] = useState(false);
@@ -317,6 +317,10 @@ export default function MainHMI() {
   const handleUserLogin = (userRole) => {
     if (userRole) setCurrentUser(userRole);
     setShowLoginModal(false);
+  };
+
+  const handleLogout = () => {
+    setCurrentUser('operator');
   };
 
   const handleEditProgram = () => {
@@ -772,6 +776,9 @@ export default function MainHMI() {
             </div>
             <button className="change-user-btn" onClick={() => setShowLoginModal(true)}>
               Change User
+            </button>
+            <button className="change-user-btn" onClick={handleLogout} title="Logout to Operator">
+              Logout
             </button>
           </div>
           {(plcDirty.left || plcDirty.right) && (

@@ -6,18 +6,36 @@ const fs = require('fs');
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const url = require('url');
+const { startServer } = require('./backend/plc-server');
+
+let backendServer;
 
 function createWindow() {
+  const isDev = !app.isPackaged;
+  const previewEnv = process.env.PREVIEW_1024;
+  const isPreview = isDev || (previewEnv && /^(1|true|yes)$/i.test(previewEnv));
+
   const win = new BrowserWindow({
-    width: 1280,
-    height: 800,
-    fullscreen: true,
+    width: 1024,
+    height: 768,
+    useContentSize: true,
+    fullscreen: !isPreview,
+    resizable: isPreview,
+    autoHideMenuBar: true,
+    backgroundColor: '#000000',
+    show: false,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
+      zoomFactor: 1.0,
     },
   });
+  if (isPreview) {
+    try { win.setAspectRatio(1024 / 768); } catch (e) {}
+    try { win.setMinimumSize(1024, 768); } catch (e) {}
+    try { win.center(); } catch (e) {}
+  }
 
     // Use process.resourcesPath in production, app.getAppPath() in development
     const isPackaged = app.isPackaged;
@@ -35,17 +53,49 @@ function createWindow() {
       console.error('Failed to load index.html:', err);
     });
   win.setMenuBarVisibility(false);
-  // Only open DevTools in development mode
-  if (!app.isPackaged) {
-    win.webContents.openDevTools();
+
+  // Ensure the window becomes visible and focused when ready
+  win.once('ready-to-show', () => {
+    try {
+      if (isPreview) {
+        win.setAlwaysOnTop(true, 'screen-saver');
+      }
+      win.show();
+      win.focus();
+      if (isPreview) {
+        setTimeout(() => {
+          try { win.setAlwaysOnTop(false); } catch (e) {}
+        }, 1200);
+      }
+    } catch (e) {}
+  });
+
+  // Only open DevTools in preview/development mode
+  if (isPreview) {
+    try { win.webContents.openDevTools({ mode: 'undocked' }); } catch (e) {}
   }
+
+  console.log(`[electron] Preview mode: ${isPreview ? 'ON (1024x768 windowed)' : 'OFF (fullscreen)'}`);
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(async () => {
+  try {
+    backendServer = await startServer();
+  } catch (err) {
+    console.error('Failed to start PLC backend:', err.message);
+  }
+  createWindow();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
+  }
+});
+
+app.on('before-quit', async () => {
+  if (backendServer && backendServer.stop) {
+    await backendServer.stop();
   }
 });
 
@@ -56,7 +106,8 @@ app.on('activate', () => {
 });
 
 // IPC handlers for recipe save/load
-const recipesDir = path.join(app.getAppPath(), '..', 'recipes');
+// Store recipes under the per-user data directory to ensure write access in production
+const recipesDir = path.join(app.getPath('userData'), 'recipes');
 
 ipcMain.handle('save-recipe', async (event, recipe, side) => {
   try {
