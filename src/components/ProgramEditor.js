@@ -15,6 +15,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
   const [programDwell, setProgramDwell] = useState(500);
   const [stepDialog, setStepDialog] = useState({ open: false, mode: 'add', stepNumber: '', pattern: 0, repeatTargetStep: 1, repeatCount: 1 });
   const [repeatDialog, setRepeatDialog] = useState({ open: false, stepNumber: null, repeatTargetStep: 1, repeatCount: 1 });
+  const [autoEditDialog, setAutoEditDialog] = useState({ open: false, currentDiameter: '', desiredDiameter: '' });
   const [jogHint, setJogHint] = useState(false);
   const [downloadDialog, setDownloadDialog] = useState({ open: false });
   const [loading, setLoading] = useState(false);
@@ -143,6 +144,22 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
     if (keypadTarget.type === 'repeatCount') {
       const parsed = parseInt(value, 10);
       setRepeatDialog((prev) => ({ ...prev, repeatCount: isNaN(parsed) ? '' : parsed }));
+      setKeypadOpen(false);
+      setKeypadTarget(null);
+      return;
+    }
+
+    if (keypadTarget.type === 'autoCurrentDiameter') {
+      const parsed = parseFloat(value);
+      setAutoEditDialog((prev) => ({ ...prev, currentDiameter: isNaN(parsed) ? '' : parsed }));
+      setKeypadOpen(false);
+      setKeypadTarget(null);
+      return;
+    }
+
+    if (keypadTarget.type === 'autoDesiredDiameter') {
+      const parsed = parseFloat(value);
+      setAutoEditDialog((prev) => ({ ...prev, desiredDiameter: isNaN(parsed) ? '' : parsed }));
       setKeypadOpen(false);
       setKeypadTarget(null);
       return;
@@ -305,6 +322,9 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
               </button>
             </div>
             <div className="program-actions-group">
+              <button className="auto-edit-btn" onClick={() => setAutoEditDialog({ open: true, currentDiameter: '', desiredDiameter: '' })}>
+                ⚡ Auto Edit
+              </button>
               <button className="save-program-btn" onClick={handleSave}>
                 💾 Save Changes
               </button>
@@ -445,6 +465,10 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
               ? 'Repeat: Target Step'
               : keypadTarget?.type === 'repeatCount'
               ? 'Repeat: Times'
+              : keypadTarget?.type === 'autoCurrentDiameter'
+              ? 'Current Diameter'
+              : keypadTarget?.type === 'autoDesiredDiameter'
+              ? 'Desired Diameter'
               : keypadTarget?.type === 'position' 
               ? `Edit ${getAxisLabelForKeypad()} Position`
               : keypadTarget?.type === 'speed'
@@ -459,6 +483,8 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
             keypadTarget?.type === 'deleteStep' ? '' :
             keypadTarget?.type === 'repeatTargetStep' ? '' :
             keypadTarget?.type === 'repeatCount' ? '' :
+            keypadTarget?.type === 'autoCurrentDiameter' ? 'mm' :
+            keypadTarget?.type === 'autoDesiredDiameter' ? 'mm' :
             keypadTarget?.type === 'position' ? 'mm' :
             keypadTarget?.type === 'speed' || keypadTarget?.type === 'globalSpeed' ? '%' :
             'ms'
@@ -744,6 +770,86 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                   style={{ cursor: 'pointer' }}
                 />
                 <div className="dialog-hint">1 - 999 times</div>
+              </div>
+            </div>
+          </div>
+        </ModernDialog>
+
+        <ModernDialog
+          isOpen={autoEditDialog.open}
+          title="Auto Edit"
+          onCancel={() => setAutoEditDialog({ open: false, currentDiameter: '', desiredDiameter: '' })}
+          onConfirm={() => {
+            const cur = parseFloat(autoEditDialog.currentDiameter);
+            const des = parseFloat(autoEditDialog.desiredDiameter);
+            if (isNaN(cur) || isNaN(des)) {
+              setDialog({ open: true, title: 'Invalid Input', message: 'Enter both current and desired diameters.' });
+              return;
+            }
+            const delta = des - cur;
+            const isRightSide = program.side === 'right';
+            const updated = editedSteps.map((s) => {
+              if (s.pattern === 5) return s; // skip repeat steps
+              const axes = getPatternAxes(s.pattern);
+              const next = { ...s, positions: { ...s.positions } };
+              axes.forEach((ax) => {
+                const field = isRightSide
+                  ? (ax === 'axis1' ? 'axis1Cmd' : 'axis2Cmd')
+                  : (ax === 'axis1' ? (s.positions.axis3Cmd !== undefined ? 'axis3Cmd' : 'axis1Cmd') : (s.positions.axis4Cmd !== undefined ? 'axis4Cmd' : 'axis2Cmd'));
+                const val = parseFloat(next.positions[field]);
+                if (!isNaN(val)) {
+                  next.positions[field] = parseFloat((val + delta).toFixed(3));
+                }
+              });
+              return next;
+            });
+            setEditedSteps(updated);
+            setAutoEditDialog({ open: false, currentDiameter: '', desiredDiameter: '' });
+          }}
+          confirmText="Apply"
+          cancelText="Cancel"
+        >
+          <div className="step-dialog-modern">
+            <div className="dialog-header-row">
+              <div className="dialog-icon">⚡</div>
+              <div className="dialog-heading">
+                <div className="dialog-title-text">Auto Edit by Diameter</div>
+                <div className="dialog-subtitle">Offsets positions globally based on desired change</div>
+              </div>
+              <div className="dialog-pill">Global Offset</div>
+            </div>
+            <div className="step-dialog-section two-col">
+              <div>
+                <label className="dialog-label">Current Diameter</label>
+                <input
+                  type="number"
+                  value={autoEditDialog.currentDiameter}
+                  onClick={() => {
+                    setKeypadTarget({ type: 'autoCurrentDiameter' });
+                    setKeypadValue(autoEditDialog.currentDiameter || '');
+                    setKeypadOpen(true);
+                  }}
+                  readOnly
+                  className="step-dialog-input modern"
+                  style={{ cursor: 'pointer' }}
+                />
+                <div className="dialog-hint">Measured diameter (mm)</div>
+              </div>
+              <div>
+                <label className="dialog-label">Desired Diameter</label>
+                <input
+                  type="number"
+                  value={autoEditDialog.desiredDiameter}
+                  onClick={() => {
+                    setKeypadTarget({ type: 'autoDesiredDiameter' });
+                    setKeypadValue(autoEditDialog.desiredDiameter || '');
+                    setKeypadOpen(true);
+                  }}
+                  readOnly
+                  className="step-dialog-input modern"
+                  style={{ cursor: 'pointer' }}
+                />
+                <div className="dialog-hint">Target diameter (mm)</div>
               </div>
             </div>
           </div>

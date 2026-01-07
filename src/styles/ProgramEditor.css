@@ -202,6 +202,15 @@
   display: flex;
   gap: 10px;
   align-items: center;
+.auto-edit-btn {
+  background: #6c5ce7;
+  color: #fff;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.auto-edit-btn:hover { opacity: 0.9; }
 }
 
 .step-action-btn {
