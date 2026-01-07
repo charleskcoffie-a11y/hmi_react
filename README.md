@@ -26,6 +26,20 @@ It correctly bundles React in production mode and optimizes the build for the be
 
 The build is minified and the filenames include the hashes.\
 Your app is ready to be deployed!
+### `Auto Edit` (Global Offset)
+
+The Edit Program page includes an Auto Edit feature to quickly offset taught positions based on measured and desired diameters.
+
+- Open the editor and press the `Auto Edit` button.
+- Enter the current diameter and desired diameter. Tap a field to use the on-screen NumericKeypad.
+- Confirm to apply a global offset: `delta = desired - current`.
+- The offset updates the active axis positions for each step (based on the step pattern and side), while skipping any `Repeat` steps (pattern 5).
+- Values are rounded to 3 decimals and only numeric fields are modified.
+
+Notes:
+- Right side updates `axis1Cmd` and/or `axis2Cmd` for active axes.
+- Left side updates `axis3Cmd`/`axis4Cmd` when present, otherwise `axis1Cmd`/`axis2Cmd`.
+- Repeat steps (pattern 5) are not altered.
 
 See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
 
