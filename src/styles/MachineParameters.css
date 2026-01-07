@@ -556,6 +556,94 @@
   transform: translateY(-2px);
 }
 
+/* Digital IO Status Styles */
+.dio-status {
+  margin-top: 20px;
+  margin-bottom: 24px;
+  background: linear-gradient(135deg, rgba(0, 102, 204, 0.08) 0%, rgba(0, 102, 204, 0.04) 100%);
+  border: 1px solid rgba(0, 102, 204, 0.3);
+  border-radius: 10px;
+  padding: 16px 18px;
+}
+
+.dio-title {
+  margin: 0 0 10px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #9cc3ff;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.dio-section {
+  margin-top: 12px;
+}
+
+.dio-subtitle {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #8aa7c4;
+  letter-spacing: 0.3px;
+}
+
+.dio-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.dio-item {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(100, 100, 150, 0.25);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.dio-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #d8e8ff;
+}
+
+.dio-led {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.12), 0 6px 12px rgba(0, 0, 0, 0.35);
+  transition: background 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
+}
+
+.dio-led.on {
+  background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15), 0 0 18px rgba(46, 204, 113, 0.45);
+  color: #0b3;
+}
+
+.dio-led.off {
+  background: linear-gradient(135deg, #3a3f4b 0%, #232833 100%);
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.4);
+  color: #aaa;
+}
+
+.dio-index {
+  font-size: 11px;
+  color: #889;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
 @media (max-width: 768px) {
   .machine-params-modal {
     max-width: 95%;

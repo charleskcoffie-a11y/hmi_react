@@ -1,4 +1,5 @@
 import React from 'react';
+import { pulseButton } from '../services/ioService';
 import '../styles/ControlPanel.css';
 
 export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach, onMachineParameters, onStartPosition, userRole }) {
@@ -15,7 +16,14 @@ export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach,
         <div className="control-section center-section">
           <button 
             className="control-btn start-position-btn start-left-btn"
-            onClick={() => onStartPosition && onStartPosition('left')}
+            onClick={async () => {
+              try {
+                await pulseButton(11, 150); // Index 11: GVL_GLEFTHEAD.bHmiLeftStartPosPb
+                onStartPosition && onStartPosition('left');
+              } catch (err) {
+                console.error('Failed to pulse Start Left:', err);
+              }
+            }}
             disabled={!canStartPosition}
             title={canStartPosition ? 'Set start position for left side' : 'Not available for your role'}
           >
@@ -24,7 +32,14 @@ export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach,
           </button>
           <button 
             className="control-btn start-position-btn start-right-btn"
-            onClick={() => onStartPosition && onStartPosition('right')}
+            onClick={async () => {
+              try {
+                await pulseButton(50, 150); // Index 50: GVL_GRIGHTHEAD.bHmiRightStartPosPb
+                onStartPosition && onStartPosition('right');
+              } catch (err) {
+                console.error('Failed to pulse Start Right:', err);
+              }
+            }}
             disabled={!canStartPosition}
             title={canStartPosition ? 'Set start position for right side' : 'Not available for your role'}
           >
