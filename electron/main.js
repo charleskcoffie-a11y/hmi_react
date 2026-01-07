@@ -56,7 +56,8 @@ app.on('activate', () => {
 });
 
 // IPC handlers for recipe save/load
-const recipesDir = path.join(app.getAppPath(), '..', 'recipes');
+// Store recipes under the per-user data directory to ensure write access in production
+const recipesDir = path.join(app.getPath('userData'), 'recipes');
 
 ipcMain.handle('save-recipe', async (event, recipe, side) => {
   try {

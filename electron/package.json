@@ -6,6 +6,7 @@
   "scripts": {
     "start": "electron .",
     "pack": "electron-builder --dir",
+    "predist": "node copy-build.js",
     "dist": "electron-builder",
     "predist32": "node copy-build.js",
     "dist32": "electron-builder --win --ia32"
@@ -23,6 +24,7 @@
     },
     "files": [
       "main.js",
+      "preload.js",
       "build/**/*"
     ],
     "asar": false,
