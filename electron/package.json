@@ -6,9 +6,10 @@
   "scripts": {
     "start": "electron .",
     "pack": "electron-builder --dir",
-    "predist": "node copy-build.js",
+    "clean": "node -e \"require('fs').rmSync('./build', {recursive: true, force: true}); require('fs').rmSync('./dist', {recursive: true, force: true}); console.log('Cleaned build and dist folders');\"",
+    "predist": "npm run clean && node copy-build.js",
     "dist": "electron-builder --win --ia32",
-    "predist32": "node copy-build.js",
+    "predist32": "npm run clean && node copy-build.js",
     "dist32": "electron-builder --win --ia32"
   },
   "devDependencies": {
