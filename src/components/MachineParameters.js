@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ModernDialog from './ModernDialog';
 import ConnectionStatus from './ConnectionStatus';
+import NetIDSettings from './NetIDSettings';
 import '../styles/MachineParameters.css';
 import { getIoMap, readIndices, filterIoMap } from '../services/ioService';
 import DigitalIOPage from './DigitalIOPage';
@@ -24,7 +25,8 @@ export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknow
 
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showPasswords, setShowPasswords] = useState(false);
-    const [connectionStatusOpen, setConnectionStatusOpen] = useState(false);
+  const [connectionStatusOpen, setConnectionStatusOpen] = useState(false);
+  const [netIDSettingsOpen, setNetIDSettingsOpen] = useState(false);
 
   const [editingParam, setEditingParam] = useState(null);
   const [editValue, setEditValue] = useState('');
@@ -288,6 +290,20 @@ export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknow
             </button>
           </div>
 
+          <div className="netid-trigger">
+            <div>
+              <h3 className="netid-title">🌐 Network Configuration</h3>
+              <p className="netid-note">Configure PLC Net ID and SuperUser settings (requires SuperUser authentication).</p>
+            </div>
+            <button
+              className="netid-open-btn"
+              onClick={() => setNetIDSettingsOpen(true)}
+              title="Open network configuration settings"
+            >
+              ⚙️ Network Settings
+            </button>
+          </div>
+
           <div className="params-info">
             <div className="info-box">
               <h3>Unit Conversion Info</h3>
@@ -350,6 +366,11 @@ export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknow
         <DigitalIOPage
           isOpen={digitalIOOpen}
           onClose={() => setDigitalIOOpen(false)}
+        />
+
+        <NetIDSettings
+          isOpen={netIDSettingsOpen}
+          onClose={() => setNetIDSettingsOpen(false)}
         />
     </>
   );
