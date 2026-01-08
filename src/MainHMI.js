@@ -18,9 +18,12 @@ import EditProgramSideSelector from './components/EditProgramSideSelector';
 import ProgramEditor from './components/ProgramEditor';
 import AutoAdjustProgram from './components/AutoAdjustProgram';
 import DownloadProgramModal from './components/DownloadProgramModal';
+import DebugPanel from './components/DebugPanel';
+import DigitalIOPage from './components/DigitalIOPage';
 import './styles/MainHMI.css';
-import { readPLCVar, writePLCVar } from './services/plcApiService';
+import { readPLCVar, writePLCVar, readAxisPositions, pulseBoolTag } from './services/plcApiService';
 import { saveRecipeToFile, loadRecipesFromFolder, deleteRecipeFile } from './services/recipeService';
+import { initializeBackendNetId } from './services/netIdService';
 
 // Define step configurations
 const STEP_CONFIG = {
@@ -47,6 +50,8 @@ export default function MainHMI() {
   const [recipeOpen, setRecipeOpen] = useState(false);
   const [recipeSideSelectorOpen, setRecipeSideSelectorOpen] = useState(false);
   const [recipeSide, setRecipeSide] = useState(null);
+  const [debugPanelOpen, setDebugPanelOpen] = useState(false);
+  const [ioPageOpen, setIoPageOpen] = useState(false);
   const [axis1State] = useState({ status: 'idle' });
   const [axis2State] = useState({ status: 'idle' });
   const [axis3State] = useState({ status: 'idle' });
@@ -55,7 +60,7 @@ export default function MainHMI() {
   const [homedSides, setHomedSides] = useState({ right: false, left: false });
   const [showRunSideSelector, setShowRunSideSelector] = useState(false);
   const [showHomingSideSelector, setShowHomingSideSelector] = useState(false);
-  const [machineCount] = useState(0);
+  const [machineCount, setMachineCount] = useState(0);
   const [unitSystem, setUnitSystem] = useState('mm');
   const [actualPositions, setActualPositions] = useState({
     right: { axis1: 0, axis2: 0 }, // PLC tags: lAxis1ActPos, lAxis2ActPos
@@ -68,22 +73,62 @@ export default function MainHMI() {
   });
 
   const [plcStatus, setPlcStatus] = useState('unknown');
+  
+  // Initialize backend with saved Net ID on mount
+  useEffect(() => {
+    initializeBackendNetId();
+  }, []);
+  
   useEffect(() => {
     let timer;
     const poll = async () => {
       try {
-        // Replace with backend API calls
-        const plcData = await readPLCVar();
-        setActualPositions(plcData.actualPositions || { right: { axis1: 0, axis2: 0 }, left: { axis1: 0, axis2: 0 } });
-        setSideStates(plcData.sideStates || { right: { state: 0, desc: 'Idle' }, left: { state: 0, desc: 'Idle' } });
-        setPlcStatus('good');
+        // Read axis positions from PLC
+        const data = await readAxisPositions();
+        setActualPositions(data.actualPositions || { right: { axis1: 0, axis2: 0 }, left: { axis1: 0, axis2: 0 } });
+        setPlcStatus(data.connected ? 'good' : 'bad');
+        
+        // Read machine count from PLC
+        try {
+          const countResponse = await fetch('http://localhost:3001/read?tag=GPersistent.dABSMachineCount');
+          if (countResponse.ok) {
+            const countData = await countResponse.json();
+            console.log('[MainHMI] Machine count response:', countData);
+            if (countData.success) {
+              // DINT is a 32-bit signed integer - handle various response formats
+              let count = 0;
+              if (typeof countData.value === 'number') {
+                count = countData.value;
+              } else if (countData.value && typeof countData.value === 'object') {
+                // Handle object responses (ads-client sometimes wraps values)
+                if ('value' in countData.value) {
+                  count = countData.value.value;
+                } else if ('low' in countData.value) {
+                  count = countData.value.low || 0;
+                } else {
+                  // Try to extract first numeric value from object
+                  count = Object.values(countData.value).find(v => typeof v === 'number') || 0;
+                }
+              }
+              const finalCount = Math.floor(Math.max(0, count)); // Ensure non-negative
+              console.log('[MainHMI] Setting machine count to:', finalCount);
+              setMachineCount(finalCount);
+            } else {
+              console.warn('[MainHMI] Machine count read failed:', countData.error);
+            }
+          }
+        } catch (countErr) {
+          console.warn('[MainHMI] Machine count fetch error:', countErr.message || countErr);
+        }
       } catch (err) {
         setPlcStatus('bad');
-        console.warn('Actual position read failed:', err.message || err);
+        console.warn('Axis position read failed:', err.message || err);
+        // Set positions to 0 on error
+        setActualPositions({ right: { axis1: 0, axis2: 0 }, left: { axis1: 0, axis2: 0 } });
       }
     };
     poll();
-    timer = setInterval(poll, 1000);
+    timer = setInterval(poll, 500); // Poll every 500ms for smoother updates
     return () => clearInterval(timer);
   }, []);
 
@@ -97,10 +142,17 @@ export default function MainHMI() {
 
   // Load recipes from filesystem on mount
   useEffect(() => {
-    const rightRecipes = loadRecipesFromFolder('right');
-    const leftRecipes = loadRecipesFromFolder('left');
-    if (rightRecipes.length > 0) setRecipesRight(rightRecipes);
-    if (leftRecipes.length > 0) setRecipesLeft(leftRecipes);
+    const loadRecipes = async () => {
+      try {
+        const rightRecipes = await loadRecipesFromFolder('right');
+        const leftRecipes = await loadRecipesFromFolder('left');
+        if (rightRecipes.length > 0) setRecipesRight(rightRecipes);
+        if (leftRecipes.length > 0) setRecipesLeft(leftRecipes);
+      } catch (err) {
+        console.warn('Failed to load recipes:', err);
+      }
+    };
+    loadRecipes();
   }, []);
 
   const [recipesRight, setRecipesRight] = useState([
@@ -203,6 +255,27 @@ export default function MainHMI() {
 
   const handleAxisChange = (axisName, value, mode) => {
     console.log(`${axisName} changed to ${value} (${mode})`);
+  };
+
+  // Homing handlers: pulse momentary tags for left/right heads
+  const handleHomeLeft = async () => {
+    try {
+      await pulseBoolTag('GLEFTHEAD.bHmiEnaLeftHomePb', 200);
+      setHomedSides(prev => ({ ...prev, left: true }));
+      showMessage('Homing Started', 'Homing left side...', 'info');
+    } catch (error) {
+      showMessage('Error', `Failed to trigger left homing: ${error.message}`, 'error');
+    }
+  };
+
+  const handleHomeRight = async () => {
+    try {
+      await pulseBoolTag('GRIGHTHEAD.bHmiEnaRightHomePb', 200);
+      setHomedSides(prev => ({ ...prev, right: true }));
+      showMessage('Homing Started', 'Homing right side...', 'info');
+    } catch (error) {
+      showMessage('Error', `Failed to trigger right homing: ${error.message}`, 'error');
+    }
   };
 
   const handleLoadRecipe = (recipe, side) => {
@@ -761,7 +834,7 @@ export default function MainHMI() {
         <div className="header-right">
           <div className="shift-counts">
             <div className="shift-count-card">
-              <div className="shift-label">Machine Count</div>
+              <div className="shift-label">Count</div>
               <div className="shift-value">{machineCount}</div>
             </div>
           </div>
@@ -785,10 +858,10 @@ export default function MainHMI() {
             <div className="plc-dirty-indicator" title="PLC has live changes not saved to recipe">
               <span className="plc-dirty-dot" />
               <span>
-                PLC differs from recipe:
-                {plcDirty.left ? ' Left' : ''}
-                {plcDirty.left && plcDirty.right ? ' & ' : ''}
-                {plcDirty.right ? ' Right' : ''}
+                PLC differs:
+                {plcDirty.left ? ' L' : ''}
+                {plcDirty.left && plcDirty.right ? '&' : ''}
+                {plcDirty.right ? ' R' : ''}
               </span>
             </div>
           )}
@@ -846,11 +919,20 @@ export default function MainHMI() {
         <div className="mode-button-group">
           <button 
             className="mode-control-btn homing-btn"
-            onClick={() => setShowHomingSideSelector(true)}
-            title="Select side(s) to home"
+            onClick={handleHomeLeft}
+            title="Home Left Side"
           >
             <span className="mode-icon">🏠</span>
-            <span>HOMING</span>
+            <span>HOME LEFT</span>
+          </button>
+
+          <button 
+            className="mode-control-btn homing-btn"
+            onClick={handleHomeRight}
+            title="Home Right Side"
+          >
+            <span className="mode-icon">🏠</span>
+            <span>HOME RIGHT</span>
           </button>
 
           <button 
@@ -877,6 +959,15 @@ export default function MainHMI() {
           >
             <span className="mode-icon">▶</span>
             <span>RUN</span>
+          </button>
+
+          <button 
+            className="mode-control-btn io-btn"
+            onClick={() => setIoPageOpen(true)}
+            title="View and test Digital IO"
+          >
+            <span className="mode-icon">⚡</span>
+            <span>IO</span>
           </button>
         </div>
       </div>
@@ -913,6 +1004,12 @@ export default function MainHMI() {
         userRole={currentUser}
         userPasswords={userPasswords}
         onUpdatePasswords={setUserPasswords}
+        onOpenDebug={() => setDebugPanelOpen(true)}
+      />
+
+      <DigitalIOPage
+        isOpen={ioPageOpen}
+        onClose={() => setIoPageOpen(false)}
       />
 
       {showSideSelector && (
@@ -1029,13 +1126,7 @@ export default function MainHMI() {
 
 
 
-      {showHomingSideSelector && (
-        <SideSelector
-          onSelectSide={handleHomingSideSelect}
-          onCancel={() => setShowHomingSideSelector(false)}
-          title="Select Side(s) to Home"
-        />
-      )}
+      {/* Homing side selector removed; direct buttons used */}
 
       {showEnableSideSelector && (
         <SideSelector
@@ -1130,6 +1221,8 @@ export default function MainHMI() {
           onWriteToPLC={handlePLCWrite}
         />
       </>
+
+      <DebugPanel isOpen={debugPanelOpen} onClose={() => setDebugPanelOpen(false)} />
     </div>
   );
 }

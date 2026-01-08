@@ -64,6 +64,83 @@
   color: white;
 }
 
+.params-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.plc-connection-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: #d8e8ff;
+  margin-top: 4px;
+}
+
+.plc-connection-text {
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.hb-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 255, 170, 0.35);
+  background: rgba(0, 255, 170, 0.12);
+  color: #b1ffe0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.hb-pill.warn {
+  border-color: rgba(255, 184, 0, 0.45);
+  background: rgba(255, 184, 0, 0.12);
+  color: #ffe4a0;
+}
+
+.hb-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #00ffaa;
+  box-shadow: 0 0 10px rgba(0, 255, 170, 0.7);
+  flex-shrink: 0;
+}
+
+.hb-pill.warn .hb-dot {
+  background: #ffb800;
+  box-shadow: 0 0 10px rgba(255, 184, 0, 0.7);
+}
+
+.hb-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #8df2ce;
+}
+
+.hb-pill.warn .hb-label {
+  color: #ffd27a;
+}
+
+.hb-value {
+  font-family: 'Courier New', monospace;
+  color: white;
+}
+
+.hb-tag {
+  padding: 2px 6px;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 10px;
+  font-size: 11px;
+  color: #a5c8ff;
+}
+
 .close-btn {
   background: transparent;
   border: none;
@@ -95,6 +172,32 @@
   border-radius: 10px;
   padding: 20px;
   margin-bottom: 30px;
+}
+
+.debug-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, #9b6bff 0%, #6a3bff 100%);
+  border: 1px solid #b18cff;
+  border-radius: 10px;
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  min-width: 110px;
+  box-shadow: 0 8px 20px rgba(107, 67, 255, 0.35);
+}
+
+.debug-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 26px rgba(107, 67, 255, 0.45);
+}
+
+.debug-btn .btn-icon {
+  font-size: 16px;
 }
 
 .unit-label {

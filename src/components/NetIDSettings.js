@@ -55,8 +55,28 @@ const NetIDSettings = ({ isOpen, onClose }) => {
     }
 
     try {
+      // Save to localStorage
       localStorage.setItem('ams_net_id', newNetID);
       setNetID(newNetID);
+      
+      // Update backend with new Net ID
+      try {
+        const res = await fetch('http://localhost:3001/set-net-id', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ netId: newNetID })
+        });
+        const data = await res.json();
+        if (data.success) {
+          console.log('[NetIDSettings] Backend Net ID updated:', data.message);
+        } else {
+          console.warn('[NetIDSettings] Backend Net ID update warning:', data.error);
+        }
+      } catch (backendErr) {
+        console.error('[NetIDSettings] Failed to update backend Net ID:', backendErr.message);
+        // Still count as success since localStorage was saved
+      }
+      
       setNewNetID('');
       setEditingMode('none');
       setMessage('Net ID saved successfully');
@@ -151,10 +171,9 @@ const NetIDSettings = ({ isOpen, onClose }) => {
               {showPasswordKeypad && (
                 <div className="netid-keypad-container">
                   <PasswordKeypad
-                    onSubmit={handlePasswordSubmit}
-                    onCancel={() => setShowPasswordKeypad(false)}
-                    inputValue={password}
-                    onInputChange={setPassword}
+                    value={password}
+                    onValueChange={setPassword}
+                    onEnter={() => handlePasswordSubmit(password)}
                   />
                 </div>
               )}

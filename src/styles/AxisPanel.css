@@ -203,7 +203,8 @@
   background: rgba(0, 102, 204, 0.08);
   border: 1px solid #0066cc;
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 10px 12px;
+  min-height: 52px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -221,10 +222,10 @@
 .pos-value {
   color: #00ffff;
   font-family: 'Courier New', monospace;
-  font-size: 20px;
+  font-size: 36px;
   font-weight: 700;
-  text-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
-  letter-spacing: 1px;
+  text-shadow: 0 0 10px rgba(0, 255, 255, 0.6);
+  letter-spacing: 1.5px;
 }
 
 .step-info-row {

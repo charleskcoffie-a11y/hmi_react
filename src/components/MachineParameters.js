@@ -6,7 +6,7 @@ import '../styles/MachineParameters.css';
 import { getIoMap, readIndices, filterIoMap } from '../services/ioService';
 import DigitalIOPage from './DigitalIOPage';
 
-export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknown', unitSystem = 'mm', onUnitChange, userRole = 'operator', userPasswords = { operator: 'op123', setup: 'setup123', engineering: 'eng123' }, onUpdatePasswords }) {
+export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknown', unitSystem = 'mm', onUnitChange, userRole = 'operator', userPasswords = { operator: 'op123', setup: 'setup123', engineering: 'eng123' }, onUpdatePasswords, onOpenDebug = () => {} }) {
   const [parameters, setParameters] = useState({
     maxTravel: 2, // stored in inches, displayed based on unitSystem
     minPosition: 0,
@@ -27,6 +27,9 @@ export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknow
   const [showPasswords, setShowPasswords] = useState(false);
   const [connectionStatusOpen, setConnectionStatusOpen] = useState(false);
   const [netIDSettingsOpen, setNetIDSettingsOpen] = useState(false);
+  const [actualConnectionStatus, setActualConnectionStatus] = useState('unknown');
+  const [heartbeatValue, setHeartbeatValue] = useState(null);
+  const [heartbeatTag, setHeartbeatTag] = useState(null);
 
   const [editingParam, setEditingParam] = useState(null);
   const [editValue, setEditValue] = useState('');
@@ -35,6 +38,34 @@ export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknow
   const [dioOutputs, setDioOutputs] = useState([]);
   const [dioStates, setDioStates] = useState({});
   const [digitalIOOpen, setDigitalIOOpen] = useState(false);
+
+  // Fetch actual backend connection status
+  useEffect(() => {
+    const checkConnectionStatus = async () => {
+      try {
+        const res = await fetch('http://localhost:3001/status');
+        if (res.ok) {
+          const data = await res.json();
+          setActualConnectionStatus(data.connected ? 'good' : 'bad');
+          setHeartbeatValue(data.heartbeat ?? null);
+          setHeartbeatTag(data.heartbeatTag || null);
+        } else {
+          setActualConnectionStatus('bad');
+          setHeartbeatValue(null);
+          setHeartbeatTag(null);
+        }
+      } catch (err) {
+        setActualConnectionStatus('bad');
+        setHeartbeatValue(null);
+        setHeartbeatTag(null);
+      }
+    };
+
+    // Check immediately and then every 2 seconds
+    checkConnectionStatus();
+    const interval = setInterval(checkConnectionStatus, 2000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Load IO map and prepare Digital IO indices
   useEffect(() => {
@@ -143,11 +174,20 @@ export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknow
         <div className="params-header">
             <div>
               <h2>Machine Parameters</h2>
-              <div style={{ fontSize: '1em', color: plcStatus === 'good' ? 'green' : plcStatus === 'bad' ? 'red' : 'gray', marginTop: 4 }}>
-                PLC Connection: {plcStatus === 'good' ? 'Good' : plcStatus === 'bad' ? 'Bad' : 'Unknown'}
+              <div className="plc-connection-line">
+                <span className={`status-dot ${actualConnectionStatus}`}></span>
+                <span className="plc-connection-text">
+                  PLC Connection: {actualConnectionStatus === 'good' ? 'Good' : actualConnectionStatus === 'bad' ? 'Bad' : 'Unknown'}
+                </span>
+                <span className={`hb-pill ${heartbeatValue !== null && actualConnectionStatus === 'good' ? 'ok' : 'warn'}`}>
+                  <span className="hb-dot" />
+                  <span className="hb-label">HB</span>
+                  <span className="hb-value">{heartbeatValue !== null ? heartbeatValue : 'N/A'}</span>
+                  {heartbeatTag && <span className="hb-tag">{heartbeatTag}</span>}
+                </span>
               </div>
             </div>
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <div className="params-actions">
               <button
                 className="connection-btn"
                 onClick={() => setConnectionStatusOpen(true)}
@@ -155,7 +195,15 @@ export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknow
               >
                 <span className="btn-icon">🔌</span>
                 <span className="btn-label">Connection</span>
-                <span className={`status-dot ${plcStatus}`}></span>
+                <span className={`status-dot ${actualConnectionStatus}`}></span>
+              </button>
+              <button
+                className="debug-btn"
+                onClick={() => onOpenDebug && onOpenDebug()}
+                aria-label="Open Debug Panel"
+              >
+                <span className="btn-icon">🩺</span>
+                <span className="btn-label">Debug</span>
               </button>
               <button className="close-btn" onClick={onClose}>✕</button>
           </div>

@@ -3,7 +3,7 @@ const { Client } = require('ads-client');
 const fs = require('fs');
 const path = require('path');
 
-const DEFAULT_NET_ID = process.env.AMS_NET_ID || '5.34.123.45.1.1';
+let DEFAULT_NET_ID = process.env.AMS_NET_ID || '5.34.123.45.1.1';
 const DEFAULT_ADS_PORT = parseInt(process.env.AMS_PORT || '851', 10);
 const DEFAULT_HTTP_PORT = parseInt(process.env.ADS_HTTP_PORT || '3001', 10);
 const READ_SYMBOL = process.env.ADS_READ_SYMBOL || 'MAIN.myVar';
@@ -44,6 +44,18 @@ function createServer() {
   let connected = false;
   const ioMap = loadIoMap();
 
+  const hasReadValue = () => typeof ads?.readValue === 'function';
+  const hasWriteValue = () => typeof ads?.writeValue === 'function';
+
+  async function readTagValue(tag) {
+    const res = await ads.readValue(tag);
+    return res?.value;
+  }
+
+  async function writeTagValue(tag, value, autoFill = false) {
+    await ads.writeValue(tag, value, autoFill);
+  }
+
   function resolveTag(index) {
     const entry = ioMap.find(i => Number(i.index) === Number(index));
     return entry ? entry.tag : null;
@@ -62,28 +74,186 @@ function createServer() {
 
   app.get('/status', async (_req, res) => {
     const disconnectedTags = connected ? [] : ['PLC connection unavailable'];
+    let heartbeat = null;
+    
+    // Try to read heartbeat if connected
+    if (connected) {
+      const candidates = [
+        'Main.iHeartBeat',
+        'MAIN.iHeartBeat',
+        'MAIN.iHeartbeat',
+        'GVL.iHeartbeat',
+        'MAIN.PRG_Main.iHeartbeat',
+        'PRG_MAIN.iHeartbeat'
+      ];
+      for (const tag of candidates) {
+        try {
+          const v = await readTagValue(tag);
+          if (v !== null && v !== undefined) {
+            heartbeat = v;
+            global._heartbeatTag = tag;
+            console.log('[plc-server] Heartbeat read from', tag, ':', v);
+            break;
+          }
+        } catch (err) {
+          // Try next candidate
+          console.warn('[plc-server] Heartbeat read failed for', tag, '-', err.message);
+        }
+      }
+    }
+    
     res.json({
       amsNetId: DEFAULT_NET_ID,
       connected,
       disconnectedTags,
+      heartbeat,
+      heartbeatTag: global._heartbeatTag || null
     });
   });
 
-  app.get('/read', async (_req, res) => {
+  // Detailed heartbeat diagnostics: tries multiple candidates and returns per-tag results
+  app.get('/heartbeat-debug', async (req, res) => {
+    const userTag = typeof req.query.tag === 'string' ? req.query.tag.trim() : '';
+    const candidates = [
+      ...(userTag ? [userTag] : []),
+      'MAIN.iHeartbeat',
+      'MAIN.iHeartBeat',
+      'GVL.iHeartbeat',
+      'GVL.iHeartBeat',
+      'MAIN.PRG_Main.iHeartbeat',
+      'PRG_MAIN.iHeartbeat'
+    ];
+
+    const diagnostics = {
+      connected,
+      adsType: typeof ads,
+      hasReadValue: typeof ads?.readValue,
+      requestedTag: userTag || null,
+      results: []
+    };
+
+    if (!ads || typeof ads.readValue !== 'function') {
+      return res.json({
+        ...diagnostics,
+        results: candidates.map(tag => ({ tag, status: 'error', error: 'ADS client not ready' }))
+      });
+    }
+
+    for (const tag of candidates) {
+      if (!connected) {
+        diagnostics.results.push({ tag, status: 'error', error: 'PLC not connected' });
+        continue;
+      }
+      try {
+        const { value } = await ads.readValue(tag);
+        diagnostics.results.push({ tag, status: 'ok', value });
+      } catch (err) {
+        diagnostics.results.push({ tag, status: 'error', error: err.message });
+      }
+    }
+
+    res.json(diagnostics);
+  });
+
+  app.post('/set-net-id', async (req, res) => {
+    try {
+      const { netId } = req.body;
+      if (!netId || typeof netId !== 'string') {
+        return res.status(400).json({ success: false, error: 'Invalid Net ID' });
+      }
+      
+      // Validate Net ID format (should be like 5.34.123.45.1.1)
+      if (!/^\d+(\.\d+)*$/.test(netId)) {
+        return res.status(400).json({ success: false, error: 'Invalid Net ID format' });
+      }
+      
+      DEFAULT_NET_ID = netId;
+      console.log(`[plc-server] Net ID updated to: ${DEFAULT_NET_ID}`);
+      
+      // Disconnect and reconnect with new Net ID
+      try {
+        await ads.disconnect();
+      } catch (e) {
+        // Ignore disconnect errors
+      }
+      
+      // Create new client with updated Net ID
+      const newAds = new Client({
+        targetAmsNetId: DEFAULT_NET_ID,
+        targetAdsPort: DEFAULT_ADS_PORT,
+      });
+      
+      try {
+        await newAds.connect();
+        Object.assign(ads, newAds);
+        connected = true;
+        console.log(`[plc-server] Connected to ADS at ${DEFAULT_NET_ID}:${DEFAULT_ADS_PORT}`);
+        res.json({ success: true, message: 'Net ID updated and connected', amsNetId: DEFAULT_NET_ID });
+      } catch (connErr) {
+        console.error('[plc-server] Failed to connect with new Net ID:', connErr.message);
+        res.json({ success: true, message: 'Net ID updated (connection failed)', amsNetId: DEFAULT_NET_ID, warning: connErr.message });
+      }
+    } catch (err) {
+      console.error('[plc-server] set-net-id error:', err.message);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.get('/read', async (req, res) => {
     try {
       if (!connected) throw new Error('PLC not connected');
-      const value = await ads.readSymbol(READ_SYMBOL);
-      res.json({ value });
+      const tag = req.query.tag || READ_SYMBOL;
+      const value = await readTagValue(tag);
+      console.log(`[plc-server] Read tag "${tag}" returned:`, value, `(type: ${typeof value})`);
+      res.json({ success: true, value, tag });
     } catch (err) {
-      console.error('[plc-server] Read error:', err.message);
-      res.status(500).json({ error: err.message });
+      console.error('[plc-server] Read error for tag', req.query.tag, ':', err.message);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.get('/read-axis-positions', async (_req, res) => {
+    try {
+      if (!connected) {
+        return res.json({
+          actualPositions: {
+            right: { axis1: 0, axis2: 0 },
+            left: { axis1: 0, axis2: 0 }
+          },
+          connected: false
+        });
+      }
+
+      // Read all 4 axis positions from PLC
+      const axis1 = await readTagValue('GPersistent.lAxis1ActPos');
+      const axis2 = await readTagValue('GPersistent.lAxis2ActPos');
+      const axis3 = await readTagValue('GPersistent.lAxis3ActPos');
+      const axis4 = await readTagValue('GPersistent.lAxis4ActPos');
+
+      res.json({
+        actualPositions: {
+          right: { axis1, axis2 },
+          left: { axis1: axis3, axis2: axis4 }
+        },
+        connected: true
+      });
+    } catch (err) {
+      console.error('[plc-server] Read axis positions error:', err.message);
+      res.json({
+        actualPositions: {
+          right: { axis1: 0, axis2: 0 },
+          left: { axis1: 0, axis2: 0 }
+        },
+        connected: false,
+        error: err.message
+      });
     }
   });
 
   app.post('/write', async (req, res) => {
     try {
       if (!connected) throw new Error('PLC not connected');
-      await ads.writeSymbol(WRITE_SYMBOL, req.body.value);
+      await writeTagValue(WRITE_SYMBOL, req.body.value);
       res.sendStatus(200);
     } catch (err) {
       console.error('[plc-server] Write error:', err.message);
@@ -103,7 +273,7 @@ function createServer() {
       }
 
       const boolValue = value === true || value === 'true' || value === 1;
-      await ads.writeSymbol(tag, boolValue);
+      await writeTagValue(tag, boolValue);
       res.json({ success: true });
     } catch (err) {
       console.error('[plc-server] write-bool error:', err.message);
@@ -122,9 +292,9 @@ function createServer() {
         return res.status(500).json({ success: false, error: 'PLC not connected' });
       }
 
-      await ads.writeSymbol(tag, true);
+      await writeTagValue(tag, true);
       await sleep(Number(durationMs) || 150);
-      await ads.writeSymbol(tag, false);
+      await writeTagValue(tag, false);
 
       res.json({ success: true });
     } catch (err) {
@@ -154,7 +324,7 @@ function createServer() {
           continue;
         }
         try {
-          const value = await ads.readSymbol(tag);
+          const value = await readTagValue(tag);
           results[idx] = { value };
         } catch (err) {
           results[idx] = { error: err.message };
@@ -184,7 +354,7 @@ function createServer() {
       }
 
       const boolValue = value === true || value === 'true' || value === 1;
-      await ads.writeSymbol(tag, boolValue);
+      await writeTagValue(tag, boolValue);
       res.json({ success: true, tag });
     } catch (err) {
       console.error('[plc-server] io/write error:', err.message);
@@ -207,9 +377,9 @@ function createServer() {
         return res.status(400).json({ success: false, error: 'Unknown index' });
       }
 
-      await ads.writeSymbol(tag, true);
+      await writeTagValue(tag, true);
       await sleep(Number(durationMs) || 150);
-      await ads.writeSymbol(tag, false);
+      await writeTagValue(tag, false);
 
       res.json({ success: true, tag });
     } catch (err) {
@@ -223,15 +393,27 @@ function createServer() {
       const tagsToTest = req.body.tags || TEST_TAGS;
       const results = [];
 
+      console.log('[plc-server] Test tags request:', tagsToTest);
+      console.log('[plc-server] ADS connected:', connected);
+      console.log('[plc-server] ADS object type:', typeof ads);
+      console.log('[plc-server] ADS has readValue:', typeof ads?.readValue);
+
+      if (!ads || typeof ads.readValue !== 'function') {
+        return res.status(500).json({ error: 'ADS client not properly initialized. ads=' + typeof ads + ', readValue=' + typeof ads?.readValue });
+      }
+
       for (const tag of tagsToTest) {
         try {
           if (!connected) {
             results.push({ tag, status: 'error', value: null, error: 'PLC not connected' });
           } else {
-            const value = await ads.readSymbol(tag);
+            console.log('[plc-server] Reading tag:', tag);
+            const value = await readTagValue(tag);
+            console.log('[plc-server] Tag read success:', tag, '=', value);
             results.push({ tag, status: 'ok', value, error: null });
           }
         } catch (err) {
+          console.error('[plc-server] Tag read error for', tag, ':', err.message);
           results.push({ tag, status: 'error', value: null, error: err.message });
         }
       }
@@ -282,12 +464,12 @@ function createServer() {
         if (!step) {
           // Write all enables to false for empty steps
           try {
-            await ads.writeSymbol(`${gvlPrefix}.aHmi${headPrefix}StepEna[${stepNum}]`, false);
-            await ads.writeSymbol(`${gvlPrefix}.a${headPrefix}RedExtEna[${stepNum}]`, false);
-            await ads.writeSymbol(`${gvlPrefix}.a${headPrefix}RedRetEna[${stepNum}]`, false);
-            await ads.writeSymbol(`${gvlPrefix}.a${headPrefix}ExpExtEna[${stepNum}]`, false);
-            await ads.writeSymbol(`${gvlPrefix}.a${headPrefix}ExpRetEna[${stepNum}]`, false);
-            await ads.writeSymbol(`${gvlPrefix}.a${headPrefix}RepeatEna[${stepNum}]`, false);
+            await writeTagValue(`${gvlPrefix}.aHmi${headPrefix}StepEna[${stepNum}]`, false);
+            await writeTagValue(`${gvlPrefix}.a${headPrefix}RedExtEna[${stepNum}]`, false);
+            await writeTagValue(`${gvlPrefix}.a${headPrefix}RedRetEna[${stepNum}]`, false);
+            await writeTagValue(`${gvlPrefix}.a${headPrefix}ExpExtEna[${stepNum}]`, false);
+            await writeTagValue(`${gvlPrefix}.a${headPrefix}ExpRetEna[${stepNum}]`, false);
+            await writeTagValue(`${gvlPrefix}.a${headPrefix}RepeatEna[${stepNum}]`, false);
           } catch (err) {
             errors.push(`Step ${stepNum} (empty): ${err.message}`);
           }
@@ -298,36 +480,36 @@ function createServer() {
 
         try {
           // Enable step
-          await ads.writeSymbol(`${gvlPrefix}.aHmi${headPrefix}StepEna[${stepNum}]`, step.enabled !== false);
+          await writeTagValue(`${gvlPrefix}.aHmi${headPrefix}StepEna[${stepNum}]`, step.enabled !== false);
 
           // Write pattern enables
-          await ads.writeSymbol(`${gvlPrefix}.a${headPrefix}RedExtEna[${stepNum}]`, pattern.redExt);
-          await ads.writeSymbol(`${gvlPrefix}.a${headPrefix}RedRetEna[${stepNum}]`, pattern.redRet);
-          await ads.writeSymbol(`${gvlPrefix}.a${headPrefix}ExpExtEna[${stepNum}]`, pattern.expExt);
-          await ads.writeSymbol(`${gvlPrefix}.a${headPrefix}ExpRetEna[${stepNum}]`, pattern.expRet);
-          await ads.writeSymbol(`${gvlPrefix}.a${headPrefix}RepeatEna[${stepNum}]`, pattern.repeat);
+          await writeTagValue(`${gvlPrefix}.a${headPrefix}RedExtEna[${stepNum}]`, pattern.redExt);
+          await writeTagValue(`${gvlPrefix}.a${headPrefix}RedRetEna[${stepNum}]`, pattern.redRet);
+          await writeTagValue(`${gvlPrefix}.a${headPrefix}ExpExtEna[${stepNum}]`, pattern.expExt);
+          await writeTagValue(`${gvlPrefix}.a${headPrefix}ExpRetEna[${stepNum}]`, pattern.expRet);
+          await writeTagValue(`${gvlPrefix}.a${headPrefix}RepeatEna[${stepNum}]`, pattern.repeat);
 
           // Write positions (axis1 = Red/ID, axis2 = Exp/OD)
           if (step.positions) {
             if (step.positions.axis1 !== undefined) {
-              await ads.writeSymbol(`${gvlPrefix}.a${headPrefix}RedPos[${stepNum}]`, step.positions.axis1);
+              await writeTagValue(`${gvlPrefix}.a${headPrefix}RedPos[${stepNum}]`, step.positions.axis1);
             }
             if (step.positions.axis2 !== undefined) {
-              await ads.writeSymbol(`${gvlPrefix}.a${headPrefix}ExpPos[${stepNum}]`, step.positions.axis2);
+              await writeTagValue(`${gvlPrefix}.a${headPrefix}ExpPos[${stepNum}]`, step.positions.axis2);
             }
           }
 
           // Write dwell time
           if (step.dwell !== undefined) {
-            await ads.writeSymbol(`${gvlPrefix}.tHmi${headPrefix}StepDwell[${stepNum}]`, step.dwell);
+            await writeTagValue(`${gvlPrefix}.tHmi${headPrefix}StepDwell[${stepNum}]`, step.dwell);
           }
 
           // Write repeat settings
           if (step.repeatTarget !== undefined) {
-            await ads.writeSymbol(`${gvlPrefix}.d${headPrefix}RepeatTarget[${stepNum}]`, step.repeatTarget);
+            await writeTagValue(`${gvlPrefix}.d${headPrefix}RepeatTarget[${stepNum}]`, step.repeatTarget);
           }
           if (step.repeatCount !== undefined) {
-            await ads.writeSymbol(`${gvlPrefix}.dHmi${headPrefix}RepeatTimes[${stepNum}]`, step.repeatCount);
+            await writeTagValue(`${gvlPrefix}.dHmi${headPrefix}RepeatTimes[${stepNum}]`, step.repeatCount);
           }
 
         } catch (err) {

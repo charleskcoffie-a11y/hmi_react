@@ -7,8 +7,31 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
-    // Splash screen is shown by default, will fade out after 3 seconds
-    // The SplashScreen component handles the timing
+    // Initialize saved Net ID with backend on app load
+    const initializeNetID = async () => {
+      try {
+        const savedNetID = localStorage.getItem('ams_net_id');
+        if (savedNetID) {
+          console.log('[App] Restoring saved Net ID:', savedNetID);
+          const res = await fetch('http://localhost:3001/set-net-id', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ netId: savedNetID })
+          });
+          const data = await res.json();
+          if (data.success) {
+            console.log('[App] Backend Net ID restored:', data.message);
+          } else {
+            console.warn('[App] Failed to restore Net ID:', data.error);
+          }
+        }
+      } catch (err) {
+        console.warn('[App] Could not initialize Net ID:', err.message);
+        // Non-blocking - app continues even if this fails
+      }
+    };
+    
+    initializeNetID();
   }, []);
 
   return (

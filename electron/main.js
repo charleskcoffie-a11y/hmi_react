@@ -78,6 +78,12 @@ function createWindow() {
   console.log(`[electron] Preview mode: ${isPreview ? 'ON (1024x768 windowed)' : 'OFF (fullscreen)'}`);
 }
 
+// IPC handler to get saved Net ID from renderer
+ipcMain.handle('get-net-id', async () => {
+  // This will be called by the renderer to provide the saved Net ID
+  return null; // Renderer provides the value
+});
+
 app.whenReady().then(async () => {
   try {
     backendServer = await startServer();
