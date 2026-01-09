@@ -5,7 +5,7 @@ const app = express();
 app.use(express.json());
 
 const ads = new Client({
-  targetAmsNetId: '5.34.123.45.1.1', // Replace with your PLC NetID
+  targetAmsNetId: '169.254.109.230.1.1', // Replace with your PLC NetID
   targetAdsPort: 851                // Replace with your PLC port
 });
 

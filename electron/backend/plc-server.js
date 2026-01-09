@@ -3,7 +3,7 @@ const { Client } = require('ads-client');
 const fs = require('fs');
 const path = require('path');
 
-let DEFAULT_NET_ID = process.env.AMS_NET_ID || '5.34.123.45.1.1';
+let DEFAULT_NET_ID = process.env.AMS_NET_ID || '169.254.109.230.1.1';
 const DEFAULT_ADS_PORT = parseInt(process.env.AMS_PORT || '851', 10);
 const DEFAULT_HTTP_PORT = parseInt(process.env.ADS_HTTP_PORT || '3001', 10);
 const READ_SYMBOL = process.env.ADS_READ_SYMBOL || 'MAIN.myVar';

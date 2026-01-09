@@ -7,7 +7,7 @@ const NetIDSettings = ({ isOpen, onClose }) => {
   const [password, setPassword] = useState('');
   const [showPasswordKeypad, setShowPasswordKeypad] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [netID, setNetID] = useState('5.34.123.45.1.1');
+  const [netID, setNetID] = useState('169.254.109.230.1.1');
   const [newNetID, setNewNetID] = useState('');
   const [superUserPassword, setSuperUserPassword] = useState('1927');
   const [newSuperUserPassword, setNewSuperUserPassword] = useState('');
@@ -50,7 +50,7 @@ const NetIDSettings = ({ isOpen, onClose }) => {
 
     // Validate Net ID format (basic validation)
     if (!/^\d+(\.\d+)*$/.test(newNetID)) {
-      setMessage('Invalid Net ID format. Use format like 5.34.123.45.1.1');
+      setMessage('Invalid Net ID format. Use format like 169.254.109.230.1.1');
       setMessageType('error');
       return;
     }
@@ -215,12 +215,12 @@ const NetIDSettings = ({ isOpen, onClose }) => {
                     <input
                       type="text"
                       className="netid-edit-input"
-                      placeholder="e.g., 5.34.123.45.1.1"
+                      placeholder="e.g., 169.254.109.230.1.1"
                       value={newNetID}
                       onChange={(e) => setNewNetID(e.target.value)}
                     />
                     <div className="netid-edit-help">
-                      Format: IP address octets separated by dots (e.g., 5.34.123.45.1.1)
+                      Format: IP address octets separated by dots (e.g., 169.254.109.230.1.1)
                     </div>
                     <div className="netid-edit-buttons">
                       <button
