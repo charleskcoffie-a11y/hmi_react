@@ -427,7 +427,7 @@
 
   .hmi-header {
     padding: 10px 20px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap; /* keep header content in a single row */
   }
 
   .hmi-header h1 {
@@ -464,14 +464,17 @@
   }
 
   .hmi-header {
-    flex-direction: column;
+    flex-direction: row; /* keep horizontal alignment */
     gap: 8px;
     padding: 8px 15px;
+    flex-wrap: nowrap;
+    align-items: center;
   }
 
   .header-right {
-    width: 100%;
-    flex-direction: column;
+    width: auto; /* prevent full-width stacking */
+    flex-direction: row;
+    flex-wrap: nowrap;
     gap: 10px;
   }
 

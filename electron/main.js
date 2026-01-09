@@ -8,6 +8,35 @@ const path = require('path');
 const url = require('url');
 const { startServer } = require('./backend/plc-server');
 
+function clearOldAppData() {
+  const toDelete = new Set();
+  try {
+    toDelete.add(app.getPath('userData'));
+    toDelete.add(path.join(app.getPath('appData'), 'CNC Dual head'));
+    toDelete.add(path.join(app.getPath('appData'), 'hmi-electron'));
+    // LOCALAPPDATA mirrors appData on Windows; guard env presence
+    const localAppData = process.env.LOCALAPPDATA;
+    if (localAppData) {
+      toDelete.add(path.join(localAppData, 'CNC Dual head'));
+      toDelete.add(path.join(localAppData, 'hmi-electron'));
+      toDelete.add(path.join(localAppData, 'Programs', 'CNC Dual head'));
+    }
+  } catch (e) {
+    console.warn('[electron] Unable to build cache delete list:', e.message || e);
+  }
+
+  toDelete.forEach((p) => {
+    try {
+      if (p && fs.existsSync(p)) {
+        fs.rmSync(p, { recursive: true, force: true });
+        console.log('[electron] Removed old cache:', p);
+      }
+    } catch (e) {
+      console.warn('[electron] Failed to remove cache path', p, e.message || e);
+    }
+  });
+}
+
 let backendServer;
 
 function createWindow() {
@@ -86,6 +115,7 @@ ipcMain.handle('get-net-id', async () => {
 
 app.whenReady().then(async () => {
   try {
+    clearOldAppData();
     backendServer = await startServer();
   } catch (err) {
     console.error('Failed to start PLC backend:', err.message);
