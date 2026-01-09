@@ -8,6 +8,38 @@ const path = require('path');
 const url = require('url');
 const { startServer } = require('./backend/plc-server');
 
+// Config file path for storing Net ID
+const CONFIG_DIR = path.join(app.getPath('appData'), 'CNC Dual head');
+const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
+
+function ensureConfigDir() {
+  if (!fs.existsSync(CONFIG_DIR)) {
+    fs.mkdirSync(CONFIG_DIR, { recursive: true });
+  }
+}
+
+function loadConfig() {
+  try {
+    if (fs.existsSync(CONFIG_FILE)) {
+      const content = fs.readFileSync(CONFIG_FILE, 'utf-8');
+      return JSON.parse(content);
+    }
+  } catch (err) {
+    console.warn('[electron] Failed to load config:', err.message);
+  }
+  return {};
+}
+
+function saveConfig(config) {
+  try {
+    ensureConfigDir();
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), 'utf-8');
+    console.log('[electron] Config saved:', CONFIG_FILE);
+  } catch (err) {
+    console.error('[electron] Failed to save config:', err.message);
+  }
+}
+
 function clearOldAppData() {
   const toDelete = new Set();
   try {
@@ -107,10 +139,18 @@ function createWindow() {
   console.log(`[electron] Preview mode: ${isPreview ? 'ON (1024x768 windowed)' : 'OFF (fullscreen)'}`);
 }
 
-// IPC handler to get saved Net ID from renderer
+// IPC handler to get saved Net ID from config
 ipcMain.handle('get-net-id', async () => {
-  // This will be called by the renderer to provide the saved Net ID
-  return null; // Renderer provides the value
+  const config = loadConfig();
+  return config.amsNetId || null;
+});
+
+// IPC handler to save Net ID to config
+ipcMain.handle('save-net-id', async (event, netId) => {
+  const config = loadConfig();
+  config.amsNetId = netId;
+  saveConfig(config);
+  return { success: true, netId };
 });
 
 app.whenReady().then(async () => {

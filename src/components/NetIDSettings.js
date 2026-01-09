@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import '../styles/NetIDSettings.css';
 import PasswordKeypad from './PasswordKeypad';
+import { saveNetId } from '../services/netIdService';
 
 const NetIDSettings = ({ isOpen, onClose }) => {
   const [password, setPassword] = useState('');
@@ -55,8 +56,8 @@ const NetIDSettings = ({ isOpen, onClose }) => {
     }
 
     try {
-      // Save to localStorage
-      localStorage.setItem('ams_net_id', newNetID);
+      // Save to config and localStorage via netIdService
+      await saveNetId(newNetID);
       setNetID(newNetID);
       
       // Update backend with new Net ID
@@ -74,7 +75,7 @@ const NetIDSettings = ({ isOpen, onClose }) => {
         }
       } catch (backendErr) {
         console.error('[NetIDSettings] Failed to update backend Net ID:', backendErr.message);
-        // Still count as success since localStorage was saved
+        // Still count as success since config was saved
       }
       
       setNewNetID('');
