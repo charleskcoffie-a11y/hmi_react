@@ -27,6 +27,9 @@
   text-align: center;
   border-bottom: 2px solid #0066cc;
   padding-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .panel-header h2 {
@@ -34,6 +37,47 @@
   font-size: 18px;
   font-weight: 600;
   color: #ffffff;
+}
+
+.mode-status {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mode-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.run-badge {
+  background: linear-gradient(135deg, #00c853 0%, #00e676 100%);
+  color: #000;
+  border: 2px solid #00ff88;
+}
+
+.jog-badge {
+  background: linear-gradient(135deg, #ffa726 0%, #ff9800 100%);
+  color: #000;
+  border: 2px solid #ffb74d;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.02);
+  }
 }
 
 .recipe-selector-section {

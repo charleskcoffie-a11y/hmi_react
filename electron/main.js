@@ -98,21 +98,31 @@ function createWindow() {
     try { win.center(); } catch (e) {}
   }
 
-    // Use process.resourcesPath in production, app.getAppPath() in development
-    const isPackaged = app.isPackaged;
-    const buildPath = isPackaged
-      ? path.join(process.resourcesPath, 'app', 'build', 'index.html')
-      : path.join(app.getAppPath(), '..', 'build', 'index.html');
+    // Load from localhost:3003 in development
+    const DEV_SERVER = 'http://localhost:3003';
+    
+    if (isPreview) {
+      // Development mode - load from React dev server
+      win.loadURL(DEV_SERVER).catch((err) => {
+        console.error('Failed to load from dev server:', err);
+      });
+    } else {
+      // Production mode - load from build files
+      const isPackaged = app.isPackaged;
+      const buildPath = isPackaged
+        ? path.join(process.resourcesPath, 'app', 'build', 'index.html')
+        : path.join(app.getAppPath(), '..', 'build', 'index.html');
 
-    win.loadURL(
-      url.format({
-        pathname: buildPath,
-        protocol: 'file:',
-        slashes: true,
-      })
-    ).catch((err) => {
-      console.error('Failed to load index.html:', err);
-    });
+      win.loadURL(
+        url.format({
+          pathname: buildPath,
+          protocol: 'file:',
+          slashes: true,
+        })
+      ).catch((err) => {
+        console.error('Failed to load index.html:', err);
+      });
+    }
   win.setMenuBarVisibility(false);
 
   // Ensure the window becomes visible and focused when ready

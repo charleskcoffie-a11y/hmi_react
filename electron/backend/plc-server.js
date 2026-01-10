@@ -261,6 +261,78 @@ function createServer() {
     }
   });
 
+  // Write recipe parameters to PLC
+  app.post('/write-recipe-params', async (req, res) => {
+    try {
+      const { side, parameters } = req.body;
+      
+      if (!side || !parameters) {
+        return res.status(400).json({ success: false, error: 'Missing side or parameters' });
+      }
+      
+      if (!connected) {
+        return res.status(500).json({ success: false, error: 'PLC not connected' });
+      }
+
+      // Map recipe parameters to PLC variable names
+      // Example mapping - adjust these to match your actual PLC variable structure
+      const paramPrefix = side === 'left' ? 'GVL_GLEFTHEAD' : 'GVL_GRIGHTHEAD';
+      const headPrefix = side === 'left' ? 'Left' : 'Right';
+      
+      try {
+        // Write speed/recipe speed
+        if (parameters.speed !== undefined) {
+          await writeTagValue(`${paramPrefix}.iHmi${headPrefix}Speed`, Math.round(parameters.speed));
+        }
+        
+        // Write step delay
+        if (parameters.stepDelay !== undefined) {
+          await writeTagValue(`${paramPrefix}.tHmi${headPrefix}StepDelay`, Math.round(parameters.stepDelay));
+        }
+        
+        // Write tube dimensions
+        if (parameters.tubeID !== undefined) {
+          await writeTagValue(`${paramPrefix}.rHmi${headPrefix}TubeID`, parseFloat(parameters.tubeID));
+        }
+        
+        if (parameters.tubeOD !== undefined) {
+          await writeTagValue(`${paramPrefix}.rHmi${headPrefix}TubeOD`, parseFloat(parameters.tubeOD));
+        }
+        
+        if (parameters.finalSize !== undefined) {
+          await writeTagValue(`${paramPrefix}.rHmi${headPrefix}FinalSize`, parseFloat(parameters.finalSize));
+        }
+        
+        if (parameters.tubeLength !== undefined) {
+          await writeTagValue(`${paramPrefix}.rHmi${headPrefix}TubeLength`, parseFloat(parameters.tubeLength));
+        }
+        
+        // Write expansion parameters
+        if (parameters.idFingerRadius !== undefined) {
+          await writeTagValue(`${paramPrefix}.rHmi${headPrefix}IDFingerRadius`, parseFloat(parameters.idFingerRadius));
+        }
+        
+        if (parameters.depth !== undefined) {
+          await writeTagValue(`${paramPrefix}.rHmi${headPrefix}Depth`, parseFloat(parameters.depth));
+        }
+        
+        console.log(`[plc-server] Recipe parameters written successfully for ${side} side`);
+        res.json({ success: true, message: `Recipe parameters written to ${side} side` });
+        
+      } catch (writeErr) {
+        console.warn(`[plc-server] Some recipe parameters may not have written due to variable mismatch: ${writeErr.message}`);
+        res.json({ 
+          success: true, 
+          message: `Attempted to write recipe parameters for ${side} side (some variables may not exist in PLC)`,
+          warning: writeErr.message 
+        });
+      }
+    } catch (err) {
+      console.error('[plc-server] write-recipe-params error:', err.message);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
   // Write a specific boolean tag (for push buttons, interlocks, etc.)
   app.post('/write-bool', async (req, res) => {
     try {

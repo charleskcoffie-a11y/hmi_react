@@ -39,6 +39,68 @@ const STEP_CONFIG = {
   10: { name: 'Final Position', description: 'Record final position for step 10' }
 };
 
+// Alarm bit mapping (GVL_GAXIS.AlarmSystem bitfield)
+const ALARM_MAP = [
+  { bit: 0, message: 'Oil level Low', severity: 'warning' },
+  { bit: 1, message: 'Oil Temp High', severity: 'warning' },
+  { bit: 2, message: 'Estop Open', severity: 'critical' },
+  { bit: 3, message: 'Gate Open', severity: 'critical' },
+  { bit: 4, message: 'Pump Motor Tripped', severity: 'critical' },
+  { bit: 5, message: 'Radiator Motor Tripped', severity: 'warning' },
+  { bit: 6, message: 'Pump Not Running', severity: 'warning' },
+  { bit: 7, message: 'Right Head ID Error', severity: 'critical' },
+  { bit: 8, message: 'Right Head OD Error', severity: 'critical' },
+  { bit: 9, message: 'Left Head ID Error', severity: 'critical' },
+  { bit: 10, message: 'Left Head OD Error', severity: 'critical' },
+  { bit: 11, message: 'Pump idle time', severity: 'warning' },
+  { bit: 12, message: 'High Pressure Low', severity: 'warning' },
+  { bit: 13, message: 'Low Air Pressure', severity: 'warning' },
+  { bit: 14, message: 'Lube fault', severity: 'warning' }
+];
+
+// Machine status bit mapping (GVL_GAXIS.MachineStatus bitfield)
+const MACHINE_STATUS_MAP = [
+  { bit: 0, label: 'Pump Running', color: '#2196F3' },
+  { bit: 1, label: 'Right Homing', color: '#FF9800' },
+  { bit: 2, label: 'Left Homing', color: '#FF9800' },
+  { bit: 3, label: 'RunMove', color: '#00c853' },
+  { bit: 4, label: 'JogMove', color: '#9C27B0' },
+  { bit: 5, label: 'Right at Start', color: '#4CAF50' },
+  { bit: 6, label: 'Left at Start', color: '#4CAF50' },
+  { bit: 7, label: 'Right not at Start', color: '#FFC107' },
+  { bit: 8, label: 'Left not At Start', color: '#FFC107' },
+  { bit: 9, label: 'Right Head Active', color: '#00BCD4' },
+  { bit: 10, label: 'Left Head Active', color: '#00BCD4' }
+];
+
+function decodeAlarmBits(bits) {
+  const active = [];
+  ALARM_MAP.forEach(def => {
+    if (bits & (1 << def.bit)) {
+      active.push({ bit: def.bit, message: def.message, severity: def.severity || 'warning' });
+    }
+  });
+
+  for (let i = 0; i < 32; i += 1) {
+    const mask = 1 << i;
+    const alreadyMapped = ALARM_MAP.some(def => def.bit === i);
+    if (!alreadyMapped && (bits & mask)) {
+      active.push({ bit: i, message: `Alarm bit ${i} active`, severity: 'warning' });
+    }
+  }
+  return active;
+}
+
+function decodeMachineStatus(bits) {
+  const active = [];
+  MACHINE_STATUS_MAP.forEach(def => {
+    if (bits & (1 << def.bit)) {
+      active.push({ bit: def.bit, label: def.label, color: def.color });
+    }
+  });
+  return active;
+}
+
 export default function MainHMI() {
   const [currentUser, setCurrentUser] = useState('operator');
   const [userPasswords, setUserPasswords] = useState({
@@ -72,8 +134,67 @@ export default function MainHMI() {
     left: { state: 0, desc: 'Idle' }
   });
 
+  const [rightStepDisplay, setRightStepDisplay] = useState({
+    stepNumber: 1,
+    stepDescription: 'Idle'
+  });
+
+  const [leftStepDisplay, setLeftStepDisplay] = useState({
+    stepNumber: 1,
+    stepDescription: 'Idle'
+  });
+
+  // Mode feedback states from PLC (read-only feedback)
+  const [modeFeedback, setModeFeedback] = useState({
+    right: {
+      runMode: false,
+      jogMode: false
+    },
+    left: {
+      runMode: false,
+      jogMode: false
+    }
+  });
+
+  // Alarm system (bitfield from PLC)
+  const [alarmBits, setAlarmBits] = useState(0);
+  const [alarms, setAlarms] = useState([]);
+  const [acknowledgedAlarms, setAcknowledgedAlarms] = useState([]);
+  const [alarmBannerVisible, setAlarmBannerVisible] = useState(true);
+  const [alarmBannerTimeout, setAlarmBannerTimeout] = useState(null);
+
+  // Machine status system (bitfield from PLC)
+  const [machineStatusBits, setMachineStatusBits] = useState(0);
+  const [machineStatus, setMachineStatus] = useState([]);
+
   const [plcStatus, setPlcStatus] = useState('unknown');
   
+  // Handle alarm acknowledgment with auto-reshow after 5 seconds
+  const handleAcknowledgeAlarm = () => {
+    setAcknowledgedAlarms(alarms.map(a => a.bit));
+    setAlarmBannerVisible(false);
+    
+    // Clear any existing timeout
+    if (alarmBannerTimeout) {
+      clearTimeout(alarmBannerTimeout);
+    }
+    
+    // Set new timeout to reshow banner after 5 seconds
+    const newTimeout = setTimeout(() => {
+      setAlarmBannerVisible(true);
+    }, 5000);
+    
+    setAlarmBannerTimeout(newTimeout);
+  };
+  
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (alarmBannerTimeout) {
+        clearTimeout(alarmBannerTimeout);
+      }
+    };
+  }, [alarmBannerTimeout]);
   // Initialize backend with saved Net ID on mount
   useEffect(() => {
     initializeBackendNetId();
@@ -119,6 +240,140 @@ export default function MainHMI() {
           }
         } catch (countErr) {
           console.warn('[MainHMI] Machine count fetch error:', countErr.message || countErr);
+        }
+
+        // Read right head step number and description from PLC
+        try {
+          const stateResponse = await fetch('http://localhost:3001/read?tag=GVL_GRIGHTHEAD.Rstate');
+          const descResponse = await fetch('http://localhost:3001/read?tag=GVL_GRIGHTHEAD.RstateDesc');
+          
+          if (stateResponse.ok && descResponse.ok) {
+            const stateData = await stateResponse.json();
+            const descData = await descResponse.json();
+            
+            if (stateData.success && descData.success) {
+              let stepNum = stateData.value;
+              if (typeof stepNum === 'object' && 'value' in stepNum) {
+                stepNum = stepNum.value;
+              }
+              stepNum = Math.max(1, Math.min(10, parseInt(stepNum) || 1)); // Ensure 1-10
+              
+              let stepDesc = descData.value || 'Idle';
+              if (typeof stepDesc === 'object' && 'value' in stepDesc) {
+                stepDesc = stepDesc.value;
+              }
+              
+              setRightStepDisplay({
+                stepNumber: stepNum,
+                stepDescription: String(stepDesc).trim()
+              });
+            }
+          }
+        } catch (stepErr) {
+          console.warn('[MainHMI] Right step read error:', stepErr.message || stepErr);
+        }
+
+        // Read left head step number and description from PLC
+        try {
+          const stateResponse = await fetch('http://localhost:3001/read?tag=GVL_GLEFTHEAD.Lstate');
+          const descResponse = await fetch('http://localhost:3001/read?tag=GVL_GLEFTHEAD.LstateDesc');
+          
+          if (stateResponse.ok && descResponse.ok) {
+            const stateData = await stateResponse.json();
+            const descData = await descResponse.json();
+            
+            if (stateData.success && descData.success) {
+              let stepNum = stateData.value;
+              if (typeof stepNum === 'object' && 'value' in stepNum) {
+                stepNum = stepNum.value;
+              }
+              stepNum = Math.max(1, Math.min(10, parseInt(stepNum) || 1)); // Ensure 1-10
+              
+              let stepDesc = descData.value || 'Idle';
+              if (typeof stepDesc === 'object' && 'value' in stepDesc) {
+                stepDesc = stepDesc.value;
+              }
+              
+              setLeftStepDisplay({
+                stepNumber: stepNum,
+                stepDescription: String(stepDesc).trim()
+              });
+            }
+          }
+        } catch (stepErr) {
+          console.warn('[MainHMI] Left step read error:', stepErr.message || stepErr);
+        }
+
+        // Read mode feedback from PLC (RunMode and JogMode)
+        try {
+          const rightRunRes = await fetch('http://localhost:3001/read?tag=GVL_GRIGHTHEAD.bHmiRightRunMode');
+          const rightJogRes = await fetch('http://localhost:3001/read?tag=GVL_GRIGHTHEAD.bHmiRightJogMode');
+          const leftRunRes = await fetch('http://localhost:3001/read?tag=GVL_GLEFTHEAD.bHmiLeftRunMode');
+          const leftJogRes = await fetch('http://localhost:3001/read?tag=GVL_GLEFTHEAD.bHmiLeftJogMode');
+          
+          if (rightRunRes.ok && rightJogRes.ok && leftRunRes.ok && leftJogRes.ok) {
+            const [rightRunData, rightJogData, leftRunData, leftJogData] = await Promise.all([
+              rightRunRes.json(),
+              rightJogRes.json(),
+              leftRunRes.json(),
+              leftJogRes.json()
+            ]);
+            
+            setModeFeedback({
+              right: {
+                runMode: rightRunData.success ? Boolean(rightRunData.value) : false,
+                jogMode: rightJogData.success ? Boolean(rightJogData.value) : false
+              },
+              left: {
+                runMode: leftRunData.success ? Boolean(leftRunData.value) : false,
+                jogMode: leftJogData.success ? Boolean(leftJogData.value) : false
+              }
+            });
+          }
+        } catch (modeErr) {
+          console.warn('[MainHMI] Mode feedback read error:', modeErr.message || modeErr);
+        }
+
+        // Read alarm bitfield from PLC (GVL_GAXIS.AlarmSystem)
+        try {
+          const alarmRes = await fetch('http://localhost:3001/read?tag=GVL_GAXIS.AlarmSystem');
+          if (alarmRes.ok) {
+            const alarmData = await alarmRes.json();
+            if (alarmData.success) {
+              let alarmVal = alarmData.value;
+              if (typeof alarmVal === 'object' && 'value' in alarmVal) {
+                alarmVal = alarmVal.value;
+              } else if (typeof alarmVal === 'object' && 'low' in alarmVal) {
+                alarmVal = alarmVal.low || 0;
+              }
+              const bitfield = Number(alarmVal) || 0;
+              setAlarmBits(bitfield);
+              setAlarms(decodeAlarmBits(bitfield));
+            }
+          }
+        } catch (alarmErr) {
+          console.warn('[MainHMI] Alarm read error:', alarmErr.message || alarmErr);
+        }
+
+        // Read machine status bitfield from PLC (GVL_GAXIS.MachineStatus)
+        try {
+          const statusRes = await fetch('http://localhost:3001/read?tag=GVL_GAXIS.MachineStatus');
+          if (statusRes.ok) {
+            const statusData = await statusRes.json();
+            if (statusData.success) {
+              let statusVal = statusData.value;
+              if (typeof statusVal === 'object' && 'value' in statusVal) {
+                statusVal = statusVal.value;
+              } else if (typeof statusVal === 'object' && 'low' in statusVal) {
+                statusVal = statusVal.low || 0;
+              }
+              const bitfield = Number(statusVal) || 0;
+              setMachineStatusBits(bitfield);
+              setMachineStatus(decodeMachineStatus(bitfield));
+            }
+          }
+        } catch (statusErr) {
+          console.warn('[MainHMI] Machine status read error:', statusErr.message || statusErr);
         }
       } catch (err) {
         setPlcStatus('bad');
@@ -278,6 +533,37 @@ export default function MainHMI() {
     }
   };
 
+  /**
+   * Send recipe parameters to PLC
+   * @param {Object} parameters - Recipe parameters object
+   * @param {String} side - 'left' or 'right'
+   */
+  const sendRecipeParametersToPLC = async (parameters, side) => {
+    if (!parameters || !side) return false;
+    try {
+      await writePLCVar({
+        command: 'setRecipeParameters',
+        side,
+        parameters: {
+          speed: parameters.recipeSpeed || 100,
+          stepDelay: parameters.stepDelay || 500,
+          tubeID: parameters.tubeID || 0,
+          tubeOD: parameters.tubeOD || 0,
+          finalSize: parameters.finalSize || 0,
+          sizeType: parameters.sizeType || 'OD',
+          tubeLength: parameters.tubeLength || 0,
+          idFingerRadius: parameters.idFingerRadius || 0,
+          depth: parameters.depth || 0
+        }
+      });
+      console.log(`Recipe parameters sent to PLC for ${side} side`);
+      return true;
+    } catch (error) {
+      console.error(`Failed to send recipe parameters to PLC: ${error.message}`);
+      return false;
+    }
+  };
+
   const handleLoadRecipe = (recipe, side) => {
     if (currentUser === 'operator') {
       showMessage('Access Denied', 'Operators cannot change recipes.', 'warning');
@@ -290,13 +576,29 @@ export default function MainHMI() {
     const recipeObj = typeof recipe === 'string'
       ? (side === 'right' ? recipesRight : recipesLeft).find((r) => r.name === recipeName)
       : recipe;
-    setCurrentParameters(recipeObj?.parameters ?? null);
+    const parameters = recipeObj?.parameters ?? null;
+    setCurrentParameters(parameters);
+    
+    // Send recipe parameters to PLC
+    if (parameters) {
+      sendRecipeParametersToPLC(parameters, side)
+        .then((success) => {
+          if (success) {
+            showMessage('Recipe Loaded', `Recipe "${recipeName}" loaded and sent to ${side} side`, 'success');
+          } else {
+            showMessage('Recipe Loaded (PLC Sync Failed)', `Recipe "${recipeName}" loaded but PLC parameters may not have updated`, 'warning');
+          }
+        })
+        .catch((error) => {
+          showMessage('Recipe Loaded (PLC Error)', `Recipe loaded but failed to sync PLC: ${error.message}`, 'warning');
+        });
+    } else {
+      showMessage('Recipe Loaded', `Recipe "${recipeName}" loaded for ${side} side`, 'success');
+    }
     
     // Close the recipe manager after loading
     setRecipeOpen(false);
     setRecipeSide(null);
-    
-    showMessage('Recipe Loaded', `Recipe "${recipeName}" loaded for ${side} side`, 'success');
   };
 
   const handleOpenRecipeSelector = (side) => {
@@ -868,6 +1170,35 @@ export default function MainHMI() {
         </div>
       </div>
 
+      {alarms.length > 0 && alarmBannerVisible && (
+        <div className="alarm-banner">
+          <div className="alarm-banner-header">
+            <span className="alarm-icon">⚠</span>
+            <span className="alarm-title">
+              {alarms.length === 1 ? 'Active Alarm' : `${alarms.length} Active Alarms`}
+            </span>
+            <span className="alarm-code">0x{alarmBits.toString(16).toUpperCase().padStart(8, '0')}</span>
+          </div>
+          <div className="alarm-items">
+            {alarms.slice(0, 4).map(alarm => (
+              <div key={alarm.bit} className={`alarm-pill ${alarm.severity}`}>
+                <span className="alarm-pill-bit">B{alarm.bit}</span>
+                <span className="alarm-pill-text">{alarm.message}</span>
+              </div>
+            ))}
+            {alarms.length > 4 && (
+              <div className="alarm-pill more">+{alarms.length - 4} more</div>
+            )}
+          </div>
+          <button 
+            className="alarm-acknowledge-btn" 
+            onClick={handleAcknowledgeAlarm}
+          >
+            OK / Acknowledge
+          </button>
+        </div>
+      )}
+
       <LoginModal 
         isOpen={showLoginModal} 
         onLogin={handleUserLogin}
@@ -887,13 +1218,15 @@ export default function MainHMI() {
             axis2State={axis2State}
             actualPositions={displayPositions.right}
             unitSystem={unitSystem}
-            step={sideStates.right.state}
-            stepDescription={sideStates.right.desc}
+            step={rightStepDisplay.stepNumber}
+            stepDescription={rightStepDisplay.stepDescription}
             recipe={currentRecipe.right}
             recipes={recipesRight}
             onRecipeChange={(recipe) => setCurrentRecipe(prev => ({ ...prev, right: recipe }))}
             onOpenRecipeSelector={handleOpenRecipeSelector}
             userRole={currentUser}
+            runMode={modeFeedback.right.runMode}
+            jogMode={modeFeedback.right.jogMode}
           />
           <AxisPanel
             side="Left"
@@ -904,14 +1237,41 @@ export default function MainHMI() {
             axis2State={axis4State}
             actualPositions={displayPositions.left}
             unitSystem={unitSystem}
-            step={sideStates.left.state}
-            stepDescription={sideStates.left.desc}
+            step={leftStepDisplay.stepNumber}
+            stepDescription={leftStepDisplay.stepDescription}
             recipe={currentRecipe.left}
             recipes={recipesLeft}
             onRecipeChange={(recipe) => setCurrentRecipe(prev => ({ ...prev, left: recipe }))}
             onOpenRecipeSelector={handleOpenRecipeSelector}
             userRole={currentUser}
+            runMode={modeFeedback.left.runMode}
+            jogMode={modeFeedback.left.jogMode}
           />
+        </div>
+      </div>
+
+      {/* Machine Status Banner - spans both panels at bottom */}
+      <div className="machine-status-banner">
+        <div className="machine-status-content">
+          <span className="machine-status-header">Machine Status:</span>
+          <div className="machine-status-indicators">
+            {machineStatus.length > 0 ? (
+              machineStatus.map(status => (
+                <div 
+                  key={status.bit} 
+                  className="status-indicator"
+                  style={{ borderColor: status.color, color: status.color }}
+                  title={`Bit ${status.bit}`}
+                >
+                  <span className="status-dot" style={{ backgroundColor: status.color }} />
+                  {status.label}
+                </div>
+              ))
+            ) : (
+              <span style={{ color: '#90CAF9', fontSize: '13px', fontWeight: '600' }}>• PLC not connected</span>
+            )}
+          </div>
+          <span className="machine-status-code">0x{machineStatusBits.toString(16).toUpperCase().padStart(8, '0')}</span>
         </div>
       </div>
 
@@ -936,7 +1296,7 @@ export default function MainHMI() {
           </button>
 
           <button 
-            className="mode-control-btn enable-jog-btn"
+            className={`mode-control-btn enable-jog-btn ${(modeFeedback.right.jogMode || modeFeedback.left.jogMode) ? 'active' : ''}`}
             onClick={() => {
               if (currentUser === 'operator') {
                 showMessage('Access Denied', 'Operators cannot jog the machine', 'warning');
@@ -949,16 +1309,22 @@ export default function MainHMI() {
           >
             <span className="mode-icon">⟷</span>
             <span>ENABLE JOG</span>
+            {(modeFeedback.right.jogMode || modeFeedback.left.jogMode) && (
+              <span className="mode-indicator"> ●</span>
+            )}
           </button>
 
           <button 
-            className={`mode-control-btn run-control ${runMode ? 'active' : ''}`}
+            className={`mode-control-btn run-control ${(modeFeedback.right.runMode || modeFeedback.left.runMode) ? 'active' : ''}`}
             onClick={() => setShowRunSideSelector(true)}
             disabled={!(homedSides.right || homedSides.left)}
             title={homedSides.right || homedSides.left ? 'Select side(s) to run' : 'Must home at least one side first'}
           >
             <span className="mode-icon">▶</span>
             <span>RUN</span>
+            {(modeFeedback.right.runMode || modeFeedback.left.runMode) && (
+              <span className="mode-indicator"> ●</span>
+            )}
           </button>
 
           <button 
@@ -1184,7 +1550,20 @@ export default function MainHMI() {
           onConfirm={async () => {
             if (!programToDownload) return;
             try {
-              await writePLCVar({ command: 'downloadProgram', program: programToDownload });
+              // Send recipe parameters first if available
+              if (currentParameters && programToDownload.side) {
+                const paramsSent = await sendRecipeParametersToPLC(currentParameters, programToDownload.side);
+                if (!paramsSent) {
+                  console.warn('Failed to send recipe parameters, continuing with program download');
+                }
+              }
+              
+              // Then download the program
+              await writePLCVar({ 
+                command: 'downloadProgram', 
+                program: programToDownload,
+                parameters: currentParameters || undefined
+              });
               showMessage('Program Downloaded', `Program "${programToDownload.name}" downloaded to ${programToDownload.side} side`, 'success');
             } catch (e) {
               showMessage('Download Failed', `Failed to download program "${programToDownload.name}"`, 'error');
