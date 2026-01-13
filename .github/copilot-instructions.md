@@ -143,11 +143,11 @@ Code uses prefixed logs for clarity:
 5. **Build issue?** Check `electron/copy-build.js` copies the right files; verify paths are absolute
 
 ## Key Files Reference
-- **State & orchestration**: [src/MainHMI.js](../src/MainHMI.js) (1600+ lines - main controller)
-- **Program creation**: [src/components/ProgramCreationStep1.js](../src/components/ProgramCreationStep1.js), Step2, Step3, GenericProgramStep
-- **API bridge**: [src/services/plcApiService.js](../src/services/plcApiService.js)
-- **Backend**: [electron/backend/plc-server.js](../electron/backend/plc-server.js)
-- **Data structures**: [TEN_STEP_PROGRAM_GUIDE.md](../TEN_STEP_PROGRAM_GUIDE.md), [HMI_DESIGN.md](../HMI_DESIGN.md)
+- **State & orchestration**: src/MainHMI.js (1600+ lines - main controller)
+- **Program creation**: src/components/ProgramCreationStep1.js, Step2, Step3, GenericProgramStep
+- **API bridge**: src/services/plcApiService.js
+- **Backend**: electron/backend/plc-server.js
+- **Data structures**: TEN_STEP_PROGRAM_GUIDE.md, HMI_DESIGN.md
 
 ## Common Gotchas
 - **Step 3 special handling**: Always check for pattern type before applying expand/retract logic

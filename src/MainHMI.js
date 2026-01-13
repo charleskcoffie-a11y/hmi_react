@@ -293,7 +293,7 @@ export default function MainHMI() {
               }
               
               const newRightStep = {
-                stepNumber: stepNum,
+                stepNumber: stepNum * 2,  // Double the step number for display
                 stepDescription: String(stepDesc).trim()
               };
               
@@ -332,7 +332,7 @@ export default function MainHMI() {
               }
               
               const newLeftStep = {
-                stepNumber: stepNum,
+                stepNumber: stepNum * 2,  // Double the step number for display
                 stepDescription: String(stepDesc).trim()
               };
               
@@ -1387,8 +1387,8 @@ export default function MainHMI() {
               }
               setShowEnableSideSelector(true);
             }}
-            disabled={currentUser === 'operator'}
-            title={currentUser === 'operator' ? 'Operators cannot jog' : 'Enable jog mode for side'}
+            disabled={currentUser === 'operator' || !pumpEnabled}
+            title={!pumpEnabled ? 'Pump must be running to enable jog' : currentUser === 'operator' ? 'Operators cannot jog' : 'Enable jog mode for side'}
           >
             <span className="mode-icon">⟷</span>
             <span>ENABLE JOG</span>

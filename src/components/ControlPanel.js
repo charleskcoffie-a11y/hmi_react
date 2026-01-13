@@ -4,7 +4,7 @@ import '../styles/ControlPanel.css';
 
 export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach, onMachineParameters, onStartPosition, userRole, pumpEnabled }) {
   // Role-based access control
-  const canAutoTeach = userRole !== 'operator';
+  const canAutoTeach = userRole !== 'operator' && pumpEnabled; // Also require pump to be running
   const canEditProgram = userRole !== 'operator';
   const canMachineParams = userRole === 'engineering';
   const canStartPosition = pumpEnabled; // Only enabled when pump is running
@@ -50,7 +50,7 @@ export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach,
             className="control-btn auto-teach-btn"
             onClick={onAutoTeach}
             disabled={!canAutoTeach}
-            title={canAutoTeach ? 'Create auto-teach program' : 'Operators cannot access Auto Teach'}
+            title={!pumpEnabled ? 'Pump must be running for Auto Teach' : canAutoTeach ? 'Create auto-teach program' : 'Operators cannot access Auto Teach'}
           >
             <span className="btn-icon">🎯</span>
             Auto Teach
