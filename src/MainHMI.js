@@ -70,7 +70,8 @@ const MACHINE_STATUS_MAP = [
   { bit: 7, label: 'Right not at Start', color: '#FFC107' },
   { bit: 8, label: 'Left not At Start', color: '#FFC107' },
   { bit: 9, label: 'Right Head Active', color: '#00BCD4' },
-  { bit: 10, label: 'Left Head Active', color: '#00BCD4' }
+  { bit: 10, label: 'Left Head Active', color: '#00BCD4' },
+  { bit: 11, label: 'Power is Off..Turn Power On', color: '#FF5252' }
 ];
 
 function decodeAlarmBits(bits) {
@@ -167,6 +168,20 @@ export default function MainHMI() {
   const [machineStatusBits, setMachineStatusBits] = useState(0);
   const [machineStatus, setMachineStatus] = useState([]);
   const [plcConnected, setPlcConnected] = useState(false);
+
+  // Homing status states
+  const [showHomingDialog, setShowHomingDialog] = useState(false);
+  const [homingSide, setHomingSide] = useState(null);
+  const [homingStatus, setHomingStatus] = useState({
+    left: {
+      enabled: false,  // GLEFTHEAD.bHmiLeftHomeEna
+      homed: false     // GLEFTHEAD.bLeftHomed
+    },
+    right: {
+      enabled: false,  // GRIGHTHEAD.bHmiRightHomeEna
+      homed: false     // GRIGHTHEAD.bRightHomed
+    }
+  });
 
   const [plcStatus, setPlcStatus] = useState('unknown');
   
@@ -420,6 +435,50 @@ export default function MainHMI() {
           setPlcConnected(false); // Exception occurred
           console.warn('[MainHMI] Machine status read error:', statusErr.message || statusErr);
         }
+
+        // Read homing status variables from PLC
+        try {
+          const leftHomeEnaRes = await fetch('http://localhost:3001/read?tag=GLEFTHEAD.bHmiLeftHomeEna');
+          const leftHomedRes = await fetch('http://localhost:3001/read?tag=GLEFTHEAD.bLeftHomed');
+          const rightHomeEnaRes = await fetch('http://localhost:3001/read?tag=GRIGHTHEAD.bHmiRightHomeEna');
+          const rightHomedRes = await fetch('http://localhost:3001/read?tag=GRIGHTHEAD.bRightHomed');
+          
+          if (leftHomeEnaRes.ok && leftHomedRes.ok && rightHomeEnaRes.ok && rightHomedRes.ok) {
+            const [leftEnaData, leftHomedData, rightEnaData, rightHomedData] = await Promise.all([
+              leftHomeEnaRes.json(),
+              leftHomedRes.json(),
+              rightHomeEnaRes.json(),
+              rightHomedRes.json()
+            ]);
+            
+            const newHomingStatus = {
+              left: {
+                enabled: leftEnaData.success ? Boolean(leftEnaData.value) : false,
+                homed: leftHomedData.success ? Boolean(leftHomedData.value) : false
+              },
+              right: {
+                enabled: rightEnaData.success ? Boolean(rightEnaData.value) : false,
+                homed: rightHomedData.success ? Boolean(rightHomedData.value) : false
+              }
+            };
+            
+            // Only update if changed
+            setHomingStatus(prev => {
+              if (JSON.stringify(prev) !== JSON.stringify(newHomingStatus)) {
+                return newHomingStatus;
+              }
+              return prev;
+            });
+
+            // Update homedSides state based on PLC feedback
+            setHomedSides({
+              left: newHomingStatus.left.homed,
+              right: newHomingStatus.right.homed
+            });
+          }
+        } catch (homingErr) {
+          console.warn('[MainHMI] Homing status read error:', homingErr.message || homingErr);
+        }
       } catch (err) {
         setPlcStatus('bad');
         setPlcConnected(false);
@@ -456,67 +515,9 @@ export default function MainHMI() {
     loadRecipes();
   }, []);
 
-  const [recipesRight, setRecipesRight] = useState([
-    { 
-      name: 'Right_Recipe_A', 
-      description: 'Recipe for part A on right side',
-      parameters: { tubeID: 25.4, tubeOD: 31.75, finalSize: 30.0, sizeType: 'OD', tubeLength: 100, idFingerRadius: 2.5, depth: 50, recipeSpeed: 100, stepDelay: 500 }
-    },
-    { 
-      name: 'Right_Recipe_B', 
-      description: 'Recipe for part B on right side',
-      parameters: { tubeID: 20.0, tubeOD: 25.0, finalSize: 24.5, sizeType: 'OD', tubeLength: 150, idFingerRadius: 2.0, depth: 45, recipeSpeed: 100, stepDelay: 500 }
-    },
-    { 
-      name: 'Right_Assembly', 
-      description: 'Assembly process for right side',
-      parameters: { tubeID: 30.0, tubeOD: 38.0, finalSize: 29.5, sizeType: 'ID', tubeLength: 200, idFingerRadius: 3.0, depth: 60, recipeSpeed: 100, stepDelay: 500 }
-    },
-    { 
-      name: 'Right_Recipe_C', 
-      description: 'Recipe for part C on right side',
-      parameters: { tubeID: 22.0, tubeOD: 28.0, finalSize: 27.0, sizeType: 'OD', tubeLength: 120, idFingerRadius: 2.2, depth: 48, recipeSpeed: 100, stepDelay: 500 }
-    },
-    { 
-      name: 'Right_Recipe_D', 
-      description: 'Recipe for part D on right side',
-      parameters: { tubeID: 28.0, tubeOD: 35.0, finalSize: 34.0, sizeType: 'OD', tubeLength: 180, idFingerRadius: 2.8, depth: 55, recipeSpeed: 100, stepDelay: 500 }
-    },
-    // Default recipe removed
-  ]);
+  const [recipesRight, setRecipesRight] = useState([]);
 
-  const [recipesLeft, setRecipesLeft] = useState([
-    { 
-      name: 'Left_Recipe_A', 
-      description: 'Recipe for part A on left side',
-      parameters: { tubeID: 25.4, tubeOD: 31.75, finalSize: 30.0, sizeType: 'OD', tubeLength: 100, idFingerRadius: 2.5, depth: 50, recipeSpeed: 100, stepDelay: 500 }
-    },
-    { 
-      name: 'Left_Recipe_B', 
-      description: 'Recipe for part B on left side',
-      parameters: { tubeID: 20.0, tubeOD: 25.0, finalSize: 24.5, sizeType: 'OD', tubeLength: 150, idFingerRadius: 2.0, depth: 45, recipeSpeed: 100, stepDelay: 500 }
-    },
-    { 
-      name: 'Left_Assembly', 
-      description: 'Assembly process for left side',
-      parameters: { tubeID: 30.0, tubeOD: 38.0, finalSize: 29.5, sizeType: 'ID', tubeLength: 200, idFingerRadius: 3.0, depth: 60, recipeSpeed: 100, stepDelay: 500 }
-    },
-    { 
-      name: 'Left_Recipe_C', 
-      description: 'Recipe for part C on left side',
-      parameters: { tubeID: 22.0, tubeOD: 28.0, finalSize: 27.0, sizeType: 'OD', tubeLength: 120, idFingerRadius: 2.2, depth: 48, recipeSpeed: 100, stepDelay: 500 }
-    },
-    { 
-      name: 'Left_Recipe_D', 
-      description: 'Recipe for part D on left side',
-      parameters: { tubeID: 28.0, tubeOD: 35.0, finalSize: 34.0, sizeType: 'OD', tubeLength: 180, idFingerRadius: 2.8, depth: 55, recipeSpeed: 100, stepDelay: 500 }
-    },
-    { 
-      name: 'Left_Recipe_E', 
-      description: 'Default recipe for left side (INDEX 5)',
-      parameters: { tubeID: 25.0, tubeOD: 32.0, finalSize: 31.0, sizeType: 'OD', tubeLength: 110, idFingerRadius: 2.4, depth: 52, recipeSpeed: 100, stepDelay: 500 }
-    }
-  ]);
+  const [recipesLeft, setRecipesLeft] = useState([]);
 
   const [currentRecipe, setCurrentRecipe] = useState({
     right: null,
@@ -560,21 +561,33 @@ export default function MainHMI() {
 
   // Homing handlers: pulse momentary tags for left/right heads
   const handleHomeLeft = async () => {
+    if (homingStatus.left.homed) {
+      showMessage('Already Homed', 'Left axis is already homed', 'info');
+      return;
+    }
+    
     try {
+      setHomingSide('left');
+      setShowHomingDialog(true);
       await pulseBoolTag('GLEFTHEAD.bHmiEnaLeftHomePb', 200);
-      setHomedSides(prev => ({ ...prev, left: true }));
-      showMessage('Homing Started', 'Homing left side...', 'info');
     } catch (error) {
+      setShowHomingDialog(false);
       showMessage('Error', `Failed to trigger left homing: ${error.message}`, 'error');
     }
   };
 
   const handleHomeRight = async () => {
+    if (homingStatus.right.homed) {
+      showMessage('Already Homed', 'Right axis is already homed', 'info');
+      return;
+    }
+    
     try {
+      setHomingSide('right');
+      setShowHomingDialog(true);
       await pulseBoolTag('GRIGHTHEAD.bHmiEnaRightHomePb', 200);
-      setHomedSides(prev => ({ ...prev, right: true }));
-      showMessage('Homing Started', 'Homing right side...', 'info');
     } catch (error) {
+      setShowHomingDialog(false);
       showMessage('Error', `Failed to trigger right homing: ${error.message}`, 'error');
     }
   };
@@ -1626,6 +1639,67 @@ export default function MainHMI() {
             setProgramToDownload(null);
           }}
         />
+
+        {/* Homing Progress Dialog */}
+        {showHomingDialog && (
+          <ModernDialog
+            isOpen={showHomingDialog}
+            title={`Homing ${homingSide === 'left' ? 'Left' : 'Right'} Side`}
+            onClose={() => {
+              setShowHomingDialog(false);
+              setHomingSide(null);
+            }}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '20px 0' }}>
+              {!homingStatus[homingSide]?.enabled && !homingStatus[homingSide]?.homed && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span style={{ fontSize: '32px' }}>⏳</span>
+                  <span style={{ fontSize: '16px', fontWeight: '500' }}>
+                    Push foot pedal to start homing sequence
+                  </span>
+                </div>
+              )}
+              
+              {homingStatus[homingSide]?.enabled && !homingStatus[homingSide]?.homed && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span style={{ fontSize: '32px', animation: 'spin 2s linear infinite' }}>⚙️</span>
+                  <span style={{ fontSize: '16px', fontWeight: '500', color: '#FF9800' }}>
+                    Homing in progress...
+                  </span>
+                </div>
+              )}
+              
+              {homingStatus[homingSide]?.homed && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span style={{ fontSize: '32px' }}>✅</span>
+                  <span style={{ fontSize: '16px', fontWeight: '500', color: '#4CAF50' }}>
+                    Homing complete!
+                  </span>
+                </div>
+              )}
+              
+              <button 
+                onClick={() => {
+                  setShowHomingDialog(false);
+                  setHomingSide(null);
+                }}
+                style={{
+                  padding: '12px 24px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  backgroundColor: '#2196F3',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  marginTop: '8px'
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </ModernDialog>
+        )}
 
         {showRunSideSelector && (
           <SideSelector
