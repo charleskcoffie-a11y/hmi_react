@@ -293,7 +293,7 @@ export default function MainHMI() {
               }
               
               const newRightStep = {
-                stepNumber: stepNum * 2,  // Double the step number for display
+                stepNumber: stepNum * 100,  // Triple digit format: PLC value * 100 (e.g., 5 → 500)
                 stepDescription: String(stepDesc).trim()
               };
               
@@ -332,7 +332,7 @@ export default function MainHMI() {
               }
               
               const newLeftStep = {
-                stepNumber: stepNum * 2,  // Double the step number for display
+                stepNumber: stepNum * 100,  // Triple digit format: PLC value * 100 (e.g., 5 → 500)
                 stepDescription: String(stepDesc).trim()
               };
               
