@@ -14,10 +14,9 @@
 
 .auto-teach-modal {
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  border-radius: 12px;
-  width: 95%;
-  max-width: 1000px;
-  max-height: 95vh;
+  border-radius: 0;
+  width: 100%;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   box-shadow: 0 10px 50px rgba(0, 0, 0, 0.8);
@@ -25,47 +24,53 @@
 }
 
 .auto-teach-header {
-  padding: 20px 24px;
+  padding: 4px 10px;
   border-bottom: 2px solid #2a4a7f;
   display: flex;
+  flex-direction: row;
   justify-content: space-between;
   align-items: center;
   background: rgba(0, 0, 0, 0.3);
+  gap: 10px;
 }
 
 .auto-teach-title {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  flex-direction: row;
+  gap: 16px;
+  align-items: center;
+  flex: 1;
 }
 
 .auto-teach-title h2 {
   margin: 0;
   color: #4a9eff;
-  font-size: 1.6rem;
+  font-size: 1rem;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  white-space: nowrap;
 }
 
 .program-info {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   align-items: center;
+  flex: 1;
 }
 
 .program-name {
   color: #88c0ff;
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
 }
 
 .side-badge {
   background: linear-gradient(135deg, #2a4a7f 0%, #1e3a5f 100%);
   color: #4a9eff;
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 0.8rem;
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-size: 0.75rem;
   font-weight: 600;
   border: 1px solid #4a9eff;
 }
@@ -83,15 +88,15 @@
 .jog-mode-indicator {
   background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
   color: #ffffff;
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 0.75rem;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.7rem;
   font-weight: 700;
-  border: 2px solid #28a745;
+  border: 1px solid #28a745;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
   animation: pulse-glow 2s infinite;
-  box-shadow: 0 0 15px rgba(40, 167, 69, 0.5);
+  box-shadow: 0 0 10px rgba(40, 167, 69, 0.5);
 }
 
 @keyframes pulse-glow {
@@ -865,15 +870,13 @@
 
 /* === NEW: 2-COLUMN GRID LAYOUT === */
 
-/* Progress Bar Section */
+/* Progress Bar Section - Now in Header */
 .progress-section {
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid #2a4a7f;
-  border-radius: 8px;
-  padding: 12px 16px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  flex: 1;
+  max-width: 300px;
 }
 
 .progress-bar-container {
@@ -895,7 +898,7 @@
 .progress-text {
   color: #88c0ff;
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   white-space: nowrap;
 }
 
@@ -1011,12 +1014,12 @@
   background: rgba(0, 0, 0, 0.4);
   border: 1px solid #2a4a7f;
   border-radius: 6px;
-  padding: 10px;
+  padding: 14px;
   display: flex;
   flex-direction: column;
   gap: 6px;
   transition: all 0.2s;
-  height: 100px;
+  min-height: 120px;
 }
 
 .step-grid-card.recorded {
@@ -1048,7 +1051,7 @@
 .card-step-num {
   color: #88c0ff;
   font-weight: 700;
-  font-size: 0.85rem;
+  font-size: 1.2rem;
 }
 
 .step-grid-card.recorded .card-step-num {
@@ -1102,7 +1105,7 @@
 .card-name {
   color: white;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 1.25rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1110,28 +1113,33 @@
 
 .card-pattern {
   color: #88c0ff;
-  font-size: 0.8rem;
+  font-size: 1.15rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-weight: 600;
 }
 
 .card-positions {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   color: #4ade80;
   font-family: 'Courier New', monospace;
-  font-size: 0.8rem;
+  font-size: 1.1rem;
+  font-weight: 600;
 }
 
 .card-repeat {
   color: #ffa726;
-  font-size: 0.8rem;
+  font-size: 0.95rem;
   font-weight: 600;
 }
 
 .card-placeholder {
   color: #666;
   font-style: italic;
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   margin-top: 8px;
 }
 
