@@ -504,79 +504,38 @@ export default function AutoTeach({
           </div>
 
           <div className="auto-teach-content">
-            <div className="teach-instructions">
-              <h3>📝 Instructions</h3>
-              <ol>
-                <li>Use Jog Mode to move axes to desired position</li>
-                <li>Enter step name and select pattern (if needed)</li>
-                <li>Click "Record Position" to save current position</li>
-                <li>Repeat for all positions (max 10 steps)</li>
-                <li>Click "Save Program" when complete</li>
-              </ol>
-
-              <div className="param-item">
-                <span className="param-label">Tube OD:</span>
-                <span className="param-value">
-                  {safeParameters.tubeOD ?? '--'} mm
-                </span>
+            {/* Progress Bar */}
+            <div className="progress-section">
+              <div className="progress-bar-container">
+                <div className="progress-bar-fill" style={{ width: `${(recordedSteps.length / 10) * 100}%` }}></div>
               </div>
-              <div className="param-item">
-                <span className="param-label">Final {safeParameters.sizeType ?? ''}:</span>
-                <span className="param-value">
-                  {safeParameters.finalSize ?? '--'} mm
-                </span>
-              </div>
-              {safeParameters.tubeOD && safeParameters.tubeID && (
-                <div className="param-item">
-                  <span className="param-label">Wall Thickness:</span>
-                  <span className="param-value">
-                    {((safeParameters.tubeOD - safeParameters.tubeID) / 2).toFixed(2)} mm
-                  </span>
-                </div>
-              )}
-            </div>
-
-            <div className="current-position-display">
-              <h3>Current Teaching Step: {activeStepNumber}/10</h3>
-              <div style={{ marginBottom: 8 }}>📍 Current Position (to be recorded for this step)</div>
-              <div className="position-values">
-                <div className="position-item">
-                  <span className="position-label">{axis1Label}:</span>
-                  <span className="position-value">{Number(safeActualPositions.axis1).toFixed(3)} mm</span>
-                </div>
-                <div className="position-item">
-                  <span className="position-label">{axis2Label}:</span>
-                  <span className="position-value">{Number(safeActualPositions.axis2).toFixed(3)} mm</span>
-                </div>
+              <div className="progress-text">
+                {recordedSteps.length}/10 steps recorded
+                {recordedSteps.length > 0 && recordedSteps.length < 10 && ` • ${10 - recordedSteps.length} remaining`}
               </div>
             </div>
 
-            <div className="record-controls">
-              <div className="form-group">
-                <label>Step Name</label>
+            {/* Current Step Controls */}
+            <div className="current-step-controls">
+              <div className="step-indicator">
+                <span className="step-badge">Step {activeStepNumber}/10</span>
+                <span className="position-compact">
+                  {axis1Label}: {Number(safeActualPositions.axis1).toFixed(3)} | {axis2Label}: {Number(safeActualPositions.axis2).toFixed(3)}
+                </span>
+              </div>
+              <div className="teach-controls-row">
                 <input
                   type="text"
                   value={stepName}
                   onChange={(e) => setStepName(e.target.value)}
-                  className="step-name-input"
+                  placeholder={activeStepNumber === 1 ? 'Start Position' : `Step ${activeStepNumber}`}
+                  className="step-name-input-compact"
                 />
-              </div>
-
-              <div className="form-group">
-                <label>Active Step Number</label>
-                <input type="number" value={activeStepNumber} readOnly className="step-number-input" />
-              </div>
-
-              <div className="form-group">
-                <label>Pattern Selection</label>
                 <select
                   value={activeStepNumber === 1 ? 6 : pattern}
                   onChange={(e) => {
                     const next = parseInt(e.target.value, 10);
-
-                    // Step 1 is locked; step 10 cannot be Repeat; and Repeat requires eligible targets.
                     if (activeStepNumber === 1) return;
-
                     const forbidden = new Set(
                       activeStepNumber === 2
                         ? [1, 3, 4, 5, 8]
@@ -588,38 +547,32 @@ export default function AutoTeach({
                       setDialog({
                         open: true,
                         title: 'Pattern Not Allowed',
-                        message:
-                          activeStepNumber === 2
-                            ? 'Selected pattern is not allowed for Step 2.'
-                            : 'Selected pattern is not allowed for Step 10.',
+                        message: 'Selected pattern is not allowed for this step.',
                         confirm: closeDialog,
                         cancel: null,
                       });
                       return;
                     }
-
                     if (next === 5) {
                       if (!repeatAllowedForActiveStep) {
                         setDialog({
                           open: true,
                           title: 'Repeat Not Available',
-                          message: 'You cannot select Repeat yet. Record a step between 2 and 9 first (step 1 and step 10 cannot be repeated).',
+                          message: 'Record a step between 2 and 9 first.',
                           confirm: closeDialog,
                           cancel: null,
                         });
                         return;
                       }
                       setPattern(5);
-                      // Default the selection to the first eligible step.
                       setRepeatTargetStep((prev) => prev ?? eligibleRepeatTargets[0] ?? null);
                       setRepeatCount((prev) => (Number.isFinite(prev) && prev >= 1 ? prev : 1));
                       setRepeatConfigOpen(true);
                       return;
                     }
-
                     setPattern(next);
                   }}
-                  className="pattern-select"
+                  className="pattern-select-compact"
                   disabled={activeStepNumber === 1}
                 >
                   {availablePatternOptions.map((opt) => (
@@ -628,229 +581,94 @@ export default function AutoTeach({
                     </option>
                   ))}
                 </select>
-                {activeStepNumber === 2 ? (
-                  <div className="pattern-hint">Step 2 not allowed: 1, 3, 4, 5, 8</div>
-                ) : activeStepNumber === 10 ? (
-                  <div className="pattern-hint">Step 10 not allowed: 0, 2, 6</div>
-                ) : null}
+                <button
+                  className={`record-btn-compact ${isRecording ? 'recording' : ''}`}
+                  onClick={handleRecordPosition}
+                  disabled={isRecording || recordedSteps.length >= 10}
+                >
+                  {recordedSteps.length >= 10 ? 'Complete' : isRecording ? '⏺' : '⏺ Record'}
+                </button>
               </div>
-
-              <button
-                className={`record-btn ${isRecording ? 'recording' : ''}`}
-                onClick={handleRecordPosition}
-                disabled={isRecording || recordedSteps.length >= 10}
-              >
-                {recordedSteps.length >= 10 ? 'All 10 Steps Recorded' : isRecording ? 'Recording...' : 'Record Position'}
-              </button>
             </div>
 
-            {/* Recorded steps directly under the active teaching step */}
-            <div className="recorded-steps-section">
-              <h3>📋 Recorded Steps ({recordedSteps.length}/10)</h3>
-              <div className="active-step-card" ref={activeCardRef}>
-                <div className="active-step-row">
-                  <span className="active-step-label">Active Step {activeStepNumber}</span>
-                  <input
-                    type="text"
-                    value={stepName}
-                    onChange={(e) => setStepName(e.target.value)}
-                    className="step-name-input inline"
-                    placeholder={activeStepNumber === 1 ? 'Start Position' : `Step ${activeStepNumber}`}
-                  />
-                  <select
-                    value={activeStepNumber === 1 ? 6 : pattern}
-                    onChange={(e) => {
-                      const next = parseInt(e.target.value, 10);
-                      if (activeStepNumber === 1) return;
-                      const forbidden = new Set(
-                        activeStepNumber === 2
-                          ? [1, 3, 4, 5, 8]
-                          : activeStepNumber === 10
-                            ? [0, 2, 6, 5]
-                            : []
-                      );
-                      if (forbidden.has(next)) {
-                        setDialog({
-                          open: true,
-                          title: 'Pattern Not Allowed',
-                          message:
-                            activeStepNumber === 2
-                              ? 'Selected pattern is not allowed for Step 2.'
-                              : 'Selected pattern is not allowed for Step 10.',
-                          confirm: closeDialog,
-                          cancel: null,
-                        });
-                        return;
-                      }
-                      if (next === 5) {
-                        if (!repeatAllowedForActiveStep) {
-                          setDialog({
-                            open: true,
-                            title: 'Repeat Not Available',
-                            message: 'You cannot select Repeat yet. Record a step between 2 and 9 first (step 1 and step 10 cannot be repeated).',
-                            confirm: closeDialog,
-                            cancel: null,
-                          });
-                          return;
-                        }
-                        setPattern(5);
-                        setRepeatTargetStep((prev) => prev ?? eligibleRepeatTargets[0] ?? null);
-                        setRepeatCount((prev) => (Number.isFinite(prev) && prev >= 1 ? prev : 1));
-                        setRepeatConfigOpen(true);
-                        return;
-                      }
-                      setPattern(next);
-                    }}
-                    className="pattern-select inline"
-                    disabled={activeStepNumber === 1}
+            {/* 2-Column Grid of All 10 Steps */}
+            <div className="steps-grid">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((stepNum) => {
+                const recordedStep = recordedSteps.find((s) => s.step === stepNum);
+                const isActive = stepNum === activeStepNumber;
+                const isRecorded = !!recordedStep;
+
+                return (
+                  <div 
+                    key={stepNum} 
+                    className={`step-grid-card ${isRecorded ? 'recorded' : 'unrecorded'} ${isActive ? 'active' : ''}`}
                   >
-                    {availablePatternOptions.map((opt) => (
-                      <option key={opt.code} value={opt.code} disabled={!!opt.disabled}>
-                        {opt.code} - {opt.name}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    className={`record-btn inline ${isRecording ? 'recording' : ''}`}
-                    onClick={handleRecordPosition}
-                    disabled={isRecording || recordedSteps.length >= 10}
-                  >
-                    {recordedSteps.length >= 10 ? 'All 10 Steps Recorded' : isRecording ? 'Recording...' : 'Record Position'}
-                  </button>
-                </div>
-              </div>
-              <div className="steps-list">
-                {recordedSteps.length === 0 ? (
-                  <div className="no-steps">No positions recorded yet</div>
-                ) : (
-                  recordedSteps.map((step, index) =>
-                    editingStepIndex === index ? (
-                      <div key={index} className="step-card editing">
-                        <h4>Edit Step {step.step}</h4>
-                        <div className="edit-form">
-                          <div className="form-group">
-                            <label>Step Name</label>
-                            <input
-                              type="text"
-                              value={editStepName}
-                              onChange={(e) => setEditStepName(e.target.value)}
-                              className="step-name-input"
-                            />
-                          </div>
-                          <div className="form-group">
-                            <label>Pattern</label>
-                            <select
-                              value={editStepPattern}
-                              onChange={(e) => setEditStepPattern(parseInt(e.target.value, 10))}
-                              className="pattern-select"
-                              disabled={step.step === 1}
-                            >
-                                {patternOptions.map((opt) => {
-                                  const stepNum = recordedSteps[editingStepIndex]?.step;
-                                  const forbidden = new Set(
-                                    stepNum === 2
-                                      ? [1, 3, 4, 5, 8]
-                                      : stepNum === 10
-                                        ? [0, 2, 6, 5]
-                                        : []
-                                  );
-                                  return (
-                                    <option key={opt.code} value={opt.code} disabled={forbidden.has(opt.code)}>
-                                      {opt.code} - {opt.name}
-                                    </option>
-                                  );
-                                })}
-                            </select>
-                          </div>
-                          <div className="edit-buttons">
-                            <button className="save-edit-btn" onClick={handleSaveEditStep}>
-                              Save
-                            </button>
-                            <button className="cancel-edit-btn" onClick={handleCancelEdit}>
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div key={index} className="step-card">
-                        <div className="step-header">
-                          <span className="step-number">Step {step.step}</span>
-                          <span className="step-name">
-                            {step.step === 1
-                              ? step.stepName
-                              : (patternOptions.find((p) => p.code === step.pattern)?.name || step.stepName)}
-                          </span>
-                          {step.needsReteach ? <span className="reteach-pill">Re-teach</span> : null}
-                          <div className="pattern-display mini">
-                            {step.step === 1
-                              ? (patternOptions.find((p) => p.code === 6)?.name)
-                              : (patternOptions.find((p) => p.code === step.pattern)?.name)}
-                          </div>
-                          <button className="edit-step-btn" onClick={() => handleEditStep(index)}>
+                    <div className="card-header">
+                      <span className="card-step-num">
+                        {isRecorded ? '✓' : isActive ? '🎯' : '○'} Step {stepNum}
+                      </span>
+                      {isRecorded && (
+                        <div className="card-actions">
+                          <button 
+                            className="card-edit-btn" 
+                            onClick={() => handleEditStep(recordedSteps.findIndex((s) => s.step === stepNum))}
+                            title="Edit"
+                          >
                             ✎
                           </button>
-                          <button className="delete-step-btn" onClick={() => handleDeleteStep(index)}>
+                          <button 
+                            className="card-delete-btn" 
+                            onClick={() => handleDeleteStep(recordedSteps.findIndex((s) => s.step === stepNum))}
+                            title="Delete"
+                          >
                             🗑
                           </button>
                         </div>
-                        <div className="step-details">
-                          {(() => {
-                            const patternCode = Number(step.pattern);
-                            const meta = patternAxisMeta[patternCode];
-                            
-                            if (!meta) {
-                              // Fallback if pattern not found
-                              return (
-                                <div className="step-positions">
-                                  <span>{axis1Label} Cmd: {Number(step.positions.axis1Cmd).toFixed(3)} mm</span>
-                                  <span>{axis2Label} Cmd: {Number(step.positions.axis2Cmd).toFixed(3)} mm</span>
-                                </div>
-                              );
-                            }
-                            
-                            if (meta.axes === 'none') return null;
-                            if (meta.axes === 'repeat') return null;
-                            
-                            if (meta.axes === 'id') {
-                              return (
-                                <div className="step-positions">
-                                  <span>{axis1Label} Cmd: {Number(step.positions.axis1Cmd).toFixed(3)} mm</span>
-                                </div>
-                              );
-                            }
-                            
-                            if (meta.axes === 'od') {
-                              return (
-                                <div className="step-positions">
-                                  <span>{axis2Label} Cmd: {Number(step.positions.axis2Cmd).toFixed(3)} mm</span>
-                                </div>
-                              );
-                            }
-                            
-                            // Both axes
-                            return (
-                              <div className="step-positions">
-                                <span>{axis1Label} Cmd: {Number(step.positions.axis1Cmd).toFixed(3)} mm</span>
-                                <span>{axis2Label} Cmd: {Number(step.positions.axis2Cmd).toFixed(3)} mm</span>
-                              </div>
-                            );
-                          })()}
-                          <div className="step-pattern">
-                            Pattern: {patternOptions.find((p) => p.code === step.pattern)?.name}
-                            {step.pattern === 5 && step.repeatTargetStep && step.repeatCount ? (
-                              <div>
-                                Repeat Step {step.repeatTargetStep} × {step.repeatCount}
-                              </div>
-                            ) : null}
+                      )}
+                    </div>
+                    <div className="card-content">
+                      {isRecorded ? (
+                        <>
+                          <div className="card-name">{recordedStep.stepName}</div>
+                          <div className="card-pattern">
+                            {patternOptions.find((p) => p.code === recordedStep.pattern)?.name || `Pattern ${recordedStep.pattern}`}
                           </div>
-                        </div>
-                      </div>
-                    )
-                  )
-                )}
-              </div>
+                          {recordedStep.pattern === 5 && recordedStep.repeatTargetStep ? (
+                            <div className="card-repeat">
+                              ↻ Repeat Step {recordedStep.repeatTargetStep} × {recordedStep.repeatCount || 1}
+                            </div>
+                          ) : (
+                            <div className="card-positions">
+                              {recordedStep.positions.axis1Cmd !== undefined && `${Number(recordedStep.positions.axis1Cmd).toFixed(2)} / `}
+                              {recordedStep.positions.axis2Cmd !== undefined && `${Number(recordedStep.positions.axis2Cmd).toFixed(2)}`}
+                            </div>
+                          )}
+                        </>
+                      ) : isActive ? (
+                        <div className="card-placeholder">Record position above</div>
+                      ) : (
+                        <div className="card-placeholder">Not recorded yet</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
+
+            {/* Save Program Button at Bottom */}
+            <div className="save-program-section">
+              <button
+                className="save-program-btn"
+                onClick={handleSaveProgram}
+                disabled={recordedSteps.length === 0}
+              >
+                💾 Save Program ({recordedSteps.length} steps)
+              </button>
+              <button className="cancel-teach-btn" onClick={onClose}>
+                Cancel
+              </button>
+            </div>
+          </div>
 
             <ModernDialog
               open={repeatConfigOpen}
@@ -976,25 +794,72 @@ export default function AutoTeach({
                 <div className="save-confirm-note">You can continue teaching by pressing Cancel.</div>
               </div>
             </ModernDialog>
-          </div>
 
-          <div className="auto-teach-footer">
-            <div className="footer-info">
-              <span className="step-counter">{recordedSteps.length} steps recorded</span>
-            </div>
-            <div className="footer-buttons">
-              <button className="cancel-teach-btn" onClick={onClose}>
-                Cancel
-              </button>
-              <button
-                className="save-program-btn"
-                onClick={() => setShowSaveConfirm(true)}
-                disabled={recordedSteps.length === 0}
-              >
-                💾 Save Program
-              </button>
-            </div>
-          </div>
+            {/* Edit Step Modal */}
+            <ModernDialog
+              open={editingStepIndex !== null}
+              title={`Edit Step ${editingStepIndex !== null ? recordedSteps[editingStepIndex]?.step : ''}`}
+              confirmText="Save"
+              cancelText="Cancel"
+              onConfirm={handleSaveEditStep}
+              onCancel={handleCancelEdit}
+            >
+              {editingStepIndex !== null && (
+                <div className="edit-step-modal-content" style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '8px' }}>
+                  <div className="form-group">
+                    <label style={{ color: '#88c0ff', fontWeight: 600, marginBottom: '6px', display: 'block' }}>Step Name</label>
+                    <input
+                      type="text"
+                      value={editStepName}
+                      onChange={(e) => setEditStepName(e.target.value)}
+                      style={{
+                        background: 'rgba(0, 0, 0, 0.4)',
+                        border: '1px solid #2a4a7f',
+                        borderRadius: '6px',
+                        padding: '10px 12px',
+                        color: 'white',
+                        fontSize: '1rem',
+                        width: '100%'
+                      }}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label style={{ color: '#88c0ff', fontWeight: 600, marginBottom: '6px', display: 'block' }}>Pattern</label>
+                    <select
+                      value={editStepPattern}
+                      onChange={(e) => setEditStepPattern(parseInt(e.target.value, 10))}
+                      disabled={recordedSteps[editingStepIndex]?.step === 1}
+                      style={{
+                        background: 'rgba(0, 0, 0, 0.4)',
+                        border: '1px solid #2a4a7f',
+                        borderRadius: '6px',
+                        padding: '10px 12px',
+                        color: 'white',
+                        fontSize: '1rem',
+                        width: '100%',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {patternOptions.map((opt) => {
+                        const stepNum = recordedSteps[editingStepIndex]?.step;
+                        const forbidden = new Set(
+                          stepNum === 2
+                            ? [1, 3, 4, 5, 8]
+                            : stepNum === 10
+                              ? [0, 2, 6, 5]
+                              : []
+                        );
+                        return (
+                          <option key={opt.code} value={opt.code} disabled={forbidden.has(opt.code)}>
+                            {opt.code} - {opt.name}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                </div>
+              )}
+            </ModernDialog>
         </div>
       </div>
     </>

@@ -110,18 +110,14 @@ function createWindow() {
     // Load from localhost:3003 in development
     const DEV_SERVER = 'http://localhost:3003';
     
-    if (isPreview) {
-      // Development mode - load from React dev server
-      win.loadURL(DEV_SERVER).catch((err) => {
-        console.error('Failed to load from dev server:', err);
-      });
-    } else {
-      // Production mode - load from build files
+    // Function to load from build files
+    const loadFromBuild = () => {
       const isPackaged = app.isPackaged;
       const buildPath = isPackaged
         ? path.join(process.resourcesPath, 'app', 'build', 'index.html')
-        : path.join(app.getAppPath(), '..', 'build', 'index.html');
+        : path.join(__dirname, 'build', 'index.html');
 
+      console.log('[electron] Loading from build:', buildPath);
       win.loadURL(
         url.format({
           pathname: buildPath,
@@ -131,6 +127,17 @@ function createWindow() {
       ).catch((err) => {
         console.error('Failed to load index.html:', err);
       });
+    };
+    
+    if (isPreview) {
+      // Development mode - try dev server first, fallback to build
+      win.loadURL(DEV_SERVER).catch((err) => {
+        console.log('[electron] Dev server not available, loading from build folder');
+        loadFromBuild();
+      });
+    } else {
+      // Production mode - load from build files
+      loadFromBuild();
     }
   win.setMenuBarVisibility(false);
 
