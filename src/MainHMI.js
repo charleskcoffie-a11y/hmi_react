@@ -185,6 +185,9 @@ export default function MainHMI() {
 
   const [plcStatus, setPlcStatus] = useState('unknown');
   
+  // Pump enable status (controls if Home and Start Position buttons are enabled)
+  const [pumpEnabled, setPumpEnabled] = useState(false);
+  
   // Handle alarm acknowledgment with auto-reshow after 5 seconds
   const handleAcknowledgeAlarm = () => {
     setAcknowledgedAlarms(alarms.map(a => a.bit));
@@ -434,6 +437,21 @@ export default function MainHMI() {
         } catch (statusErr) {
           setPlcConnected(false); // Exception occurred
           console.warn('[MainHMI] Machine status read error:', statusErr.message || statusErr);
+        }
+
+        // Read pump enable status from PLC (GAxis.bPumpEnable)
+        try {
+          const pumpRes = await fetch('http://localhost:3001/read?tag=GAxis.bPumpEnable');
+          if (pumpRes.ok) {
+            const pumpData = await pumpRes.json();
+            if (pumpData.success) {
+              const pumpValue = Boolean(pumpData.value);
+              // Only update if changed
+              setPumpEnabled(prev => prev !== pumpValue ? pumpValue : prev);
+            }
+          }
+        } catch (pumpErr) {
+          console.warn('[MainHMI] Pump enable read error:', pumpErr.message || pumpErr);
         }
 
         // Read homing status variables from PLC
@@ -1343,7 +1361,8 @@ export default function MainHMI() {
           <button 
             className="mode-control-btn homing-btn"
             onClick={handleHomeLeft}
-            title="Home Left Side"
+            disabled={!pumpEnabled}
+            title={pumpEnabled ? "Home Left Side" : "Pump must be running to enable homing"}
           >
             <span className="mode-icon">🏠</span>
             <span>HOME LEFT</span>
@@ -1352,7 +1371,8 @@ export default function MainHMI() {
           <button 
             className="mode-control-btn homing-btn"
             onClick={handleHomeRight}
-            title="Home Right Side"
+            disabled={!pumpEnabled}
+            title={pumpEnabled ? "Home Right Side" : "Pump must be running to enable homing"}
           >
             <span className="mode-icon">🏠</span>
             <span>HOME RIGHT</span>
@@ -1409,6 +1429,7 @@ export default function MainHMI() {
           onMachineParameters={() => setMachineParametersOpen(true)}
           onStartPosition={handleStartPosition}
           userRole={currentUser}
+          pumpEnabled={pumpEnabled}
         />
       </div>
  

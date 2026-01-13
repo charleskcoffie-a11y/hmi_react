@@ -2,12 +2,12 @@ import React from 'react';
 import { pulseButton } from '../services/ioService';
 import '../styles/ControlPanel.css';
 
-export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach, onMachineParameters, onStartPosition, userRole }) {
+export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach, onMachineParameters, onStartPosition, userRole, pumpEnabled }) {
   // Role-based access control
   const canAutoTeach = userRole !== 'operator';
   const canEditProgram = userRole !== 'operator';
   const canMachineParams = userRole === 'engineering';
-  const canStartPosition = true; // All can start position
+  const canStartPosition = pumpEnabled; // Only enabled when pump is running
   const canPartParameters = true; // All can access part parameters
 
   return (
@@ -25,7 +25,7 @@ export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach,
               }
             }}
             disabled={!canStartPosition}
-            title={canStartPosition ? 'Set start position for left side' : 'Not available for your role'}
+            title={canStartPosition ? 'Set start position for left side' : 'Pump must be running to enable start position'}
           >
             <span className="btn-icon">↓</span>
             Start Left
@@ -41,7 +41,7 @@ export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach,
               }
             }}
             disabled={!canStartPosition}
-            title={canStartPosition ? 'Set start position for right side' : 'Not available for your role'}
+            title={canStartPosition ? 'Set start position for right side' : 'Pump must be running to enable start position'}
           >
             <span className="btn-icon">↓</span>
             Start Right
