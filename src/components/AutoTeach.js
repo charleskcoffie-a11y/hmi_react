@@ -56,6 +56,7 @@ export default function AutoTeach({
   const [repeatKeypadOpen, setRepeatKeypadOpen] = useState(false);
   const [plcStatus, setPlcStatus] = useState('unknown');
   const [loading, setLoading] = useState(false);
+  const [jogModeEnabled, setJogModeEnabled] = useState(false);
   const activeCardRef = useRef(null);
 
   const activeStepNumber = Math.min(recordedSteps.length + 1, 10);
@@ -119,6 +120,91 @@ export default function AutoTeach({
       setRepeatKeypadOpen(false);
     }
   }, [isOpen, programName, side]); // Reset when opening or when program name/side changes
+
+  // Poll jog mode status
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const pollJogMode = async () => {
+      try {
+        const jogModeVar = side === 'right' ? 'GRIGHTHEAD.HmiRightJogMode' : 'GLEFTHEAD.HmiLeftJogMode';
+        const response = await fetch(`http://localhost:3001/read?tag=${jogModeVar}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            const jogEnabled = Boolean(data.value);
+            setJogModeEnabled(jogEnabled);
+            setPlcStatus('good');
+          } else {
+            setPlcStatus('bad');
+          }
+        } else {
+          setPlcStatus('bad');
+        }
+      } catch (err) {
+        console.warn('[AutoTeach] Jog mode poll error:', err.message);
+        setPlcStatus('bad');
+      }
+    };
+
+    const interval = setInterval(pollJogMode, 500);
+    pollJogMode(); // Initial read
+    return () => clearInterval(interval);
+  }, [isOpen, side]);
+  useEffect(() => {
+    const enableJogMode = async () => {
+      try {
+        const jogModeVar = side === 'right' ? 'GRIGHTHEAD.HmiRightJogMode' : 'GLEFTHEAD.HmiLeftJogMode';
+        const response = await fetch('http://localhost:3001/write', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tag: jogModeVar, value: true })
+        });
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success) {
+            setJogModeEnabled(true);
+            console.log(`[AutoTeach] Jog mode enabled for ${side} side`);
+          }
+        }
+      } catch (err) {
+        console.warn('[AutoTeach] Error enabling jog mode:', err.message);
+      }
+    };
+
+    const disableJogMode = async () => {
+      try {
+        const jogModeVar = side === 'right' ? 'GRIGHTHEAD.HmiRightJogMode' : 'GLEFTHEAD.HmiLeftJogMode';
+        const response = await fetch('http://localhost:3001/write', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tag: jogModeVar, value: false })
+        });
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success) {
+            setJogModeEnabled(false);
+            console.log(`[AutoTeach] Jog mode disabled for ${side} side`);
+          }
+        }
+      } catch (err) {
+        console.warn('[AutoTeach] Error disabling jog mode:', err.message);
+      }
+    };
+
+    if (isOpen) {
+      enableJogMode();
+    } else {
+      disableJogMode();
+    }
+
+    // Cleanup: disable jog mode when component unmounts
+    return () => {
+      if (isOpen) {
+        disableJogMode();
+      }
+    };
+  }, [isOpen, side]);
 
   const patternAxisMeta = useMemo(
     () => ({
@@ -400,7 +486,7 @@ export default function AutoTeach({
               <div className="program-info">
                 <span className="program-name">{programName}</span>
                 <span className={`side-badge ${side}`}>{side === 'right' ? 'Right Side' : 'Left Side'}</span>
-                <span className="jog-mode-indicator">🕹️ JOG MODE ACTIVE</span>
+                <span className="jog-mode-indicator">🕹️ JOG MODE {jogModeEnabled ? 'ACTIVE' : 'INACTIVE'}</span>
                 <span className={`plc-status-pill ${plcStatus}`}>
                   {loading ? 'Writing to PLC…' : plcStatus === 'good' ? 'PLC live' : plcStatus === 'bad' ? 'PLC offline' : 'PLC unknown'}
                 </span>
