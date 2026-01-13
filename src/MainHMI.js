@@ -123,7 +123,7 @@ export default function MainHMI() {
   const [showRunSideSelector, setShowRunSideSelector] = useState(false);
   const [showHomingSideSelector, setShowHomingSideSelector] = useState(false);
   const [machineCount, setMachineCount] = useState(0);
-  const [unitSystem, setUnitSystem] = useState('mm');
+  const [unitSystem, setUnitSystem] = useState('inch');
   const [actualPositions, setActualPositions] = useState({
     right: { axis1: 0, axis2: 0 }, // PLC tags: lAxis1ActPos, lAxis2ActPos
     left: { axis1: 0, axis2: 0 }   // PLC tags: lAxis3ActPos, lAxis4ActPos
@@ -166,6 +166,7 @@ export default function MainHMI() {
   // Machine status system (bitfield from PLC)
   const [machineStatusBits, setMachineStatusBits] = useState(0);
   const [machineStatus, setMachineStatus] = useState([]);
+  const [plcConnected, setPlcConnected] = useState(false);
 
   const [plcStatus, setPlcStatus] = useState('unknown');
   
@@ -206,7 +207,16 @@ export default function MainHMI() {
       try {
         // Read axis positions from PLC
         const data = await readAxisPositions();
-        setActualPositions(data.actualPositions || { right: { axis1: 0, axis2: 0 }, left: { axis1: 0, axis2: 0 } });
+        const newPositions = data.actualPositions || { right: { axis1: 0, axis2: 0 }, left: { axis1: 0, axis2: 0 } };
+        
+        // Only update if positions actually changed (prevents unnecessary re-renders)
+        setActualPositions(prev => {
+          if (JSON.stringify(prev) !== JSON.stringify(newPositions)) {
+            return newPositions;
+          }
+          return prev;
+        });
+        
         setPlcStatus(data.connected ? 'good' : 'bad');
         
         // Read machine count from PLC
@@ -233,7 +243,8 @@ export default function MainHMI() {
               }
               const finalCount = Math.floor(Math.max(0, count)); // Ensure non-negative
               console.log('[MainHMI] Setting machine count to:', finalCount);
-              setMachineCount(finalCount);
+              // Only update if value changed
+              setMachineCount(prev => prev !== finalCount ? finalCount : prev);
             } else {
               console.warn('[MainHMI] Machine count read failed:', countData.error);
             }
@@ -244,8 +255,8 @@ export default function MainHMI() {
 
         // Read right head step number and description from PLC
         try {
-          const stateResponse = await fetch('http://localhost:3001/read?tag=GVL_GRIGHTHEAD.Rstate');
-          const descResponse = await fetch('http://localhost:3001/read?tag=GVL_GRIGHTHEAD.RstateDesc');
+          const stateResponse = await fetch('http://localhost:3001/read?tag=GRIGHTHEAD.Rstate');
+          const descResponse = await fetch('http://localhost:3001/read?tag=GRIGHTHEAD.RstateDesc');
           
           if (stateResponse.ok && descResponse.ok) {
             const stateData = await stateResponse.json();
@@ -263,9 +274,17 @@ export default function MainHMI() {
                 stepDesc = stepDesc.value;
               }
               
-              setRightStepDisplay({
+              const newRightStep = {
                 stepNumber: stepNum,
                 stepDescription: String(stepDesc).trim()
+              };
+              
+              // Only update if changed
+              setRightStepDisplay(prev => {
+                if (prev.stepNumber !== newRightStep.stepNumber || prev.stepDescription !== newRightStep.stepDescription) {
+                  return newRightStep;
+                }
+                return prev;
               });
             }
           }
@@ -275,8 +294,8 @@ export default function MainHMI() {
 
         // Read left head step number and description from PLC
         try {
-          const stateResponse = await fetch('http://localhost:3001/read?tag=GVL_GLEFTHEAD.Lstate');
-          const descResponse = await fetch('http://localhost:3001/read?tag=GVL_GLEFTHEAD.LstateDesc');
+          const stateResponse = await fetch('http://localhost:3001/read?tag=GLEFTHEAD.Lstate');
+          const descResponse = await fetch('http://localhost:3001/read?tag=GLEFTHEAD.LstateDesc');
           
           if (stateResponse.ok && descResponse.ok) {
             const stateData = await stateResponse.json();
@@ -294,9 +313,17 @@ export default function MainHMI() {
                 stepDesc = stepDesc.value;
               }
               
-              setLeftStepDisplay({
+              const newLeftStep = {
                 stepNumber: stepNum,
                 stepDescription: String(stepDesc).trim()
+              };
+              
+              // Only update if changed
+              setLeftStepDisplay(prev => {
+                if (prev.stepNumber !== newLeftStep.stepNumber || prev.stepDescription !== newLeftStep.stepDescription) {
+                  return newLeftStep;
+                }
+                return prev;
               });
             }
           }
@@ -319,7 +346,7 @@ export default function MainHMI() {
               leftJogRes.json()
             ]);
             
-            setModeFeedback({
+            const newModeFeedback = {
               right: {
                 runMode: rightRunData.success ? Boolean(rightRunData.value) : false,
                 jogMode: rightJogData.success ? Boolean(rightJogData.value) : false
@@ -328,15 +355,23 @@ export default function MainHMI() {
                 runMode: leftRunData.success ? Boolean(leftRunData.value) : false,
                 jogMode: leftJogData.success ? Boolean(leftJogData.value) : false
               }
+            };
+            
+            // Only update if changed
+            setModeFeedback(prev => {
+              if (JSON.stringify(prev) !== JSON.stringify(newModeFeedback)) {
+                return newModeFeedback;
+              }
+              return prev;
             });
           }
         } catch (modeErr) {
           console.warn('[MainHMI] Mode feedback read error:', modeErr.message || modeErr);
         }
 
-        // Read alarm bitfield from PLC (GVL_GAXIS.AlarmSystem)
+        // Read alarm bitfield from PLC (GAxis.AlarmSystem)
         try {
-          const alarmRes = await fetch('http://localhost:3001/read?tag=GVL_GAXIS.AlarmSystem');
+          const alarmRes = await fetch('http://localhost:3001/read?tag=GAxis.AlarmSystem');
           if (alarmRes.ok) {
             const alarmData = await alarmRes.json();
             if (alarmData.success) {
@@ -355,11 +390,12 @@ export default function MainHMI() {
           console.warn('[MainHMI] Alarm read error:', alarmErr.message || alarmErr);
         }
 
-        // Read machine status bitfield from PLC (GVL_GAXIS.MachineStatus)
+        // Read machine status bitfield from PLC (GAxis.MachineStatus)
         try {
-          const statusRes = await fetch('http://localhost:3001/read?tag=GVL_GAXIS.MachineStatus');
+          const statusRes = await fetch('http://localhost:3001/read?tag=GAxis.MachineStatus');
           if (statusRes.ok) {
             const statusData = await statusRes.json();
+            console.log('[MainHMI] Machine status response:', statusData);
             if (statusData.success) {
               let statusVal = statusData.value;
               if (typeof statusVal === 'object' && 'value' in statusVal) {
@@ -370,13 +406,23 @@ export default function MainHMI() {
               const bitfield = Number(statusVal) || 0;
               setMachineStatusBits(bitfield);
               setMachineStatus(decodeMachineStatus(bitfield));
+              setPlcConnected(true); // Successfully read from PLC
+              console.log('[MainHMI] PLC connected, status bits:', bitfield);
+            } else {
+              setPlcConnected(false); // Read failed
+              console.warn('[MainHMI] Machine status read failed:', statusData.error);
             }
+          } else {
+            setPlcConnected(false); // HTTP error
+            console.warn('[MainHMI] HTTP error reading machine status:', statusRes.status);
           }
         } catch (statusErr) {
+          setPlcConnected(false); // Exception occurred
           console.warn('[MainHMI] Machine status read error:', statusErr.message || statusErr);
         }
       } catch (err) {
         setPlcStatus('bad');
+        setPlcConnected(false);
         console.warn('Axis position read failed:', err.message || err);
         // Set positions to 0 on error
         setActualPositions({ right: { axis1: 0, axis2: 0 }, left: { axis1: 0, axis2: 0 } });
@@ -1255,18 +1301,22 @@ export default function MainHMI() {
         <div className="machine-status-content">
           <span className="machine-status-header">Machine Status:</span>
           <div className="machine-status-indicators">
-            {machineStatus.length > 0 ? (
-              machineStatus.map(status => (
-                <div 
-                  key={status.bit} 
-                  className="status-indicator"
-                  style={{ borderColor: status.color, color: status.color }}
-                  title={`Bit ${status.bit}`}
-                >
-                  <span className="status-dot" style={{ backgroundColor: status.color }} />
-                  {status.label}
-                </div>
-              ))
+            {plcConnected ? (
+              machineStatus.length > 0 ? (
+                machineStatus.map(status => (
+                  <div 
+                    key={status.bit} 
+                    className="status-indicator"
+                    style={{ borderColor: status.color, color: status.color }}
+                    title={`Bit ${status.bit}`}
+                  >
+                    <span className="status-dot" style={{ backgroundColor: status.color }} />
+                    {status.label}
+                  </div>
+                ))
+              ) : (
+                <span style={{ color: '#FFC107', fontSize: '13px', fontWeight: '600' }}>⚠ Pump Not Running</span>
+              )
             ) : (
               <span style={{ color: '#90CAF9', fontSize: '13px', fontWeight: '600' }}>• PLC not connected</span>
             )}

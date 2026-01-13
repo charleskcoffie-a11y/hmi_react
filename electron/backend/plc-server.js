@@ -276,7 +276,7 @@ function createServer() {
 
       // Map recipe parameters to PLC variable names
       // Example mapping - adjust these to match your actual PLC variable structure
-      const paramPrefix = side === 'left' ? 'GVL_GLEFTHEAD' : 'GVL_GRIGHTHEAD';
+      const paramPrefix = side === 'left' ? 'GLEFTHEAD' : 'GRIGHTHEAD';
       const headPrefix = side === 'left' ? 'Left' : 'Right';
       
       try {
@@ -509,7 +509,7 @@ function createServer() {
         return res.status(400).json({ success: false, error: 'Missing side or program data' });
       }
 
-      const gvlPrefix = side === 'left' ? 'GVL_GLEFTHEAD' : 'GVL_GRIGHTHEAD';
+      const gvlPrefix = side === 'left' ? 'GLEFTHEAD' : 'GRIGHTHEAD';
       const headPrefix = side === 'left' ? 'Left' : 'Right';
 
       // Pattern mapping:

@@ -53,20 +53,29 @@ function clearOldAppData() {
       toDelete.add(path.join(localAppData, 'hmi-electron'));
       toDelete.add(path.join(localAppData, 'Programs', 'CNC Dual head'));
     }
+    // Also clear browser cache and session data
+    toDelete.add(path.join(app.getPath('appData'), 'hmi-electron', 'Cache'));
+    toDelete.add(path.join(app.getPath('appData'), 'hmi-electron', 'Code Cache'));
+    toDelete.add(path.join(app.getPath('appData'), 'CNC Dual head', 'Cache'));
+    toDelete.add(path.join(app.getPath('appData'), 'CNC Dual head', 'Code Cache'));
   } catch (e) {
     console.warn('[electron] Unable to build cache delete list:', e.message || e);
   }
 
+  let deletedCount = 0;
   toDelete.forEach((p) => {
     try {
       if (p && fs.existsSync(p)) {
         fs.rmSync(p, { recursive: true, force: true });
         console.log('[electron] Removed old cache:', p);
+        deletedCount++;
       }
     } catch (e) {
       console.warn('[electron] Failed to remove cache path', p, e.message || e);
     }
   });
+  
+  console.log(`[electron] Cache cleanup complete: ${deletedCount} directories removed`);
 }
 
 let backendServer;
