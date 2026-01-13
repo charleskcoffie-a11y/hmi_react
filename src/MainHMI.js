@@ -1328,10 +1328,10 @@ export default function MainHMI() {
                   </div>
                 ))
               ) : (
-                <span style={{ color: '#FFC107', fontSize: '13px', fontWeight: '600' }}>⚠ Pump Not Running</span>
+                <span style={{ color: '#FFC107', fontSize: '17px', fontWeight: '700', letterSpacing: '0.3px', textShadow: '0 1px 2px rgba(0, 0, 0, 0.4)' }}>⚠ Pump Not Running</span>
               )
             ) : (
-              <span style={{ color: '#90CAF9', fontSize: '13px', fontWeight: '600' }}>• PLC not connected</span>
+              <span style={{ color: '#90CAF9', fontSize: '17px', fontWeight: '700', letterSpacing: '0.3px', textShadow: '0 1px 2px rgba(0, 0, 0, 0.4)' }}>• PLC not connected</span>
             )}
           </div>
           <span className="machine-status-code">0x{machineStatusBits.toString(16).toUpperCase().padStart(8, '0')}</span>
