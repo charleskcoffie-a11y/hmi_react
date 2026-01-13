@@ -273,10 +273,16 @@ export default function AutoTeach({
     const payload = buildProgramPayload(stepsArray);
     try {
       setLoading(true);
-      await writePLCVar(payload);
+      // Use downloadProgram command to write to PLC
+      await writePLCVar({
+        command: 'downloadProgram',
+        program: payload,
+        parameters: parameters
+      });
       setPlcStatus('good');
       onWriteToPLC?.(payload);
     } catch (e) {
+      console.error('[AutoTeach] PLC write error:', e.message);
       setPlcStatus('bad');
       setDialog({
         open: true,
