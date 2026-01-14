@@ -18,6 +18,7 @@ import EditProgramSideSelector from './components/EditProgramSideSelector';
 import ProgramEditor from './components/ProgramEditor';
 import AutoAdjustProgram from './components/AutoAdjustProgram';
 import DownloadProgramModal from './components/DownloadProgramModal';
+import HomingDialog from './components/HomingDialog';
 import DebugPanel from './components/DebugPanel';
 import DigitalIOPage from './components/DigitalIOPage';
 import './styles/MainHMI.css';
@@ -105,6 +106,7 @@ function decodeMachineStatus(bits) {
 export default function MainHMI() {
   const [currentUser, setCurrentUser] = useState('operator');
   const [userPasswords, setUserPasswords] = useState({
+    admin: '5771',
     operator: '1234',
     setup: '5678',
     engineering: '9999'
@@ -172,14 +174,18 @@ export default function MainHMI() {
   // Homing status states
   const [showHomingDialog, setShowHomingDialog] = useState(false);
   const [homingSide, setHomingSide] = useState(null);
+  const [homingTimeout, setHomingTimeout] = useState(() => {
+    const saved = localStorage.getItem('homingTimeout');
+    return saved ? parseInt(saved, 10) : 60; // Default 60 seconds
+  });
   const [homingStatus, setHomingStatus] = useState({
     left: {
       enabled: false,  // GLEFTHEAD.bHmiLeftHomeEna
-      homed: false     // GLEFTHEAD.bLeftHomed
+      homed: false     // GLEFTHEAD.bLeftHeadHomed
     },
     right: {
       enabled: false,  // GRIGHTHEAD.bHmiRightHomeEna
-      homed: false     // GRIGHTHEAD.bRightHomed
+      homed: false     // GRIGHTHEAD.bRightHeadHomed
     }
   });
 
@@ -351,10 +357,10 @@ export default function MainHMI() {
 
         // Read mode feedback from PLC (RunMode and JogMode)
         try {
-          const rightRunRes = await fetch('http://localhost:3001/read?tag=GVL_GRIGHTHEAD.bHmiRightRunMode');
-          const rightJogRes = await fetch('http://localhost:3001/read?tag=GVL_GRIGHTHEAD.bHmiRightJogMode');
-          const leftRunRes = await fetch('http://localhost:3001/read?tag=GVL_GLEFTHEAD.bHmiLeftRunMode');
-          const leftJogRes = await fetch('http://localhost:3001/read?tag=GVL_GLEFTHEAD.bHmiLeftJogMode');
+          const rightRunRes = await fetch('http://localhost:3001/read?tag=GRIGHTHEAD.bHmiRightRunMode');
+          const rightJogRes = await fetch('http://localhost:3001/read?tag=GRIGHTHEAD.bHmiRightJogMode');
+          const leftRunRes = await fetch('http://localhost:3001/read?tag=GLEFTHEAD.bHmiLeftRunMode');
+          const leftJogRes = await fetch('http://localhost:3001/read?tag=GLEFTHEAD.bHmiLeftJogMode');
           
           if (rightRunRes.ok && rightJogRes.ok && leftRunRes.ok && leftJogRes.ok) {
             const [rightRunData, rightJogData, leftRunData, leftJogData] = await Promise.all([
@@ -457,9 +463,9 @@ export default function MainHMI() {
         // Read homing status variables from PLC
         try {
           const leftHomeEnaRes = await fetch('http://localhost:3001/read?tag=GLEFTHEAD.bHmiLeftHomeEna');
-          const leftHomedRes = await fetch('http://localhost:3001/read?tag=GLEFTHEAD.bLeftHomed');
+          const leftHomedRes = await fetch('http://localhost:3001/read?tag=GLEFTHEAD.bLeftHeadHomed');
           const rightHomeEnaRes = await fetch('http://localhost:3001/read?tag=GRIGHTHEAD.bHmiRightHomeEna');
-          const rightHomedRes = await fetch('http://localhost:3001/read?tag=GRIGHTHEAD.bRightHomed');
+          const rightHomedRes = await fetch('http://localhost:3001/read?tag=GRIGHTHEAD.bRightHeadHomed');
           
           if (leftHomeEnaRes.ok && leftHomedRes.ok && rightHomeEnaRes.ok && rightHomedRes.ok) {
             const [leftEnaData, leftHomedData, rightEnaData, rightHomedData] = await Promise.all([
@@ -1220,10 +1226,10 @@ export default function MainHMI() {
           <div className="user-info-section">
             <div className="user-display">
               <span className="user-icon">
-                {currentUser === 'operator' ? '▶️' : currentUser === 'setup' ? '⚙️' : '🔧'}
+                {currentUser === 'operator' ? '▶️' : currentUser === 'setup' ? '⚙️' : currentUser === 'admin' ? '👑' : '🔧'}
               </span>
               <span className="user-role">
-                {currentUser === 'operator' ? 'Operator' : currentUser === 'setup' ? 'Setup' : 'Engineering'}
+                {currentUser === 'operator' ? 'Operator' : currentUser === 'setup' ? 'Setup' : currentUser === 'admin' ? 'Admin' : 'Engineering'}
               </span>
             </div>
             <button className="change-user-btn" onClick={() => setShowLoginModal(true)}>
@@ -1455,6 +1461,11 @@ export default function MainHMI() {
         userPasswords={userPasswords}
         onUpdatePasswords={setUserPasswords}
         onOpenDebug={() => setDebugPanelOpen(true)}
+        homingTimeout={homingTimeout}
+        onHomingTimeoutChange={(newTimeout) => {
+          setHomingTimeout(newTimeout);
+          localStorage.setItem('homingTimeout', newTimeout.toString());
+        }}
       />
 
       <DigitalIOPage
@@ -1662,65 +1673,15 @@ export default function MainHMI() {
         />
 
         {/* Homing Progress Dialog */}
-        {showHomingDialog && (
-          <ModernDialog
-            isOpen={showHomingDialog}
-            title={`Homing ${homingSide === 'left' ? 'Left' : 'Right'} Side`}
-            onClose={() => {
-              setShowHomingDialog(false);
-              setHomingSide(null);
-            }}
-          >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '20px 0' }}>
-              {!homingStatus[homingSide]?.enabled && !homingStatus[homingSide]?.homed && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <span style={{ fontSize: '32px' }}>⏳</span>
-                  <span style={{ fontSize: '16px', fontWeight: '500' }}>
-                    Push foot pedal to start homing sequence
-                  </span>
-                </div>
-              )}
-              
-              {homingStatus[homingSide]?.enabled && !homingStatus[homingSide]?.homed && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <span style={{ fontSize: '32px', animation: 'spin 2s linear infinite' }}>⚙️</span>
-                  <span style={{ fontSize: '16px', fontWeight: '500', color: '#FF9800' }}>
-                    Homing in progress...
-                  </span>
-                </div>
-              )}
-              
-              {homingStatus[homingSide]?.homed && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <span style={{ fontSize: '32px' }}>✅</span>
-                  <span style={{ fontSize: '16px', fontWeight: '500', color: '#4CAF50' }}>
-                    Homing complete!
-                  </span>
-                </div>
-              )}
-              
-              <button 
-                onClick={() => {
-                  setShowHomingDialog(false);
-                  setHomingSide(null);
-                }}
-                style={{
-                  padding: '12px 24px',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  backgroundColor: '#2196F3',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  marginTop: '8px'
-                }}
-              >
-                Close
-              </button>
-            </div>
-          </ModernDialog>
-        )}
+        <HomingDialog
+          isOpen={showHomingDialog}
+          onClose={() => {
+            setShowHomingDialog(false);
+            setHomingSide(null);
+          }}
+          side={homingSide}
+          timeout={homingTimeout}
+        />
 
         {showRunSideSelector && (
           <SideSelector
@@ -1746,7 +1707,7 @@ export default function MainHMI() {
         />
       </>
 
-      <DebugPanel isOpen={debugPanelOpen} onClose={() => setDebugPanelOpen(false)} />
+      {/* DebugPanel disabled - Dev page hidden */}
     </div>
   );
 }

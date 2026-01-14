@@ -379,6 +379,308 @@
   border-top: 1px solid #0066cc;
 }
 
+/* Modern Password Edit Section */
+.password-edit-modern {
+  animation: fadeInUp 0.4s ease;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.password-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.password-input-icon {
+  position: absolute;
+  left: 16px;
+  font-size: 1.2rem;
+  z-index: 1;
+  pointer-events: none;
+  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.3));
+}
+
+.password-modern-input {
+  padding-left: 48px !important;
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.3) 100%) !important;
+  border: 2px solid transparent !important;
+  background-clip: padding-box;
+  position: relative;
+}
+
+.password-modern-input::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  padding: 2px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+.password-modern-input:focus {
+  border: 2px solid #764ba2 !important;
+  box-shadow: 0 0 20px rgba(118, 75, 162, 0.4) !important;
+}
+
+/* Password Strength Indicator */
+.password-strength-bar {
+  margin: 8px 0 16px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  border: 1px solid rgba(102, 126, 234, 0.3);
+}
+
+.strength-label {
+  color: #aaa;
+  font-size: 0.8rem;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.strength-indicator {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.strength-fill {
+  height: 100%;
+  transition: all 0.3s ease;
+  border-radius: 4px;
+}
+
+.strength-fill.weak {
+  background: linear-gradient(90deg, #ff6b6b, #ff4444);
+  box-shadow: 0 0 10px rgba(255, 107, 107, 0.5);
+}
+
+.strength-fill.medium {
+  background: linear-gradient(90deg, #ffd93d, #ffb000);
+  box-shadow: 0 0 10px rgba(255, 217, 61, 0.5);
+}
+
+.strength-fill.strong {
+  background: linear-gradient(90deg, #00cc88, #00ff99);
+  box-shadow: 0 0 10px rgba(0, 255, 153, 0.5);
+}
+
+.strength-text {
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* Password Match Indicator */
+.password-match-indicator {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: center;
+  margin: 8px 0 12px;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.password-match-indicator.match {
+  background: linear-gradient(135deg, rgba(0, 255, 153, 0.15), rgba(0, 204, 136, 0.15));
+  border: 2px solid rgba(0, 255, 153, 0.4);
+  color: #00ff99;
+}
+
+.password-match-indicator.no-match {
+  background: linear-gradient(135deg, rgba(255, 107, 107, 0.15), rgba(255, 68, 68, 0.15));
+  border: 2px solid rgba(255, 107, 107, 0.4);
+  color: #ff6b6b;
+}
+
+/* Password Requirements Card */
+.password-requirements-card {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin: 12px 0;
+}
+
+.requirements-title {
+  color: #667eea;
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.requirements-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.requirements-list li {
+  color: #aaa;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+}
+
+.requirements-list li.met {
+  color: #00ff99;
+}
+
+.req-icon {
+  font-size: 1rem;
+  min-width: 20px;
+  text-align: center;
+}
+
+/* Modern Button Group */
+.modern-btn-group {
+  margin-top: 20px;
+  gap: 12px;
+}
+
+.modern-save-btn,
+.modern-cancel-btn,
+.modern-edit-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  position: relative;
+  overflow: hidden;
+}
+
+.modern-save-btn::before,
+.modern-cancel-btn::before,
+.modern-edit-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.2) 50%, transparent 70%);
+  transform: translateX(-100%);
+  transition: transform 0.6s;
+}
+
+.modern-save-btn:hover::before,
+.modern-cancel-btn:hover::before,
+.modern-edit-btn:hover::before {
+  transform: translateX(100%);
+}
+
+.btn-icon {
+  font-size: 1.2rem;
+  transition: transform 0.3s;
+}
+
+.modern-save-btn:hover .btn-icon {
+  transform: scale(1.2) rotate(360deg);
+}
+
+.modern-cancel-btn:hover .btn-icon {
+  transform: scale(1.2) rotate(-360deg);
+}
+
+.modern-edit-btn:hover .btn-icon {
+  transform: translateX(-4px);
+}
+
+.btn-arrow {
+  transition: transform 0.3s;
+  margin-left: auto;
+}
+
+.modern-edit-btn:hover .btn-arrow {
+  transform: translateX(6px);
+}
+
+/* Password View Modern */
+.password-view-modern {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.password-info-card {
+  background: linear-gradient(135deg, rgba(118, 75, 162, 0.1), rgba(102, 126, 234, 0.1));
+  border: 1px solid rgba(118, 75, 162, 0.3);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.info-icon-circle {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  box-shadow: 0 8px 24px rgba(118, 75, 162, 0.4);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 8px 24px rgba(118, 75, 162, 0.4);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 12px 32px rgba(118, 75, 162, 0.6);
+  }
+}
+
+.password-desc {
+  text-align: center;
+  margin: 0;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .netid-modal {
@@ -401,6 +703,14 @@
   }
 
   .netid-keypad-toggle-btn {
+    width: 100%;
+  }
+
+  .modern-btn-group {
+    flex-direction: column;
+  }
+
+  .modern-btn-group .netid-btn {
     width: 100%;
   }
 }

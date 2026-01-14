@@ -341,7 +341,7 @@ export default function AutoTeach({
       }
     }
     const defaultStepName = stepNumberToRecord === 1 ? 'Start Position' : `Step ${stepNumberToRecord}`;
-    const defaultDwell = [1, 3, 4].includes(patternToRecord) ? 0 : 500;
+    const defaultDwell = 0;
     const newStep = {
       step: stepNumberToRecord,
       stepName: stepName?.trim() ? stepName.trim() : defaultStepName,
@@ -487,34 +487,23 @@ export default function AutoTeach({
       <div className="auto-teach-overlay" onClick={onClose}>
         <div className="auto-teach-modal" onClick={(e) => e.stopPropagation()}>
           <div className="auto-teach-header">
-            <div className="auto-teach-title">
-              <h2>🎯 Auto Teach Mode</h2>
-              <div className="program-info">
-                <span className="program-name">{programName}</span>
-                <span className={`side-badge ${side}`}>{side === 'right' ? 'Right Side' : 'Left Side'}</span>
-                <span className="jog-mode-indicator">🕹️ JOG MODE {jogModeEnabled ? 'ACTIVE' : 'INACTIVE'}</span>
-                <span className={`plc-status-pill ${plcStatus}`}>
-                  {loading ? 'Writing to PLC…' : plcStatus === 'good' ? 'PLC live' : plcStatus === 'bad' ? 'PLC offline' : 'PLC unknown'}
-                </span>
-              </div>
-            </div>
-            <button className="close-btn" onClick={onClose}>
-              ✕
-            </button>
-          </div>
-
-          <div className="auto-teach-content">
-            {/* Progress Bar */}
+            <h2 className="auto-teach-title-h2">🎯 Auto Mode</h2>
+            <span className="program-name">{programName}</span>
+            <span className={`side-badge ${side}`}>{side === 'right' ? 'R' : 'L'}</span>
+            <span className="jog-mode-indicator">🕹️ {jogModeEnabled ? 'JOG ON' : 'JOG OFF'}</span>
+            <span className={`plc-status-pill ${plcStatus}`}>
+              {loading ? 'Writing…' : plcStatus === 'good' ? '🟢 Live' : plcStatus === 'bad' ? '🔴 Offline' : '🟡 Unknown'}
+            </span>
             <div className="progress-section">
               <div className="progress-bar-container">
                 <div className="progress-bar-fill" style={{ width: `${(recordedSteps.length / 10) * 100}%` }}></div>
               </div>
-              <div className="progress-text">
-                {recordedSteps.length}/10 steps recorded
-                {recordedSteps.length > 0 && recordedSteps.length < 10 && ` • ${10 - recordedSteps.length} remaining`}
-              </div>
+              <div className="progress-text">{recordedSteps.length}/10</div>
             </div>
+            <button className="close-btn" onClick={onClose}>✕</button>
+          </div>
 
+          <div className="auto-teach-content">
             {/* Current Step Controls */}
             <div className="current-step-controls">
               <div className="step-indicator">
@@ -591,63 +580,64 @@ export default function AutoTeach({
               </div>
             </div>
 
-            {/* 2-Column Grid of All 10 Steps */}
+            {/* Recorded Steps Grid - Only Show Recorded Steps */}
             <div className="steps-grid">
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((stepNum) => {
-                const recordedStep = recordedSteps.find((s) => s.step === stepNum);
-                const isActive = stepNum === activeStepNumber;
-                const isRecorded = !!recordedStep;
-
+              {recordedSteps.map((recordedStep, index) => {
+                const stepNum = recordedStep.step;
                 return (
                   <div 
                     key={stepNum} 
-                    className={`step-grid-card ${isRecorded ? 'recorded' : 'unrecorded'} ${isActive ? 'active' : ''}`}
+                    className="step-grid-card recorded"
+                    ref={stepNum === activeStepNumber ? activeCardRef : null}
                   >
                     <div className="card-header">
                       <span className="card-step-num">
-                        {isRecorded ? '✓' : isActive ? '🎯' : '○'} Step {stepNum}
+                        ✓ Step {stepNum}
                       </span>
-                      {isRecorded && (
-                        <div className="card-actions">
-                          <button 
-                            className="card-edit-btn" 
-                            onClick={() => handleEditStep(recordedSteps.findIndex((s) => s.step === stepNum))}
-                            title="Edit"
-                          >
-                            ✎
-                          </button>
-                          <button 
-                            className="card-delete-btn" 
-                            onClick={() => handleDeleteStep(recordedSteps.findIndex((s) => s.step === stepNum))}
-                            title="Delete"
-                          >
-                            🗑
-                          </button>
-                        </div>
-                      )}
+                      <div className="card-actions">
+                        <button 
+                          className="card-edit-btn" 
+                          onClick={() => handleEditStep(index)}
+                          title="Edit"
+                        >
+                          ✎
+                        </button>
+                        <button 
+                          className="card-delete-btn" 
+                          onClick={() => handleDeleteStep(index)}
+                          title="Delete"
+                        >
+                          🗑
+                        </button>
+                      </div>
                     </div>
                     <div className="card-content">
-                      {isRecorded ? (
-                        <>
-                          <div className="card-name">{recordedStep.stepName}</div>
-                          <div className="card-pattern">
-                            {patternOptions.find((p) => p.code === recordedStep.pattern)?.name || `Pattern ${recordedStep.pattern}`}
-                          </div>
-                          {recordedStep.pattern === 5 && recordedStep.repeatTargetStep ? (
-                            <div className="card-repeat">
-                              ↻ Repeat Step {recordedStep.repeatTargetStep} × {recordedStep.repeatCount || 1}
-                            </div>
-                          ) : (
-                            <div className="card-positions">
-                              {recordedStep.positions.axis1Cmd !== undefined && `${Number(recordedStep.positions.axis1Cmd).toFixed(2)} / `}
-                              {recordedStep.positions.axis2Cmd !== undefined && `${Number(recordedStep.positions.axis2Cmd).toFixed(2)}`}
-                            </div>
-                          )}
-                        </>
-                      ) : isActive ? (
-                        <div className="card-placeholder">Record position above</div>
+                      <div className="card-name">{recordedStep.stepName}</div>
+                      <div className="card-pattern">
+                        {patternOptions.find((p) => p.code === recordedStep.pattern)?.name || `Pattern ${recordedStep.pattern}`}
+                      </div>
+                      {recordedStep.pattern === 5 && recordedStep.repeatTargetStep ? (
+                        <div className="card-repeat">
+                          ↻ Repeat Step {recordedStep.repeatTargetStep} × {recordedStep.repeatCount || 1}
+                        </div>
                       ) : (
-                        <div className="card-placeholder">Not recorded yet</div>
+                        <div className="card-positions">
+                          {(() => {
+                            const meta = patternAxisMeta[recordedStep.pattern] || { axes: 'both' };
+                            const showAxis1 = meta.axes === 'both' || meta.axes === 'id';
+                            const showAxis2 = meta.axes === 'both' || meta.axes === 'od';
+                            return (
+                              <>
+                                {showAxis1 && recordedStep.positions.axis1Cmd !== undefined && (
+                                  <div>{axis1Label}: {Number(recordedStep.positions.axis1Cmd).toFixed(2)}</div>
+                                )}
+                                {showAxis2 && recordedStep.positions.axis2Cmd !== undefined && (
+                                  <div>{axis2Label}: {Number(recordedStep.positions.axis2Cmd).toFixed(2)}</div>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </div>
                       )}
                     </div>
                   </div>

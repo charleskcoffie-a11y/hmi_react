@@ -263,53 +263,104 @@ const NetIDSettings = ({ isOpen, onClose }) => {
                 </div>
 
                 {editingMode === 'password' ? (
-                  <div className="netid-edit-section">
-                    <input
-                      type="password"
-                      className="netid-edit-input"
-                      placeholder="New Password"
-                      value={newSuperUserPassword}
-                      onChange={(e) => setNewSuperUserPassword(e.target.value)}
-                    />
-                    <input
-                      type="password"
-                      className="netid-edit-input"
-                      placeholder="Confirm Password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                    />
-                    <div className="netid-edit-help">
-                      Use a strong password. Keep it secure and do not share.
+                  <div className="netid-edit-section password-edit-modern">
+                    <div className="password-input-wrapper">
+                      <div className="password-input-icon">🔒</div>
+                      <input
+                        type="password"
+                        className="netid-edit-input password-modern-input"
+                        placeholder="New Password"
+                        value={newSuperUserPassword}
+                        onChange={(e) => setNewSuperUserPassword(e.target.value)}
+                      />
                     </div>
-                    <div className="netid-edit-buttons">
+                    {newSuperUserPassword && (
+                      <div className="password-strength-bar">
+                        <div className="strength-label">Password Strength:</div>
+                        <div className="strength-indicator">
+                          <div 
+                            className={`strength-fill ${
+                              newSuperUserPassword.length >= 8 ? 'strong' : 
+                              newSuperUserPassword.length >= 5 ? 'medium' : 'weak'
+                            }`}
+                            style={{ width: `${Math.min(newSuperUserPassword.length * 12.5, 100)}%` }}
+                          />
+                        </div>
+                        <div className="strength-text">
+                          {newSuperUserPassword.length >= 8 ? '💪 Strong' : 
+                           newSuperUserPassword.length >= 5 ? '⚠️ Medium' : '❌ Weak'}
+                        </div>
+                      </div>
+                    )}
+                    <div className="password-input-wrapper">
+                      <div className="password-input-icon">🔑</div>
+                      <input
+                        type="password"
+                        className="netid-edit-input password-modern-input"
+                        placeholder="Confirm Password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                      />
+                    </div>
+                    {confirmPassword && newSuperUserPassword && (
+                      <div className={`password-match-indicator ${
+                        newSuperUserPassword === confirmPassword ? 'match' : 'no-match'
+                      }`}>
+                        {newSuperUserPassword === confirmPassword ? 
+                          '✓ Passwords match' : '✕ Passwords do not match'
+                        }
+                      </div>
+                    )}
+                    <div className="password-requirements-card">
+                      <div className="requirements-title">🛡️ Password Requirements:</div>
+                      <ul className="requirements-list">
+                        <li className={newSuperUserPassword.length >= 4 ? 'met' : ''}>
+                          <span className="req-icon">{newSuperUserPassword.length >= 4 ? '✓' : '○'}</span>
+                          At least 4 characters
+                        </li>
+                        <li className={newSuperUserPassword.length >= 6 ? 'met' : ''}>
+                          <span className="req-icon">{newSuperUserPassword.length >= 6 ? '✓' : '○'}</span>
+                          6+ characters recommended
+                        </li>
+                      </ul>
+                    </div>
+                    <div className="netid-edit-buttons modern-btn-group">
                       <button
-                        className="netid-btn netid-btn-save"
+                        className="netid-btn netid-btn-save modern-save-btn"
                         onClick={handleSaveSuperUserPassword}
+                        disabled={!newSuperUserPassword || newSuperUserPassword !== confirmPassword}
                       >
-                        ✓ Save
+                        <span className="btn-icon">✓</span>
+                        <span>Save Password</span>
                       </button>
                       <button
-                        className="netid-btn netid-btn-cancel"
+                        className="netid-btn netid-btn-cancel modern-cancel-btn"
                         onClick={handleCancel}
                       >
-                        ✕ Cancel
+                        <span className="btn-icon">✕</span>
+                        <span>Cancel</span>
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <div className="netid-view-section">
-                    <p className="netid-description">
-                      Change your SuperUser password. This protects access to network configuration and other admin settings.
-                    </p>
+                  <div className="netid-view-section password-view-modern">
+                    <div className="password-info-card">
+                      <div className="info-icon-circle">🔐</div>
+                      <p className="netid-description password-desc">
+                        Change your SuperUser password. This protects access to network configuration and other admin settings.
+                      </p>
+                    </div>
                     <button
-                      className="netid-btn netid-btn-edit"
+                      className="netid-btn netid-btn-edit modern-edit-btn"
                       onClick={() => {
                         setNewSuperUserPassword('');
                         setConfirmPassword('');
                         setEditingMode('password');
                       }}
                     >
-                      ✎ Change Password
+                      <span className="btn-icon">🔑</span>
+                      <span>Change Password</span>
+                      <span className="btn-arrow">→</span>
                     </button>
                   </div>
                 )}

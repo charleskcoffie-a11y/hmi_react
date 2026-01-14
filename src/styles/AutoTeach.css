@@ -24,79 +24,79 @@
 }
 
 .auto-teach-header {
-  padding: 4px 10px;
-  border-bottom: 2px solid #2a4a7f;
+  padding: 6px 16px;
+  border-bottom: none;
   display: flex;
   flex-direction: row;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
   background: rgba(0, 0, 0, 0.3);
-  gap: 10px;
-}
-
-.auto-teach-title {
-  display: flex;
-  flex-direction: row;
   gap: 16px;
-  align-items: center;
-  flex: 1;
+  flex-wrap: nowrap;
+  min-height: 36px;
 }
 
-.auto-teach-title h2 {
+.auto-teach-title-h2 {
   margin: 0;
   color: #4a9eff;
-  font-size: 1rem;
+  font-size: 0.95rem;
   display: flex;
   align-items: center;
   gap: 6px;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .program-info {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
-  flex: 1;
+  flex: 0 1 auto;
 }
 
 .program-name {
   color: #88c0ff;
   font-weight: 600;
   font-size: 0.85rem;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .side-badge {
-  background: linear-gradient(135deg, #2a4a7f 0%, #1e3a5f 100%);
-  color: #4a9eff;
-  padding: 3px 10px;
-  border-radius: 10px;
-  font-size: 0.75rem;
+  background: transparent;
+  color: #17a2b8;
+  padding: 0;
+  border-radius: 0;
+  font-size: 0.85rem;
   font-weight: 600;
-  border: 1px solid #4a9eff;
+  border: none;
+  flex-shrink: 0;
 }
 
 .side-badge.right {
-  border-color: #17a2b8;
+  border: none;
   color: #17a2b8;
 }
 
 .side-badge.left {
-  border-color: #fd7e14;
+  border: none;
   color: #fd7e14;
 }
 
 .jog-mode-indicator {
-  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-  color: #ffffff;
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  border: 1px solid #28a745;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  animation: pulse-glow 2s infinite;
-  box-shadow: 0 0 10px rgba(40, 167, 69, 0.5);
+  background: transparent;
+  color: #28a745;
+  padding: 0;
+  border-radius: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: none;
+  text-transform: none;
+  letter-spacing: normal;
+  animation: none;
+  box-shadow: none;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 @keyframes pulse-glow {
@@ -114,20 +114,22 @@
   background: transparent;
   border: none;
   color: #ff6b6b;
-  font-size: 1.5rem;
+  font-size: 1.1rem;
   cursor: pointer;
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: 0;
   transition: all 0.2s;
+  flex-shrink: 0;
 }
 
 .close-btn:hover {
-  background: rgba(255, 107, 107, 0.2);
-  transform: scale(1.1);
+  background: transparent;
+  transform: scale(1.15);
+  color: #ff8a8a;
 }
 
 .auto-teach-content {
@@ -874,32 +876,36 @@
 .progress-section {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex: 1;
-  max-width: 300px;
+  gap: 8px;
+  flex: 0 1 auto;
+  min-width: 100px;
+  margin-left: auto;
 }
 
 .progress-bar-container {
   flex: 1;
-  height: 24px;
+  height: 16px;
   background: rgba(0, 0, 0, 0.5);
-  border-radius: 12px;
+  border-radius: 8px;
   overflow: hidden;
-  border: 1px solid #2a4a7f;
+  border: none;
+  min-width: 70px;
 }
 
 .progress-bar-fill {
   height: 100%;
   background: linear-gradient(90deg, #28a745 0%, #4ade80 100%);
   transition: width 0.3s ease;
-  box-shadow: 0 0 10px rgba(40, 167, 69, 0.5);
+  box-shadow: none;
 }
 
 .progress-text {
   color: #88c0ff;
-  font-weight: 700;
-  font-size: 0.85rem;
+  font-weight: 600;
+  font-size: 0.75rem;
   white-space: nowrap;
+  min-width: 32px;
+  flex-shrink: 0;
 }
 
 /* Current Step Controls */
@@ -1008,6 +1014,8 @@
   grid-template-columns: 1fr 1fr;
   gap: 10px;
   flex: 1;
+  max-height: 600px;
+  overflow-y: auto;
 }
 
 .step-grid-card {
@@ -1185,6 +1193,30 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+}
+
+/* PLC Status Pill */
+.plc-status-pill {
+  color: #88c0ff;
+  font-weight: 600;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  background: transparent;
+  border: none;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.plc-status-pill.good {
+  color: #28a745;
+}
+
+.plc-status-pill.bad {
+  color: #ff6b6b;
+}
+
+.plc-status-pill.unknown {
+  color: #ffc107;
 }
 
 .save-program-section .cancel-teach-btn:hover {

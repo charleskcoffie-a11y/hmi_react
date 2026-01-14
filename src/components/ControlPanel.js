@@ -4,9 +4,10 @@ import '../styles/ControlPanel.css';
 
 export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach, onMachineParameters, onStartPosition, userRole, pumpEnabled }) {
   // Role-based access control
-  const canAutoTeach = userRole !== 'operator' && pumpEnabled; // Also require pump to be running
-  const canEditProgram = userRole !== 'operator';
-  const canMachineParams = userRole === 'engineering';
+  const isAdmin = userRole === 'admin';
+  const canAutoTeach = isAdmin || ((userRole !== 'operator') && pumpEnabled); // Admin always can access, others need pump enabled
+  const canEditProgram = userRole !== 'operator' || isAdmin;
+  const canMachineParams = userRole === 'engineering' || isAdmin;
   const canStartPosition = pumpEnabled; // Only enabled when pump is running
   const canPartParameters = true; // All can access part parameters
 
@@ -18,7 +19,7 @@ export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach,
             className="control-btn start-position-btn start-left-btn"
             onClick={async () => {
               try {
-                await pulseButton(11, 150); // Index 11: GVL_GLEFTHEAD.bHmiLeftStartPosPb
+                await pulseButton(11, 150); // Index 11: bHmiLeftStartPosPb
                 onStartPosition && onStartPosition('left');
               } catch (err) {
                 console.error('Failed to pulse Start Left:', err);
@@ -34,7 +35,7 @@ export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach,
             className="control-btn start-position-btn start-right-btn"
             onClick={async () => {
               try {
-                await pulseButton(50, 150); // Index 50: GVL_GRIGHTHEAD.bHmiRightStartPosPb
+                await pulseButton(50, 150); // Index 50: bHmiRightStartPosPb
                 onStartPosition && onStartPosition('right');
               } catch (err) {
                 console.error('Failed to pulse Start Right:', err);

@@ -81,16 +81,14 @@ function clearOldAppData() {
 let backendServer;
 
 function createWindow() {
-  const isDev = !app.isPackaged;
-  const previewEnv = process.env.PREVIEW_1024;
-  const isPreview = isDev || (previewEnv && /^(1|true|yes)$/i.test(previewEnv));
-
+  // Fullscreen app with no window controls
   const win = new BrowserWindow({
     width: 1024,
     height: 768,
     useContentSize: true,
-    fullscreen: !isPreview,
-    resizable: isPreview,
+    fullscreen: true,
+    resizable: false,
+    frame: false,
     autoHideMenuBar: true,
     backgroundColor: '#000000',
     show: false,
@@ -101,68 +99,48 @@ function createWindow() {
       zoomFactor: 1.0,
     },
   });
-  if (isPreview) {
-    try { win.setAspectRatio(1024 / 768); } catch (e) {}
-    try { win.setMinimumSize(1024, 768); } catch (e) {}
-    try { win.center(); } catch (e) {}
-  }
 
-    // Load from localhost:3003 in development
-    const DEV_SERVER = 'http://localhost:3003';
-    
-    // Function to load from build files
-    const loadFromBuild = () => {
-      const isPackaged = app.isPackaged;
-      const buildPath = isPackaged
-        ? path.join(process.resourcesPath, 'app', 'build', 'index.html')
-        : path.join(__dirname, 'build', 'index.html');
+  // Set window constraints for 1024x768
+  try { win.setAspectRatio(1024 / 768); } catch (e) {}
+  try { win.setMinimumSize(1024, 768); } catch (e) {}
+  try { win.center(); } catch (e) {}
 
-      console.log('[electron] Loading from build:', buildPath);
-      win.loadURL(
-        url.format({
-          pathname: buildPath,
-          protocol: 'file:',
-          slashes: true,
-        })
-      ).catch((err) => {
-        console.error('Failed to load index.html:', err);
-      });
-    };
-    
-    if (isPreview) {
-      // Development mode - try dev server first, fallback to build
-      win.loadURL(DEV_SERVER).catch((err) => {
-        console.log('[electron] Dev server not available, loading from build folder');
-        loadFromBuild();
-      });
-    } else {
-      // Production mode - load from build files
-      loadFromBuild();
-    }
+  // Load from localhost:3003 in development
+  const DEV_SERVER = 'http://localhost:3003';
+  
+  // Function to load from build files
+  const loadFromBuild = () => {
+    const isPackaged = app.isPackaged;
+    const buildPath = isPackaged
+      ? path.join(process.resourcesPath, 'app', 'build', 'index.html')
+      : path.join(__dirname, 'build', 'index.html');
+
+    console.log('[electron] Loading from build:', buildPath);
+    win.loadFile(buildPath).catch((err) => {
+      console.error('Failed to load index.html:', err);
+    });
+  };
+  
+  // Try dev server first, fallback to build
+  win.loadURL(DEV_SERVER).catch((err) => {
+    console.log('[electron] Dev server not available, loading from build folder');
+    loadFromBuild();
+  });
+
   win.setMenuBarVisibility(false);
 
   // Ensure the window becomes visible and focused when ready
   win.once('ready-to-show', () => {
     try {
-      if (isPreview) {
-        win.setAlwaysOnTop(true, 'screen-saver');
-      }
       win.show();
       win.focus();
-      if (isPreview) {
-        setTimeout(() => {
-          try { win.setAlwaysOnTop(false); } catch (e) {}
-        }, 1200);
-      }
     } catch (e) {}
   });
 
-  // Only open DevTools in preview/development mode
-  if (isPreview) {
-    try { win.webContents.openDevTools({ mode: 'undocked' }); } catch (e) {}
-  }
+  // Open DevTools in preview mode
+  try { win.webContents.openDevTools({ mode: 'undocked' }); } catch (e) {}
 
-  console.log(`[electron] Preview mode: ${isPreview ? 'ON (1024x768 windowed)' : 'OFF (fullscreen)'}`);
+  console.log(`[electron] Running in 1024x768 preview mode (windowed)`);
 }
 
 // IPC handler to get saved Net ID from config
