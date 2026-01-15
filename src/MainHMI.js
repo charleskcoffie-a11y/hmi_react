@@ -599,7 +599,7 @@ export default function MainHMI() {
       }
     };
     poll();
-    timer = setInterval(poll, 250); // Poll every 250ms for faster response
+    timer = setInterval(poll, 100); // Poll every 100ms for industry-standard responsiveness
     return () => clearInterval(timer);
   }, []);
 
