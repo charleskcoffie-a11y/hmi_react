@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import PasswordKeypad from './PasswordKeypad';
 import '../styles/LoginModal.css';
 
-export default function LoginModal({ isOpen, onLogin, currentUser, onClose, userPasswords = { operator: '1234', setup: '5678', engineering: '9999' } }) {
+export default function LoginModal({ isOpen, onLogin, currentUser, onClose, userPasswords = { admin: '5771', operator: '1234', setup: '5678', engineering: '9999' } }) {
   const [selectedRole, setSelectedRole] = useState('operator');
   const [showPasswordInput, setShowPasswordInput] = useState(false);
   const [password, setPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
 
   const roles = [
+    { id: 'admin', name: 'Admin', description: 'Full Access', icon: '👑' },
     { id: 'operator', name: 'Operator', description: 'Home & Run only', icon: '▶️' },
     { id: 'setup', name: 'Setup', description: 'Auto Teach & Recipe', icon: '⚙️' },
     { id: 'engineering', name: 'Engineering', description: 'Full Access', icon: '🔧' }

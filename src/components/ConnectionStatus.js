@@ -5,7 +5,9 @@ export default function ConnectionStatus({ isOpen, onClose }) {
   const [connectionInfo, setConnectionInfo] = useState({
     amsNetId: 'Unknown',
     connected: false,
-    lastChecked: null
+    lastChecked: null,
+    heartbeat: null,
+    heartbeatTag: null
   });
   
   const [disconnectedTags, setDisconnectedTags] = useState([]);
@@ -13,10 +15,16 @@ export default function ConnectionStatus({ isOpen, onClose }) {
   const [tagTestResults, setTagTestResults] = useState(null);
   const [testingTags, setTestingTags] = useState(false);
   const [tagInput, setTagInput] = useState('GVL.Axis1Position\nGVL.Axis2Position\nGVL.Status\nMAIN.Speed\nMAIN.Temperature');
+  const [heartbeatTagInput, setHeartbeatTagInput] = useState('');
+  const [testingHeartbeat, setTestingHeartbeat] = useState(false);
+  const [heartbeatTestResult, setHeartbeatTestResult] = useState(null);
 
   useEffect(() => {
     if (isOpen) {
       checkConnection();
+      // Auto-refresh every 1 second to show live heartbeat
+      const interval = setInterval(checkConnection, 1000);
+      return () => clearInterval(interval);
     }
   }, [isOpen]);
 
@@ -30,14 +38,17 @@ export default function ConnectionStatus({ isOpen, onClose }) {
         setConnectionInfo({
           amsNetId: data.amsNetId || 'Unknown',
           connected: data.connected || false,
-          lastChecked: new Date()
+          lastChecked: new Date(),
+          heartbeat: data.heartbeat !== null && data.heartbeat !== undefined ? data.heartbeat : null,
+          heartbeatTag: data.heartbeatTag || null
         });
         setDisconnectedTags(data.disconnectedTags || []);
       } else {
         setConnectionInfo({
           amsNetId: 'Unknown',
           connected: false,
-          lastChecked: new Date()
+          lastChecked: new Date(),
+          heartbeat: null
         });
         setDisconnectedTags([]);
       }
@@ -46,7 +57,8 @@ export default function ConnectionStatus({ isOpen, onClose }) {
       setConnectionInfo({
         amsNetId: 'Error',
         connected: false,
-        lastChecked: new Date()
+        lastChecked: new Date(),
+        heartbeat: null
       });
       setDisconnectedTags([]);
     } finally {
@@ -88,6 +100,30 @@ export default function ConnectionStatus({ isOpen, onClose }) {
     }
   };
 
+  const testHeartbeatTag = async () => {
+    if (!heartbeatTagInput.trim()) return;
+    setTestingHeartbeat(true);
+    setHeartbeatTestResult(null);
+    try {
+      const res = await fetch('http://localhost:3001/test-tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tags: [heartbeatTagInput.trim()] })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.results && data.results[0]) {
+          setHeartbeatTestResult(data.results[0]);
+        }
+      }
+    } catch (error) {
+      console.error('Heartbeat test failed:', error);
+      setHeartbeatTestResult({ status: 'error', error: error.message });
+    } finally {
+      setTestingHeartbeat(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -116,6 +152,19 @@ export default function ConnectionStatus({ isOpen, onClose }) {
                   Last checked: {connectionInfo.lastChecked.toLocaleTimeString()}
                 </div>
               )}
+              {connectionInfo.connected && (
+                <div className="banner-heartbeat">
+                  PLC Heartbeat: <strong>{connectionInfo.heartbeat !== null ? connectionInfo.heartbeat : 'N/A'}</strong>
+                </div>
+              )}
+              {connectionInfo.heartbeatTag && (
+                <div className="banner-tag" style={{fontSize: '10px', color: '#444'}}>
+                  HB Tag: <strong>{connectionInfo.heartbeatTag}</strong>
+                </div>
+              )}
+              <div style={{fontSize: '10px', color: '#666', marginTop: '4px'}}>
+                Debug: {JSON.stringify(connectionInfo)}
+              </div>
             </div>
             <button className="refresh-btn" onClick={checkConnection} disabled={loading}>
               {loading ? '⟳' : '↻'} Refresh
@@ -156,6 +205,47 @@ export default function ConnectionStatus({ isOpen, onClose }) {
               <div className="all-good-icon">✓</div>
               <div className="all-good-title">All Tags Connected</div>
               <div className="all-good-desc">All PLC tags are responding normally.</div>
+            </div>
+          )}
+
+          {/* Manual Heartbeat Tag Test */}
+          {connectionInfo.connected && connectionInfo.heartbeat === null && (
+            <div className="tag-test-section" style={{marginBottom: '20px', background: '#fff3cd', border: '1px solid #ffc107', padding: '12px', borderRadius: '8px'}}>
+              <h3 style={{margin: '0 0 8px 0', fontSize: '14px', color: '#856404'}}>⚠ Heartbeat Not Found</h3>
+              <p style={{margin: '0 0 8px 0', fontSize: '12px', color: '#856404'}}>
+                Test the exact tag path from TwinCAT:
+              </p>
+              <div style={{display: 'flex', gap: '8px', alignItems: 'center'}}>
+                <input
+                  type="text"
+                  value={heartbeatTagInput}
+                  onChange={(e) => setHeartbeatTagInput(e.target.value)}
+                  placeholder="e.g., MAIN.iHeartbeat or GVL.iHeartbeat"
+                  style={{flex: 1, padding: '6px', border: '1px solid #ccc', borderRadius: '4px', fontSize: '12px'}}
+                  onKeyPress={(e) => e.key === 'Enter' && testHeartbeatTag()}
+                />
+                <button 
+                  onClick={testHeartbeatTag}
+                  disabled={testingHeartbeat || !heartbeatTagInput.trim()}
+                  style={{padding: '6px 12px', background: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px'}}
+                >
+                  {testingHeartbeat ? 'Testing...' : 'Test'}
+                </button>
+              </div>
+              {heartbeatTestResult && (
+                <div style={{marginTop: '8px', padding: '8px', background: heartbeatTestResult.status === 'ok' ? '#d4edda' : '#f8d7da', border: `1px solid ${heartbeatTestResult.status === 'ok' ? '#c3e6cb' : '#f5c6cb'}`, borderRadius: '4px', fontSize: '12px'}}>
+                  {heartbeatTestResult.status === 'ok' ? (
+                    <div style={{color: '#155724'}}>
+                      ✓ Success! Value: <strong>{heartbeatTestResult.value}</strong><br/>
+                      Tag: <code>{heartbeatTestResult.tag}</code>
+                    </div>
+                  ) : (
+                    <div style={{color: '#721c24'}}>
+                      ✗ Failed: {heartbeatTestResult.error}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

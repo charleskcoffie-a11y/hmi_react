@@ -18,9 +18,13 @@ import EditProgramSideSelector from './components/EditProgramSideSelector';
 import ProgramEditor from './components/ProgramEditor';
 import AutoAdjustProgram from './components/AutoAdjustProgram';
 import DownloadProgramModal from './components/DownloadProgramModal';
+import HomingDialog from './components/HomingDialog';
+import DebugPanel from './components/DebugPanel';
+import DigitalIOPage from './components/DigitalIOPage';
 import './styles/MainHMI.css';
-import { readPLCVar, writePLCVar } from './services/plcApiService';
+import { readPLCVar, writePLCVar, readAxisPositions, pulseBoolTag } from './services/plcApiService';
 import { saveRecipeToFile, loadRecipesFromFolder, deleteRecipeFile } from './services/recipeService';
+import { initializeBackendNetId } from './services/netIdService';
 
 // Define step configurations
 const STEP_CONFIG = {
@@ -36,9 +40,73 @@ const STEP_CONFIG = {
   10: { name: 'Final Position', description: 'Record final position for step 10' }
 };
 
+// Alarm bit mapping (GVL_GAXIS.AlarmSystem bitfield)
+const ALARM_MAP = [
+  { bit: 0, message: 'Oil level Low', severity: 'warning' },
+  { bit: 1, message: 'Oil Temp High', severity: 'warning' },
+  { bit: 2, message: 'Estop Open', severity: 'critical' },
+  { bit: 3, message: 'Gate Open', severity: 'critical' },
+  { bit: 4, message: 'Pump Motor Tripped', severity: 'critical' },
+  { bit: 5, message: 'Radiator Motor Tripped', severity: 'warning' },
+  { bit: 6, message: 'Pump Not Running', severity: 'warning' },
+  { bit: 7, message: 'Right Head ID Error', severity: 'critical' },
+  { bit: 8, message: 'Right Head OD Error', severity: 'critical' },
+  { bit: 9, message: 'Left Head ID Error', severity: 'critical' },
+  { bit: 10, message: 'Left Head OD Error', severity: 'critical' },
+  { bit: 11, message: 'Pump idle time', severity: 'warning' },
+  { bit: 12, message: 'High Pressure Low', severity: 'warning' },
+  { bit: 13, message: 'Low Air Pressure', severity: 'warning' },
+  { bit: 14, message: 'Lube fault', severity: 'warning' }
+];
+
+// Machine status bit mapping (GVL_GAXIS.MachineStatus bitfield)
+const MACHINE_STATUS_MAP = [
+  { bit: 0, label: 'Pump Running', color: '#2196F3' },
+  { bit: 1, label: 'Right Homing', color: '#FF9800' },
+  { bit: 2, label: 'Left Homing', color: '#FF9800' },
+  { bit: 3, label: 'RunMove', color: '#00c853' },
+  { bit: 4, label: 'JogMove', color: '#9C27B0' },
+  { bit: 5, label: 'Right at Start', color: '#4CAF50' },
+  { bit: 6, label: 'Left at Start', color: '#4CAF50' },
+  { bit: 7, label: 'Right not at Start', color: '#FFC107' },
+  { bit: 8, label: 'Left not At Start', color: '#FFC107' },
+  { bit: 9, label: 'Right Head Active', color: '#00BCD4' },
+  { bit: 10, label: 'Left Head Active', color: '#00BCD4' },
+  { bit: 11, label: 'Power is Off..Turn Power On', color: '#FF5252' }
+];
+
+function decodeAlarmBits(bits) {
+  const active = [];
+  ALARM_MAP.forEach(def => {
+    if (bits & (1 << def.bit)) {
+      active.push({ bit: def.bit, message: def.message, severity: def.severity || 'warning' });
+    }
+  });
+
+  for (let i = 0; i < 32; i += 1) {
+    const mask = 1 << i;
+    const alreadyMapped = ALARM_MAP.some(def => def.bit === i);
+    if (!alreadyMapped && (bits & mask)) {
+      active.push({ bit: i, message: `Alarm bit ${i} active`, severity: 'warning' });
+    }
+  }
+  return active;
+}
+
+function decodeMachineStatus(bits) {
+  const active = [];
+  MACHINE_STATUS_MAP.forEach(def => {
+    if (bits & (1 << def.bit)) {
+      active.push({ bit: def.bit, label: def.label, color: def.color });
+    }
+  });
+  return active;
+}
+
 export default function MainHMI() {
   const [currentUser, setCurrentUser] = useState('operator');
   const [userPasswords, setUserPasswords] = useState({
+    admin: '5771',
     operator: '1234',
     setup: '5678',
     engineering: '9999'
@@ -47,6 +115,8 @@ export default function MainHMI() {
   const [recipeOpen, setRecipeOpen] = useState(false);
   const [recipeSideSelectorOpen, setRecipeSideSelectorOpen] = useState(false);
   const [recipeSide, setRecipeSide] = useState(null);
+  const [debugPanelOpen, setDebugPanelOpen] = useState(false);
+  const [ioPageOpen, setIoPageOpen] = useState(false);
   const [axis1State] = useState({ status: 'idle' });
   const [axis2State] = useState({ status: 'idle' });
   const [axis3State] = useState({ status: 'idle' });
@@ -55,8 +125,8 @@ export default function MainHMI() {
   const [homedSides, setHomedSides] = useState({ right: false, left: false });
   const [showRunSideSelector, setShowRunSideSelector] = useState(false);
   const [showHomingSideSelector, setShowHomingSideSelector] = useState(false);
-  const [machineCount] = useState(0);
-  const [unitSystem, setUnitSystem] = useState('mm');
+  const [machineCount, setMachineCount] = useState(0);
+  const [unitSystem, setUnitSystem] = useState('inch');
   const [actualPositions, setActualPositions] = useState({
     right: { axis1: 0, axis2: 0 }, // PLC tags: lAxis1ActPos, lAxis2ActPos
     left: { axis1: 0, axis2: 0 }   // PLC tags: lAxis3ActPos, lAxis4ActPos
@@ -67,23 +137,382 @@ export default function MainHMI() {
     left: { state: 0, desc: 'Idle' }
   });
 
+  const [rightStepDisplay, setRightStepDisplay] = useState({
+    stepNumber: 1,
+    stepDescription: 'Idle'
+  });
+
+  const [leftStepDisplay, setLeftStepDisplay] = useState({
+    stepNumber: 1,
+    stepDescription: 'Idle'
+  });
+
+  // Mode feedback states from PLC (read-only feedback)
+  const [modeFeedback, setModeFeedback] = useState({
+    right: {
+      runMode: false,
+      jogMode: false
+    },
+    left: {
+      runMode: false,
+      jogMode: false
+    }
+  });
+
+  // Alarm system (bitfield from PLC)
+  const [alarmBits, setAlarmBits] = useState(0);
+  const [alarms, setAlarms] = useState([]);
+  const [acknowledgedAlarms, setAcknowledgedAlarms] = useState([]);
+  const [alarmBannerVisible, setAlarmBannerVisible] = useState(true);
+  const [alarmBannerTimeout, setAlarmBannerTimeout] = useState(null);
+
+  // Machine status system (bitfield from PLC)
+  const [machineStatusBits, setMachineStatusBits] = useState(0);
+  const [machineStatus, setMachineStatus] = useState([]);
+  const [plcConnected, setPlcConnected] = useState(false);
+
+  // Homing status states
+  const [showHomingDialog, setShowHomingDialog] = useState(false);
+  const [homingSide, setHomingSide] = useState(null);
+  const [homingTimeout, setHomingTimeout] = useState(() => {
+    const saved = localStorage.getItem('homingTimeout');
+    return saved ? parseInt(saved, 10) : 60; // Default 60 seconds
+  });
+  const [homingStatus, setHomingStatus] = useState({
+    left: {
+      enabled: false,  // GLEFTHEAD.bHmiLeftHomeEna
+      homed: false     // GLEFTHEAD.bLeftHeadHomed
+    },
+    right: {
+      enabled: false,  // GRIGHTHEAD.bHmiRightHomeEna
+      homed: false     // GRIGHTHEAD.bRightHeadHomed
+    }
+  });
+
   const [plcStatus, setPlcStatus] = useState('unknown');
+  
+  // Pump enable status (controls if Home and Start Position buttons are enabled)
+  const [pumpEnabled, setPumpEnabled] = useState(false);
+  
+  // Handle alarm acknowledgment with auto-reshow after 5 seconds
+  const handleAcknowledgeAlarm = () => {
+    setAcknowledgedAlarms(alarms.map(a => a.bit));
+    setAlarmBannerVisible(false);
+    
+    // Clear any existing timeout
+    if (alarmBannerTimeout) {
+      clearTimeout(alarmBannerTimeout);
+    }
+    
+    // Set new timeout to reshow banner after 5 seconds
+    const newTimeout = setTimeout(() => {
+      setAlarmBannerVisible(true);
+    }, 5000);
+    
+    setAlarmBannerTimeout(newTimeout);
+  };
+  
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (alarmBannerTimeout) {
+        clearTimeout(alarmBannerTimeout);
+      }
+    };
+  }, [alarmBannerTimeout]);
+  // Initialize backend with saved Net ID on mount
+  useEffect(() => {
+    initializeBackendNetId();
+  }, []);
+  
   useEffect(() => {
     let timer;
     const poll = async () => {
       try {
-        // Replace with backend API calls
-        const plcData = await readPLCVar();
-        setActualPositions(plcData.actualPositions || { right: { axis1: 0, axis2: 0 }, left: { axis1: 0, axis2: 0 } });
-        setSideStates(plcData.sideStates || { right: { state: 0, desc: 'Idle' }, left: { state: 0, desc: 'Idle' } });
-        setPlcStatus('good');
+        // Read axis positions from PLC
+        const data = await readAxisPositions();
+        const newPositions = data.actualPositions || { right: { axis1: 0, axis2: 0 }, left: { axis1: 0, axis2: 0 } };
+        
+        // Only update if positions actually changed (prevents unnecessary re-renders)
+        setActualPositions(prev => {
+          if (JSON.stringify(prev) !== JSON.stringify(newPositions)) {
+            return newPositions;
+          }
+          return prev;
+        });
+        
+        setPlcStatus(data.connected ? 'good' : 'bad');
+        
+        // Read machine count from PLC
+        try {
+          const countResponse = await fetch('http://localhost:3001/read?tag=GPersistent.dABSMachineCount');
+          if (countResponse.ok) {
+            const countData = await countResponse.json();
+            console.log('[MainHMI] Machine count response:', countData);
+            if (countData.success) {
+              // DINT is a 32-bit signed integer - handle various response formats
+              let count = 0;
+              if (typeof countData.value === 'number') {
+                count = countData.value;
+              } else if (countData.value && typeof countData.value === 'object') {
+                // Handle object responses (ads-client sometimes wraps values)
+                if ('value' in countData.value) {
+                  count = countData.value.value;
+                } else if ('low' in countData.value) {
+                  count = countData.value.low || 0;
+                } else {
+                  // Try to extract first numeric value from object
+                  count = Object.values(countData.value).find(v => typeof v === 'number') || 0;
+                }
+              }
+              const finalCount = Math.floor(Math.max(0, count)); // Ensure non-negative
+              console.log('[MainHMI] Setting machine count to:', finalCount);
+              // Only update if value changed
+              setMachineCount(prev => prev !== finalCount ? finalCount : prev);
+            } else {
+              console.warn('[MainHMI] Machine count read failed:', countData.error);
+            }
+          }
+        } catch (countErr) {
+          console.warn('[MainHMI] Machine count fetch error:', countErr.message || countErr);
+        }
+
+        // Read right head step number and description from PLC
+        try {
+          const stateResponse = await fetch('http://localhost:3001/read?tag=GRIGHTHEAD.Rstate');
+          const descResponse = await fetch('http://localhost:3001/read?tag=GRIGHTHEAD.RstateDesc');
+          
+          if (stateResponse.ok && descResponse.ok) {
+            const stateData = await stateResponse.json();
+            const descData = await descResponse.json();
+            
+            if (stateData.success && descData.success) {
+              let stepNum = stateData.value;
+              if (typeof stepNum === 'object' && 'value' in stepNum) {
+                stepNum = stepNum.value;
+              }
+              stepNum = Math.max(1, Math.min(10, parseInt(stepNum) || 1)); // Ensure 1-10
+              
+              let stepDesc = descData.value || 'Idle';
+              if (typeof stepDesc === 'object' && 'value' in stepDesc) {
+                stepDesc = stepDesc.value;
+              }
+              
+              const newRightStep = {
+                stepNumber: stepNum,  // Display PLC value as-is (e.g., 500, 200, etc.)
+                stepDescription: String(stepDesc).trim()
+              };
+              
+              // Only update if changed
+              setRightStepDisplay(prev => {
+                if (prev.stepNumber !== newRightStep.stepNumber || prev.stepDescription !== newRightStep.stepDescription) {
+                  return newRightStep;
+                }
+                return prev;
+              });
+            }
+          }
+        } catch (stepErr) {
+          console.warn('[MainHMI] Right step read error:', stepErr.message || stepErr);
+        }
+
+        // Read left head step number and description from PLC
+        try {
+          const stateResponse = await fetch('http://localhost:3001/read?tag=GLEFTHEAD.Lstate');
+          const descResponse = await fetch('http://localhost:3001/read?tag=GLEFTHEAD.LstateDesc');
+          
+          if (stateResponse.ok && descResponse.ok) {
+            const stateData = await stateResponse.json();
+            const descData = await descResponse.json();
+            
+            if (stateData.success && descData.success) {
+              let stepNum = stateData.value;
+              if (typeof stepNum === 'object' && 'value' in stepNum) {
+                stepNum = stepNum.value;
+              }
+              stepNum = Math.max(1, Math.min(10, parseInt(stepNum) || 1)); // Ensure 1-10
+              
+              let stepDesc = descData.value || 'Idle';
+              if (typeof stepDesc === 'object' && 'value' in stepDesc) {
+                stepDesc = stepDesc.value;
+              }
+              
+              const newLeftStep = {
+                stepNumber: stepNum,  // Display PLC value as-is (e.g., 500, 200, etc.)
+                stepDescription: String(stepDesc).trim()
+              };
+              
+              // Only update if changed
+              setLeftStepDisplay(prev => {
+                if (prev.stepNumber !== newLeftStep.stepNumber || prev.stepDescription !== newLeftStep.stepDescription) {
+                  return newLeftStep;
+                }
+                return prev;
+              });
+            }
+          }
+        } catch (stepErr) {
+          console.warn('[MainHMI] Left step read error:', stepErr.message || stepErr);
+        }
+
+        // Read mode feedback from PLC (RunMode and JogMode)
+        try {
+          const rightRunRes = await fetch('http://localhost:3001/read?tag=GRIGHTHEAD.bHmiRightRunMode');
+          const rightJogRes = await fetch('http://localhost:3001/read?tag=GRIGHTHEAD.bHmiRightJogMode');
+          const leftRunRes = await fetch('http://localhost:3001/read?tag=GLEFTHEAD.bHmiLeftRunMode');
+          const leftJogRes = await fetch('http://localhost:3001/read?tag=GLEFTHEAD.bHmiLeftJogMode');
+          
+          if (rightRunRes.ok && rightJogRes.ok && leftRunRes.ok && leftJogRes.ok) {
+            const [rightRunData, rightJogData, leftRunData, leftJogData] = await Promise.all([
+              rightRunRes.json(),
+              rightJogRes.json(),
+              leftRunRes.json(),
+              leftJogRes.json()
+            ]);
+            
+            const newModeFeedback = {
+              right: {
+                runMode: rightRunData.success ? Boolean(rightRunData.value) : false,
+                jogMode: rightJogData.success ? Boolean(rightJogData.value) : false
+              },
+              left: {
+                runMode: leftRunData.success ? Boolean(leftRunData.value) : false,
+                jogMode: leftJogData.success ? Boolean(leftJogData.value) : false
+              }
+            };
+            
+            // Only update if changed
+            setModeFeedback(prev => {
+              if (JSON.stringify(prev) !== JSON.stringify(newModeFeedback)) {
+                return newModeFeedback;
+              }
+              return prev;
+            });
+          }
+        } catch (modeErr) {
+          console.warn('[MainHMI] Mode feedback read error:', modeErr.message || modeErr);
+        }
+
+        // Read alarm bitfield from PLC (GAxis.AlarmSystem)
+        try {
+          const alarmRes = await fetch('http://localhost:3001/read?tag=GAxis.AlarmSystem');
+          if (alarmRes.ok) {
+            const alarmData = await alarmRes.json();
+            if (alarmData.success) {
+              let alarmVal = alarmData.value;
+              if (typeof alarmVal === 'object' && 'value' in alarmVal) {
+                alarmVal = alarmVal.value;
+              } else if (typeof alarmVal === 'object' && 'low' in alarmVal) {
+                alarmVal = alarmVal.low || 0;
+              }
+              const bitfield = Number(alarmVal) || 0;
+              setAlarmBits(bitfield);
+              setAlarms(decodeAlarmBits(bitfield));
+            }
+          }
+        } catch (alarmErr) {
+          console.warn('[MainHMI] Alarm read error:', alarmErr.message || alarmErr);
+        }
+
+        // Read machine status bitfield from PLC (GAxis.MachineStatus)
+        try {
+          const statusRes = await fetch('http://localhost:3001/read?tag=GAxis.MachineStatus');
+          if (statusRes.ok) {
+            const statusData = await statusRes.json();
+            console.log('[MainHMI] Machine status response:', statusData);
+            if (statusData.success) {
+              let statusVal = statusData.value;
+              if (typeof statusVal === 'object' && 'value' in statusVal) {
+                statusVal = statusVal.value;
+              } else if (typeof statusVal === 'object' && 'low' in statusVal) {
+                statusVal = statusVal.low || 0;
+              }
+              const bitfield = Number(statusVal) || 0;
+              setMachineStatusBits(bitfield);
+              setMachineStatus(decodeMachineStatus(bitfield));
+              setPlcConnected(true); // Successfully read from PLC
+              console.log('[MainHMI] PLC connected, status bits:', bitfield);
+            } else {
+              setPlcConnected(false); // Read failed
+              console.warn('[MainHMI] Machine status read failed:', statusData.error);
+            }
+          } else {
+            setPlcConnected(false); // HTTP error
+            console.warn('[MainHMI] HTTP error reading machine status:', statusRes.status);
+          }
+        } catch (statusErr) {
+          setPlcConnected(false); // Exception occurred
+          console.warn('[MainHMI] Machine status read error:', statusErr.message || statusErr);
+        }
+
+        // Read pump enable status from PLC (GAxis.bPumpEnable)
+        try {
+          const pumpRes = await fetch('http://localhost:3001/read?tag=GAxis.bPumpEnable');
+          if (pumpRes.ok) {
+            const pumpData = await pumpRes.json();
+            if (pumpData.success) {
+              const pumpValue = Boolean(pumpData.value);
+              // Only update if changed
+              setPumpEnabled(prev => prev !== pumpValue ? pumpValue : prev);
+            }
+          }
+        } catch (pumpErr) {
+          console.warn('[MainHMI] Pump enable read error:', pumpErr.message || pumpErr);
+        }
+
+        // Read homing status variables from PLC
+        try {
+          const leftHomeEnaRes = await fetch('http://localhost:3001/read?tag=GLEFTHEAD.bHmiLeftHomeEna');
+          const leftHomedRes = await fetch('http://localhost:3001/read?tag=GLEFTHEAD.bLeftHeadHomed');
+          const rightHomeEnaRes = await fetch('http://localhost:3001/read?tag=GRIGHTHEAD.bHmiRightHomeEna');
+          const rightHomedRes = await fetch('http://localhost:3001/read?tag=GRIGHTHEAD.bRightHeadHomed');
+          
+          if (leftHomeEnaRes.ok && leftHomedRes.ok && rightHomeEnaRes.ok && rightHomedRes.ok) {
+            const [leftEnaData, leftHomedData, rightEnaData, rightHomedData] = await Promise.all([
+              leftHomeEnaRes.json(),
+              leftHomedRes.json(),
+              rightHomeEnaRes.json(),
+              rightHomedRes.json()
+            ]);
+            
+            const newHomingStatus = {
+              left: {
+                enabled: leftEnaData.success ? Boolean(leftEnaData.value) : false,
+                homed: leftHomedData.success ? Boolean(leftHomedData.value) : false
+              },
+              right: {
+                enabled: rightEnaData.success ? Boolean(rightEnaData.value) : false,
+                homed: rightHomedData.success ? Boolean(rightHomedData.value) : false
+              }
+            };
+            
+            // Only update if changed
+            setHomingStatus(prev => {
+              if (JSON.stringify(prev) !== JSON.stringify(newHomingStatus)) {
+                return newHomingStatus;
+              }
+              return prev;
+            });
+
+            // Update homedSides state based on PLC feedback
+            setHomedSides({
+              left: newHomingStatus.left.homed,
+              right: newHomingStatus.right.homed
+            });
+          }
+        } catch (homingErr) {
+          console.warn('[MainHMI] Homing status read error:', homingErr.message || homingErr);
+        }
       } catch (err) {
         setPlcStatus('bad');
-        console.warn('Actual position read failed:', err.message || err);
+        setPlcConnected(false);
+        console.warn('Axis position read failed:', err.message || err);
+        // Set positions to 0 on error
+        setActualPositions({ right: { axis1: 0, axis2: 0 }, left: { axis1: 0, axis2: 0 } });
       }
     };
     poll();
-    timer = setInterval(poll, 1000);
+    timer = setInterval(poll, 500); // Poll every 500ms for smoother updates
     return () => clearInterval(timer);
   }, []);
 
@@ -97,73 +526,22 @@ export default function MainHMI() {
 
   // Load recipes from filesystem on mount
   useEffect(() => {
-    const rightRecipes = loadRecipesFromFolder('right');
-    const leftRecipes = loadRecipesFromFolder('left');
-    if (rightRecipes.length > 0) setRecipesRight(rightRecipes);
-    if (leftRecipes.length > 0) setRecipesLeft(leftRecipes);
+    const loadRecipes = async () => {
+      try {
+        const rightRecipes = await loadRecipesFromFolder('right');
+        const leftRecipes = await loadRecipesFromFolder('left');
+        if (rightRecipes.length > 0) setRecipesRight(rightRecipes);
+        if (leftRecipes.length > 0) setRecipesLeft(leftRecipes);
+      } catch (err) {
+        console.warn('Failed to load recipes:', err);
+      }
+    };
+    loadRecipes();
   }, []);
 
-  const [recipesRight, setRecipesRight] = useState([
-    { 
-      name: 'Right_Recipe_A', 
-      description: 'Recipe for part A on right side',
-      parameters: { tubeID: 25.4, tubeOD: 31.75, finalSize: 30.0, sizeType: 'OD', tubeLength: 100, idFingerRadius: 2.5, depth: 50, recipeSpeed: 100, stepDelay: 500 }
-    },
-    { 
-      name: 'Right_Recipe_B', 
-      description: 'Recipe for part B on right side',
-      parameters: { tubeID: 20.0, tubeOD: 25.0, finalSize: 24.5, sizeType: 'OD', tubeLength: 150, idFingerRadius: 2.0, depth: 45, recipeSpeed: 100, stepDelay: 500 }
-    },
-    { 
-      name: 'Right_Assembly', 
-      description: 'Assembly process for right side',
-      parameters: { tubeID: 30.0, tubeOD: 38.0, finalSize: 29.5, sizeType: 'ID', tubeLength: 200, idFingerRadius: 3.0, depth: 60, recipeSpeed: 100, stepDelay: 500 }
-    },
-    { 
-      name: 'Right_Recipe_C', 
-      description: 'Recipe for part C on right side',
-      parameters: { tubeID: 22.0, tubeOD: 28.0, finalSize: 27.0, sizeType: 'OD', tubeLength: 120, idFingerRadius: 2.2, depth: 48, recipeSpeed: 100, stepDelay: 500 }
-    },
-    { 
-      name: 'Right_Recipe_D', 
-      description: 'Recipe for part D on right side',
-      parameters: { tubeID: 28.0, tubeOD: 35.0, finalSize: 34.0, sizeType: 'OD', tubeLength: 180, idFingerRadius: 2.8, depth: 55, recipeSpeed: 100, stepDelay: 500 }
-    },
-    // Default recipe removed
-  ]);
+  const [recipesRight, setRecipesRight] = useState([]);
 
-  const [recipesLeft, setRecipesLeft] = useState([
-    { 
-      name: 'Left_Recipe_A', 
-      description: 'Recipe for part A on left side',
-      parameters: { tubeID: 25.4, tubeOD: 31.75, finalSize: 30.0, sizeType: 'OD', tubeLength: 100, idFingerRadius: 2.5, depth: 50, recipeSpeed: 100, stepDelay: 500 }
-    },
-    { 
-      name: 'Left_Recipe_B', 
-      description: 'Recipe for part B on left side',
-      parameters: { tubeID: 20.0, tubeOD: 25.0, finalSize: 24.5, sizeType: 'OD', tubeLength: 150, idFingerRadius: 2.0, depth: 45, recipeSpeed: 100, stepDelay: 500 }
-    },
-    { 
-      name: 'Left_Assembly', 
-      description: 'Assembly process for left side',
-      parameters: { tubeID: 30.0, tubeOD: 38.0, finalSize: 29.5, sizeType: 'ID', tubeLength: 200, idFingerRadius: 3.0, depth: 60, recipeSpeed: 100, stepDelay: 500 }
-    },
-    { 
-      name: 'Left_Recipe_C', 
-      description: 'Recipe for part C on left side',
-      parameters: { tubeID: 22.0, tubeOD: 28.0, finalSize: 27.0, sizeType: 'OD', tubeLength: 120, idFingerRadius: 2.2, depth: 48, recipeSpeed: 100, stepDelay: 500 }
-    },
-    { 
-      name: 'Left_Recipe_D', 
-      description: 'Recipe for part D on left side',
-      parameters: { tubeID: 28.0, tubeOD: 35.0, finalSize: 34.0, sizeType: 'OD', tubeLength: 180, idFingerRadius: 2.8, depth: 55, recipeSpeed: 100, stepDelay: 500 }
-    },
-    { 
-      name: 'Left_Recipe_E', 
-      description: 'Default recipe for left side (INDEX 5)',
-      parameters: { tubeID: 25.0, tubeOD: 32.0, finalSize: 31.0, sizeType: 'OD', tubeLength: 110, idFingerRadius: 2.4, depth: 52, recipeSpeed: 100, stepDelay: 500 }
-    }
-  ]);
+  const [recipesLeft, setRecipesLeft] = useState([]);
 
   const [currentRecipe, setCurrentRecipe] = useState({
     right: null,
@@ -205,6 +583,70 @@ export default function MainHMI() {
     console.log(`${axisName} changed to ${value} (${mode})`);
   };
 
+  // Homing handlers: pulse momentary tags for left/right heads
+  const handleHomeLeft = async () => {
+    if (homingStatus.left.homed) {
+      showMessage('Already Homed', 'Left axis is already homed', 'info');
+      return;
+    }
+    
+    try {
+      setHomingSide('left');
+      setShowHomingDialog(true);
+      await pulseBoolTag('GLEFTHEAD.bHmiEnaLeftHomePb', 200);
+    } catch (error) {
+      setShowHomingDialog(false);
+      showMessage('Error', `Failed to trigger left homing: ${error.message}`, 'error');
+    }
+  };
+
+  const handleHomeRight = async () => {
+    if (homingStatus.right.homed) {
+      showMessage('Already Homed', 'Right axis is already homed', 'info');
+      return;
+    }
+    
+    try {
+      setHomingSide('right');
+      setShowHomingDialog(true);
+      await pulseBoolTag('GRIGHTHEAD.bHmiEnaRightHomePb', 200);
+    } catch (error) {
+      setShowHomingDialog(false);
+      showMessage('Error', `Failed to trigger right homing: ${error.message}`, 'error');
+    }
+  };
+
+  /**
+   * Send recipe parameters to PLC
+   * @param {Object} parameters - Recipe parameters object
+   * @param {String} side - 'left' or 'right'
+   */
+  const sendRecipeParametersToPLC = async (parameters, side) => {
+    if (!parameters || !side) return false;
+    try {
+      await writePLCVar({
+        command: 'setRecipeParameters',
+        side,
+        parameters: {
+          speed: parameters.recipeSpeed || 100,
+          stepDelay: parameters.stepDelay || 500,
+          tubeID: parameters.tubeID || 0,
+          tubeOD: parameters.tubeOD || 0,
+          finalSize: parameters.finalSize || 0,
+          sizeType: parameters.sizeType || 'OD',
+          tubeLength: parameters.tubeLength || 0,
+          idFingerRadius: parameters.idFingerRadius || 0,
+          depth: parameters.depth || 0
+        }
+      });
+      console.log(`Recipe parameters sent to PLC for ${side} side`);
+      return true;
+    } catch (error) {
+      console.error(`Failed to send recipe parameters to PLC: ${error.message}`);
+      return false;
+    }
+  };
+
   const handleLoadRecipe = (recipe, side) => {
     if (currentUser === 'operator') {
       showMessage('Access Denied', 'Operators cannot change recipes.', 'warning');
@@ -217,13 +659,29 @@ export default function MainHMI() {
     const recipeObj = typeof recipe === 'string'
       ? (side === 'right' ? recipesRight : recipesLeft).find((r) => r.name === recipeName)
       : recipe;
-    setCurrentParameters(recipeObj?.parameters ?? null);
+    const parameters = recipeObj?.parameters ?? null;
+    setCurrentParameters(parameters);
+    
+    // Send recipe parameters to PLC
+    if (parameters) {
+      sendRecipeParametersToPLC(parameters, side)
+        .then((success) => {
+          if (success) {
+            showMessage('Recipe Loaded', `Recipe "${recipeName}" loaded and sent to ${side} side`, 'success');
+          } else {
+            showMessage('Recipe Loaded (PLC Sync Failed)', `Recipe "${recipeName}" loaded but PLC parameters may not have updated`, 'warning');
+          }
+        })
+        .catch((error) => {
+          showMessage('Recipe Loaded (PLC Error)', `Recipe loaded but failed to sync PLC: ${error.message}`, 'warning');
+        });
+    } else {
+      showMessage('Recipe Loaded', `Recipe "${recipeName}" loaded for ${side} side`, 'success');
+    }
     
     // Close the recipe manager after loading
     setRecipeOpen(false);
     setRecipeSide(null);
-    
-    showMessage('Recipe Loaded', `Recipe "${recipeName}" loaded for ${side} side`, 'success');
   };
 
   const handleOpenRecipeSelector = (side) => {
@@ -761,17 +1219,17 @@ export default function MainHMI() {
         <div className="header-right">
           <div className="shift-counts">
             <div className="shift-count-card">
-              <div className="shift-label">Machine Count</div>
+              <div className="shift-label">Count</div>
               <div className="shift-value">{machineCount}</div>
             </div>
           </div>
           <div className="user-info-section">
             <div className="user-display">
               <span className="user-icon">
-                {currentUser === 'operator' ? '▶️' : currentUser === 'setup' ? '⚙️' : '🔧'}
+                {currentUser === 'operator' ? '▶️' : currentUser === 'setup' ? '⚙️' : currentUser === 'admin' ? '👑' : '🔧'}
               </span>
               <span className="user-role">
-                {currentUser === 'operator' ? 'Operator' : currentUser === 'setup' ? 'Setup' : 'Engineering'}
+                {currentUser === 'operator' ? 'Operator' : currentUser === 'setup' ? 'Setup' : currentUser === 'admin' ? 'Admin' : 'Engineering'}
               </span>
             </div>
             <button className="change-user-btn" onClick={() => setShowLoginModal(true)}>
@@ -785,15 +1243,44 @@ export default function MainHMI() {
             <div className="plc-dirty-indicator" title="PLC has live changes not saved to recipe">
               <span className="plc-dirty-dot" />
               <span>
-                PLC differs from recipe:
-                {plcDirty.left ? ' Left' : ''}
-                {plcDirty.left && plcDirty.right ? ' & ' : ''}
-                {plcDirty.right ? ' Right' : ''}
+                PLC differs:
+                {plcDirty.left ? ' L' : ''}
+                {plcDirty.left && plcDirty.right ? '&' : ''}
+                {plcDirty.right ? ' R' : ''}
               </span>
             </div>
           )}
         </div>
       </div>
+
+      {alarms.length > 0 && alarmBannerVisible && (
+        <div className="alarm-banner">
+          <div className="alarm-banner-header">
+            <span className="alarm-icon">⚠</span>
+            <span className="alarm-title">
+              {alarms.length === 1 ? 'Active Alarm' : `${alarms.length} Active Alarms`}
+            </span>
+            <span className="alarm-code">0x{alarmBits.toString(16).toUpperCase().padStart(8, '0')}</span>
+          </div>
+          <div className="alarm-items">
+            {alarms.slice(0, 4).map(alarm => (
+              <div key={alarm.bit} className={`alarm-pill ${alarm.severity}`}>
+                <span className="alarm-pill-bit">B{alarm.bit}</span>
+                <span className="alarm-pill-text">{alarm.message}</span>
+              </div>
+            ))}
+            {alarms.length > 4 && (
+              <div className="alarm-pill more">+{alarms.length - 4} more</div>
+            )}
+          </div>
+          <button 
+            className="alarm-acknowledge-btn" 
+            onClick={handleAcknowledgeAlarm}
+          >
+            OK / Acknowledge
+          </button>
+        </div>
+      )}
 
       <LoginModal 
         isOpen={showLoginModal} 
@@ -814,13 +1301,15 @@ export default function MainHMI() {
             axis2State={axis2State}
             actualPositions={displayPositions.right}
             unitSystem={unitSystem}
-            step={sideStates.right.state}
-            stepDescription={sideStates.right.desc}
+            step={rightStepDisplay.stepNumber}
+            stepDescription={rightStepDisplay.stepDescription}
             recipe={currentRecipe.right}
             recipes={recipesRight}
             onRecipeChange={(recipe) => setCurrentRecipe(prev => ({ ...prev, right: recipe }))}
             onOpenRecipeSelector={handleOpenRecipeSelector}
             userRole={currentUser}
+            runMode={modeFeedback.right.runMode}
+            jogMode={modeFeedback.right.jogMode}
           />
           <AxisPanel
             side="Left"
@@ -831,14 +1320,45 @@ export default function MainHMI() {
             axis2State={axis4State}
             actualPositions={displayPositions.left}
             unitSystem={unitSystem}
-            step={sideStates.left.state}
-            stepDescription={sideStates.left.desc}
+            step={leftStepDisplay.stepNumber}
+            stepDescription={leftStepDisplay.stepDescription}
             recipe={currentRecipe.left}
             recipes={recipesLeft}
             onRecipeChange={(recipe) => setCurrentRecipe(prev => ({ ...prev, left: recipe }))}
             onOpenRecipeSelector={handleOpenRecipeSelector}
             userRole={currentUser}
+            runMode={modeFeedback.left.runMode}
+            jogMode={modeFeedback.left.jogMode}
           />
+        </div>
+      </div>
+
+      {/* Machine Status Banner - spans both panels at bottom */}
+      <div className="machine-status-banner">
+        <div className="machine-status-content">
+          <span className="machine-status-header">Machine Status:</span>
+          <div className="machine-status-indicators">
+            {plcConnected ? (
+              machineStatus.length > 0 ? (
+                machineStatus.map(status => (
+                  <div 
+                    key={status.bit} 
+                    className="status-indicator"
+                    style={{ borderColor: status.color, color: status.color }}
+                    title={`Bit ${status.bit}`}
+                  >
+                    <span className="status-dot" style={{ backgroundColor: status.color }} />
+                    {status.label}
+                  </div>
+                ))
+              ) : (
+                <span style={{ color: '#FFC107', fontSize: '17px', fontWeight: '700', letterSpacing: '0.3px', textShadow: '0 1px 2px rgba(0, 0, 0, 0.4)' }}>⚠ Pump Not Running</span>
+              )
+            ) : (
+              <span style={{ color: '#90CAF9', fontSize: '17px', fontWeight: '700', letterSpacing: '0.3px', textShadow: '0 1px 2px rgba(0, 0, 0, 0.4)' }}>• PLC not connected</span>
+            )}
+          </div>
+          <span className="machine-status-code">0x{machineStatusBits.toString(16).toUpperCase().padStart(8, '0')}</span>
         </div>
       </div>
 
@@ -846,15 +1366,26 @@ export default function MainHMI() {
         <div className="mode-button-group">
           <button 
             className="mode-control-btn homing-btn"
-            onClick={() => setShowHomingSideSelector(true)}
-            title="Select side(s) to home"
+            onClick={handleHomeLeft}
+            disabled={!pumpEnabled}
+            title={pumpEnabled ? "Home Left Side" : "Pump must be running to enable homing"}
           >
             <span className="mode-icon">🏠</span>
-            <span>HOMING</span>
+            <span>HOME LEFT</span>
           </button>
 
           <button 
-            className="mode-control-btn enable-jog-btn"
+            className="mode-control-btn homing-btn"
+            onClick={handleHomeRight}
+            disabled={!pumpEnabled}
+            title={pumpEnabled ? "Home Right Side" : "Pump must be running to enable homing"}
+          >
+            <span className="mode-icon">🏠</span>
+            <span>HOME RIGHT</span>
+          </button>
+
+          <button 
+            className={`mode-control-btn enable-jog-btn ${(modeFeedback.right.jogMode || modeFeedback.left.jogMode) ? 'active' : ''}`}
             onClick={() => {
               if (currentUser === 'operator') {
                 showMessage('Access Denied', 'Operators cannot jog the machine', 'warning');
@@ -862,21 +1393,36 @@ export default function MainHMI() {
               }
               setShowEnableSideSelector(true);
             }}
-            disabled={currentUser === 'operator'}
-            title={currentUser === 'operator' ? 'Operators cannot jog' : 'Enable jog mode for side'}
+            disabled={currentUser === 'operator' || !pumpEnabled}
+            title={!pumpEnabled ? 'Pump must be running to enable jog' : currentUser === 'operator' ? 'Operators cannot jog' : 'Enable jog mode for side'}
           >
             <span className="mode-icon">⟷</span>
             <span>ENABLE JOG</span>
+            {(modeFeedback.right.jogMode || modeFeedback.left.jogMode) && (
+              <span className="mode-indicator"> ●</span>
+            )}
           </button>
 
           <button 
-            className={`mode-control-btn run-control ${runMode ? 'active' : ''}`}
+            className={`mode-control-btn run-control ${(modeFeedback.right.runMode || modeFeedback.left.runMode) ? 'active' : ''}`}
             onClick={() => setShowRunSideSelector(true)}
             disabled={!(homedSides.right || homedSides.left)}
             title={homedSides.right || homedSides.left ? 'Select side(s) to run' : 'Must home at least one side first'}
           >
             <span className="mode-icon">▶</span>
             <span>RUN</span>
+            {(modeFeedback.right.runMode || modeFeedback.left.runMode) && (
+              <span className="mode-indicator"> ●</span>
+            )}
+          </button>
+
+          <button 
+            className="mode-control-btn io-btn"
+            onClick={() => setIoPageOpen(true)}
+            title="View and test Digital IO"
+          >
+            <span className="mode-icon">⚡</span>
+            <span>IO</span>
           </button>
         </div>
       </div>
@@ -889,6 +1435,7 @@ export default function MainHMI() {
           onMachineParameters={() => setMachineParametersOpen(true)}
           onStartPosition={handleStartPosition}
           userRole={currentUser}
+          pumpEnabled={pumpEnabled}
         />
       </div>
  
@@ -913,6 +1460,17 @@ export default function MainHMI() {
         userRole={currentUser}
         userPasswords={userPasswords}
         onUpdatePasswords={setUserPasswords}
+        onOpenDebug={() => setDebugPanelOpen(true)}
+        homingTimeout={homingTimeout}
+        onHomingTimeoutChange={(newTimeout) => {
+          setHomingTimeout(newTimeout);
+          localStorage.setItem('homingTimeout', newTimeout.toString());
+        }}
+      />
+
+      <DigitalIOPage
+        isOpen={ioPageOpen}
+        onClose={() => setIoPageOpen(false)}
       />
 
       {showSideSelector && (
@@ -1029,13 +1587,7 @@ export default function MainHMI() {
 
 
 
-      {showHomingSideSelector && (
-        <SideSelector
-          onSelectSide={handleHomingSideSelect}
-          onCancel={() => setShowHomingSideSelector(false)}
-          title="Select Side(s) to Home"
-        />
-      )}
+      {/* Homing side selector removed; direct buttons used */}
 
       {showEnableSideSelector && (
         <SideSelector
@@ -1093,7 +1645,20 @@ export default function MainHMI() {
           onConfirm={async () => {
             if (!programToDownload) return;
             try {
-              await writePLCVar({ command: 'downloadProgram', program: programToDownload });
+              // Send recipe parameters first if available
+              if (currentParameters && programToDownload.side) {
+                const paramsSent = await sendRecipeParametersToPLC(currentParameters, programToDownload.side);
+                if (!paramsSent) {
+                  console.warn('Failed to send recipe parameters, continuing with program download');
+                }
+              }
+              
+              // Then download the program
+              await writePLCVar({ 
+                command: 'downloadProgram', 
+                program: programToDownload,
+                parameters: currentParameters || undefined
+              });
               showMessage('Program Downloaded', `Program "${programToDownload.name}" downloaded to ${programToDownload.side} side`, 'success');
             } catch (e) {
               showMessage('Download Failed', `Failed to download program "${programToDownload.name}"`, 'error');
@@ -1105,6 +1670,17 @@ export default function MainHMI() {
             setShowDownloadModal(false);
             setProgramToDownload(null);
           }}
+        />
+
+        {/* Homing Progress Dialog */}
+        <HomingDialog
+          isOpen={showHomingDialog}
+          onClose={() => {
+            setShowHomingDialog(false);
+            setHomingSide(null);
+          }}
+          side={homingSide}
+          timeout={homingTimeout}
         />
 
         {showRunSideSelector && (
@@ -1130,6 +1706,8 @@ export default function MainHMI() {
           onWriteToPLC={handlePLCWrite}
         />
       </>
+
+      {/* DebugPanel disabled - Dev page hidden */}
     </div>
   );
 }

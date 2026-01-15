@@ -14,10 +14,9 @@
 
 .auto-teach-modal {
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  border-radius: 12px;
-  width: 95%;
-  max-width: 1000px;
-  max-height: 95vh;
+  border-radius: 0;
+  width: 100%;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   box-shadow: 0 10px 50px rgba(0, 0, 0, 0.8);
@@ -25,73 +24,79 @@
 }
 
 .auto-teach-header {
-  padding: 20px 24px;
-  border-bottom: 2px solid #2a4a7f;
+  padding: 6px 16px;
+  border-bottom: none;
   display: flex;
-  justify-content: space-between;
+  flex-direction: row;
+  justify-content: flex-start;
   align-items: center;
   background: rgba(0, 0, 0, 0.3);
+  gap: 16px;
+  flex-wrap: nowrap;
+  min-height: 36px;
 }
 
-.auto-teach-title {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.auto-teach-title h2 {
+.auto-teach-title-h2 {
   margin: 0;
   color: #4a9eff;
-  font-size: 1.6rem;
+  font-size: 0.95rem;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .program-info {
   display: flex;
   gap: 12px;
   align-items: center;
+  flex: 0 1 auto;
 }
 
 .program-name {
   color: #88c0ff;
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .side-badge {
-  background: linear-gradient(135deg, #2a4a7f 0%, #1e3a5f 100%);
-  color: #4a9eff;
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 0.8rem;
+  background: transparent;
+  color: #17a2b8;
+  padding: 0;
+  border-radius: 0;
+  font-size: 0.85rem;
   font-weight: 600;
-  border: 1px solid #4a9eff;
+  border: none;
+  flex-shrink: 0;
 }
 
 .side-badge.right {
-  border-color: #17a2b8;
+  border: none;
   color: #17a2b8;
 }
 
 .side-badge.left {
-  border-color: #fd7e14;
+  border: none;
   color: #fd7e14;
 }
 
 .jog-mode-indicator {
-  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-  color: #ffffff;
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  border: 2px solid #28a745;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  animation: pulse-glow 2s infinite;
-  box-shadow: 0 0 15px rgba(40, 167, 69, 0.5);
+  background: transparent;
+  color: #28a745;
+  padding: 0;
+  border-radius: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: none;
+  text-transform: none;
+  letter-spacing: normal;
+  animation: none;
+  box-shadow: none;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 @keyframes pulse-glow {
@@ -109,29 +114,31 @@
   background: transparent;
   border: none;
   color: #ff6b6b;
-  font-size: 1.5rem;
+  font-size: 1.1rem;
   cursor: pointer;
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: 0;
   transition: all 0.2s;
+  flex-shrink: 0;
 }
 
 .close-btn:hover {
-  background: rgba(255, 107, 107, 0.2);
-  transform: scale(1.1);
+  background: transparent;
+  transform: scale(1.15);
+  color: #ff8a8a;
 }
 
 .auto-teach-content {
   flex: 1;
-  overflow-y: auto;
-  padding: 20px 24px;
+  padding: 12px 16px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 10px;
+  overflow: visible;
 }
 
 .teach-instructions {
@@ -861,4 +868,357 @@
 
 .steps-list::-webkit-scrollbar-thumb:hover {
   background: #4a9eff;
+}
+
+/* === NEW: 2-COLUMN GRID LAYOUT === */
+
+/* Progress Bar Section - Now in Header */
+.progress-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 1 auto;
+  min-width: 100px;
+  margin-left: auto;
+}
+
+.progress-bar-container {
+  flex: 1;
+  height: 16px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 8px;
+  overflow: hidden;
+  border: none;
+  min-width: 70px;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #28a745 0%, #4ade80 100%);
+  transition: width 0.3s ease;
+  box-shadow: none;
+}
+
+.progress-text {
+  color: #88c0ff;
+  font-weight: 600;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  min-width: 32px;
+  flex-shrink: 0;
+}
+
+/* Current Step Controls */
+.current-step-controls {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid #2a4a7f;
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.step-indicator {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.step-badge {
+  background: linear-gradient(135deg, #4a9eff 0%, #2a7fd9 100%);
+  color: white;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.position-compact {
+  color: #4ade80;
+  font-family: 'Courier New', monospace;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.teach-controls-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.step-name-input-compact {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid #2a4a7f;
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: white;
+  font-size: 0.9rem;
+}
+
+.step-name-input-compact:focus {
+  outline: none;
+  border-color: #4a9eff;
+  box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);
+}
+
+.pattern-select-compact {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid #2a4a7f;
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: white;
+  font-size: 0.9rem;
+  min-width: 200px;
+  cursor: pointer;
+}
+
+.pattern-select-compact:focus {
+  outline: none;
+  border-color: #4a9eff;
+  box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);
+}
+
+.record-btn-compact {
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #28a745 0%, #1d6e2d 100%);
+  color: white;
+  border: 2px solid #28a745;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s;
+  white-space: nowrap;
+}
+
+.record-btn-compact:hover:not(:disabled) {
+  background: linear-gradient(135deg, #32c857 0%, #28a745 100%);
+  box-shadow: 0 2px 10px rgba(40, 167, 69, 0.5);
+}
+
+.record-btn-compact.recording {
+  background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+  animation: recordPulse 0.5s ease;
+}
+
+.record-btn-compact:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 2-Column Steps Grid */
+.steps-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  flex: 1;
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.step-grid-card {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid #2a4a7f;
+  border-radius: 6px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: all 0.2s;
+  min-height: 120px;
+}
+
+.step-grid-card.recorded {
+  border-color: #28a745;
+  background: rgba(40, 167, 69, 0.1);
+}
+
+.step-grid-card.active {
+  border-color: #4a9eff;
+  background: rgba(74, 158, 255, 0.1);
+  box-shadow: 0 0 12px rgba(74, 158, 255, 0.3);
+}
+
+.step-grid-card.unrecorded {
+  opacity: 0.6;
+}
+
+.step-grid-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-step-num {
+  color: #88c0ff;
+  font-weight: 700;
+  font-size: 1.2rem;
+}
+
+.step-grid-card.recorded .card-step-num {
+  color: #4ade80;
+}
+
+.step-grid-card.active .card-step-num {
+  color: #4a9eff;
+}
+
+.card-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.card-edit-btn,
+.card-delete-btn {
+  background: transparent;
+  border: none;
+  padding: 4px 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.card-edit-btn {
+  color: #4a9eff;
+}
+
+.card-edit-btn:hover {
+  background: rgba(74, 158, 255, 0.2);
+}
+
+.card-delete-btn {
+  color: #ff6b6b;
+}
+
+.card-delete-btn:hover {
+  background: rgba(255, 107, 107, 0.2);
+}
+
+.card-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.card-name {
+  color: white;
+  font-weight: 600;
+  font-size: 1.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-pattern {
+  color: #88c0ff;
+  font-size: 1.15rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+
+.card-positions {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: #4ade80;
+  font-family: 'Courier New', monospace;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.card-repeat {
+  color: #ffa726;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.card-placeholder {
+  color: #666;
+  font-style: italic;
+  font-size: 0.95rem;
+  margin-top: 8px;
+}
+
+/* Save Program Section */
+.save-program-section {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  padding-top: 8px;
+  border-top: 1px solid #2a4a7f;
+}
+
+.save-program-section .save-program-btn {
+  flex: 1;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #4a9eff 0%, #2a7fd9 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.save-program-section .save-program-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(74, 158, 255, 0.4);
+}
+
+.save-program-section .save-program-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.save-program-section .cancel-teach-btn {
+  padding: 12px 24px;
+  background: rgba(255, 107, 107, 0.2);
+  color: #ff6b6b;
+  border: 1px solid #ff6b6b;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+/* PLC Status Pill */
+.plc-status-pill {
+  color: #88c0ff;
+  font-weight: 600;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  background: transparent;
+  border: none;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.plc-status-pill.good {
+  color: #28a745;
+}
+
+.plc-status-pill.bad {
+  color: #ff6b6b;
+}
+
+.plc-status-pill.unknown {
+  color: #ffc107;
+}
+
+.save-program-section .cancel-teach-btn:hover {
+  background: rgba(255, 107, 107, 0.3);
 }

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import ModernDialog from './ModernDialog';
 import '../styles/ProgramEditor.css';
 import NumericKeypad from './NumericKeypad';
+import { readAxisPositions } from '../services/plcApiService';
 
 export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram, onWriteToPLC }) {
   const [dialog, setDialog] = useState({ open: false, title: '', message: '' });
@@ -15,6 +16,10 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
   const [stepDialog, setStepDialog] = useState({ open: false, mode: 'add', stepNumber: '', pattern: 0, repeatTargetStep: 1, repeatCount: 1 });
   const [repeatDialog, setRepeatDialog] = useState({ open: false, stepNumber: null, repeatTargetStep: 1, repeatCount: 1 });
   const [autoEditDialog, setAutoEditDialog] = useState({ open: false, currentDiameter: '', desiredDiameter: '' });
+  const [dwellDialog, setDwellDialog] = useState({ open: false });
+  const [patternDialog, setPatternDialog] = useState({ open: false, selectedStep: null });
+  const [teachDialog, setTeachDialog] = useState({ open: false, stepNumber: null, jogMode: false });
+  const [currentTeachPositions, setCurrentTeachPositions] = useState({ axis1Cmd: 0, axis2Cmd: 0 });
   const [jogHint, setJogHint] = useState(false);
   const [downloadDialog, setDownloadDialog] = useState({ open: false });
   const [loading, setLoading] = useState(false);
@@ -38,12 +43,13 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
         .map(key => {
           const step = program.steps[key];
           const pattern = step?.pattern;
-          const defaultDwell = [1, 3, 4].includes(Number(pattern)) ? 0 : (program.dwell || 500);
+          // Default dwell is 0 for all axes
+          const defaultDwell = step?.dwell ?? 0;
           return {
             ...step,
             stepNumber: parseInt(key),
             speed: step?.speed ?? program.speed ?? 100,
-            dwell: step?.dwell ?? defaultDwell
+            dwell: defaultDwell
           };
         })
         .filter(step => step.enabled !== false); // Only show enabled steps (default true)
@@ -347,6 +353,12 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
               <button className="auto-edit-btn" onClick={() => setAutoEditDialog({ open: true, currentDiameter: '', desiredDiameter: '' })}>
                 ⚡ Auto Edit
               </button>
+              <button className="edit-all-dwell-btn" onClick={() => setDwellDialog({ open: true })}>
+                ⏱ Edit Dwell
+              </button>
+              <button className="edit-all-pattern-btn" onClick={() => setPatternDialog({ open: true, selectedStep: null })}>
+                ≋ Edit Pattern
+              </button>
               <button className="save-program-btn" onClick={handleSave}>
                 💾 Save Changes
               </button>
@@ -414,24 +426,13 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
 
                       <div className="settings-section">
                         <h4>⚙ Settings</h4>
-                        <div className="settings-row-inline">
-                          <div className="settings-row">
-                            <label>Speed:</label>
-                            <div 
-                              className="setting-value editable"
-                              onClick={() => handleEditSpeed(step.stepNumber)}
-                            >
-                              {step.speed || programSpeed}%
-                            </div>
-                          </div>
-                          <div className="settings-row">
-                            <label>Dwell:</label>
-                            <div 
-                              className="setting-value editable"
-                              onClick={() => handleEditDwell(step.stepNumber)}
-                            >
-                              {step.dwell || programDwell} ms
-                            </div>
+                        <div className="settings-row">
+                          <label>Speed:</label>
+                          <div 
+                            className="setting-value editable"
+                            onClick={() => handleEditSpeed(step.stepNumber)}
+                          >
+                            {step.speed || programSpeed}%
                           </div>
                         </div>
                         {step.pattern === 5 && (
@@ -450,26 +451,6 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                             </div>
                           </>
                         )}
-                      </div>
-
-                      <div className="pattern-section">
-                        <h4>≋ Pattern</h4>
-                        <select
-                          value={step.pattern}
-                          onChange={(e) => handleEditPattern(step.stepNumber, parseInt(e.target.value))}
-                          className="pattern-select"
-                        >
-                          {patternOptions.map(opt => {
-                            const forbidden = new Set(
-                              step.stepNumber === 2 ? [1, 3, 4, 5, 8] : step.stepNumber === 10 ? [0, 2, 6] : []
-                            );
-                            return (
-                              <option key={opt.code} value={opt.code} disabled={forbidden.has(opt.code)}>
-                                {opt.code} - {opt.name}
-                              </option>
-                            );
-                          })}
-                        </select>
                       </div>
                     </div>
                   </div>
@@ -873,6 +854,201 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                   style={{ cursor: 'pointer' }}
                 />
                 <div className="dialog-hint">Target diameter (mm)</div>
+              </div>
+            </div>
+          </div>
+        </ModernDialog>
+
+        {/* Dwell Editor Dialog */}
+        <ModernDialog
+          open={dwellDialog.open}
+          title="⏱ Edit Step Dwell Times"
+          onClose={() => setDwellDialog({ open: false })}
+          confirmText="Close"
+          onConfirm={() => setDwellDialog({ open: false })}
+        >
+          <div className="dwell-editor-container">
+            <div className="dwell-editor-hint">Click on any step to edit its dwell time</div>
+            <div className="dwell-steps-grid">
+              {editedSteps.map((step) => (
+                <div 
+                  key={step.stepNumber} 
+                  className="dwell-step-card"
+                  onClick={() => handleEditDwell(step.stepNumber)}
+                >
+                  <div className="dwell-step-header">
+                    <span className="dwell-step-num">Step {step.stepNumber}</span>
+                    <span className="dwell-step-name">{step.stepName}</span>
+                  </div>
+                  <div className="dwell-step-value">
+                    {step.dwell || 0} ms
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </ModernDialog>
+
+        {/* Pattern Editor Dialog */}
+        <ModernDialog
+          open={patternDialog.open}
+          title="≋ Edit Step Patterns"
+          onClose={() => setPatternDialog({ open: false, selectedStep: null })}
+          confirmText="Close"
+          onConfirm={() => setPatternDialog({ open: false, selectedStep: null })}
+        >
+          <div className="pattern-editor-container">
+            <div className="pattern-editor-hint">Click on a step to select it, then choose a pattern below</div>
+            <div className="pattern-steps-grid">
+              {editedSteps.map((step) => {
+                const patternInfo = patternOptions.find(p => p.code === step.pattern);
+                return (
+                  <div 
+                    key={step.stepNumber} 
+                    className={`pattern-step-card ${patternDialog.selectedStep === step.stepNumber ? 'selected' : ''}`}
+                    onClick={() => setPatternDialog({ open: true, selectedStep: step.stepNumber })}
+                  >
+                    <div className="pattern-step-header">
+                      <span className="pattern-step-num">Step {step.stepNumber}</span>
+                      <span className="pattern-step-name">{step.stepName}</span>
+                    </div>
+                    <div className="pattern-step-current">
+                      {patternInfo ? patternInfo.name : `Pattern ${step.pattern}`}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            
+            {patternDialog.selectedStep !== null && (
+              <div className="pattern-selector-section">
+                <div className="pattern-selector-label">
+                  Select pattern for Step {patternDialog.selectedStep}:
+                </div>
+                <select
+                  value={editedSteps.find(s => s.stepNumber === patternDialog.selectedStep)?.pattern || 0}
+                  onChange={(e) => handleEditPattern(patternDialog.selectedStep, parseInt(e.target.value))}
+                  className="pattern-select-dialog"
+                >
+                  {patternOptions.map(opt => {
+                    const forbidden = new Set(
+                      patternDialog.selectedStep === 2 ? [1, 3, 4, 5, 8] : patternDialog.selectedStep === 10 ? [0, 2, 6] : []
+                    );
+                    return (
+                      <option key={opt.code} value={opt.code} disabled={forbidden.has(opt.code)}>
+                        {opt.code} - {opt.name}
+                      </option>
+                    );
+                  })}
+                </select>
+                <button
+                  className="teach-btn"
+                  onClick={() => {
+                    const selectedStepObj = editedSteps.find(s => s.stepNumber === patternDialog.selectedStep);
+                    setTeachDialog({
+                      open: true,
+                      stepNumber: patternDialog.selectedStep,
+                      jogMode: false
+                    });
+                    setCurrentTeachPositions({
+                      axis1Cmd: selectedStepObj?.positions?.axis1Cmd || 0,
+                      axis2Cmd: selectedStepObj?.positions?.axis2Cmd || 0
+                    });
+                  }}
+                >
+                  🎯 Teach
+                </button>
+              </div>
+            )}
+          </div>
+        </ModernDialog>
+
+        <ModernDialog
+          isOpen={teachDialog.open}
+          title={`📍 Teach Step ${teachDialog.stepNumber}`}
+          onCancel={() => setTeachDialog({ open: false, stepNumber: null, jogMode: false })}
+          onConfirm={() => {
+            if (teachDialog.stepNumber) {
+              const updatedSteps = editedSteps.map(step => {
+                if (step.stepNumber === teachDialog.stepNumber) {
+                  return {
+                    ...step,
+                    positions: {
+                      axis1Cmd: currentTeachPositions.axis1Cmd,
+                      axis2Cmd: currentTeachPositions.axis2Cmd,
+                      axis3Cmd: step.positions?.axis3Cmd || 0,
+                      axis4Cmd: step.positions?.axis4Cmd || 0
+                    }
+                  };
+                }
+                return step;
+              });
+              setEditedSteps(updatedSteps);
+            }
+            setTeachDialog({ open: false, stepNumber: null, jogMode: false });
+          }}
+          confirmText="Confirm Teach"
+          cancelText="Cancel"
+        >
+          <div className="teach-dialog-container">
+            <div className="teach-header">
+              <div className="teach-info">
+                <div className="teach-step-label">Step {teachDialog.stepNumber}</div>
+                {(() => {
+                  const step = editedSteps.find(s => s.stepNumber === teachDialog.stepNumber);
+                  const pattern = step?.pattern || 0;
+                  const patternInfo = patternOptions.find(opt => opt.code === pattern);
+                  return (
+                    <div className="teach-pattern-label">
+                      Pattern: {patternInfo?.name || `Pattern ${pattern}`}
+                    </div>
+                  );
+                })()}
+              </div>
+              <button
+                className={`teach-jog-toggle ${teachDialog.jogMode ? 'active' : ''}`}
+                onClick={() => setTeachDialog(prev => ({ ...prev, jogMode: !prev.jogMode }))}
+              >
+                🕹️ JOG {teachDialog.jogMode ? 'ON' : 'OFF'}
+              </button>
+            </div>
+
+            <div className="teach-instruction">
+              {teachDialog.jogMode ? (
+                <div className="jog-active">
+                  <div className="instruction-text">🎯 Move axes to desired position and confirm</div>
+                  <div className="keyboard-hint">Use arrow keys or keyboard to jog</div>
+                </div>
+              ) : (
+                <div className="instruction-text">🕹️ Click the JOG button above to enable jog mode</div>
+              )}
+            </div>
+
+            <div className="teach-positions">
+              <div className="positions-header">Current Positions:</div>
+              <div className="positions-grid">
+                <div className="position-item">
+                  <label className="position-label">Axis 1 (X)</label>
+                  <div className="position-value">{currentTeachPositions.axis1Cmd.toFixed(2)}</div>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={currentTeachPositions.axis1Cmd}
+                    onChange={(e) => setCurrentTeachPositions(prev => ({ ...prev, axis1Cmd: parseFloat(e.target.value) || 0 }))}
+                    className="position-input"
+                  />
+                </div>
+                <div className="position-item">
+                  <label className="position-label">Axis 2 (Y)</label>
+                  <div className="position-value">{currentTeachPositions.axis2Cmd.toFixed(2)}</div>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={currentTeachPositions.axis2Cmd}
+                    onChange={(e) => setCurrentTeachPositions(prev => ({ ...prev, axis2Cmd: parseFloat(e.target.value) || 0 }))}
+                    className="position-input"
+                  />
+                </div>
               </div>
             </div>
           </div>

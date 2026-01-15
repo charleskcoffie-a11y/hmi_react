@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import ModernDialog from './ModernDialog';
 import ConnectionStatus from './ConnectionStatus';
+import NetIDSettings from './NetIDSettings';
 import '../styles/MachineParameters.css';
-import { getIoMap, readIndices, filterIoMap } from '../services/ioService';
-import DigitalIOPage from './DigitalIOPage';
 
-export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknown', unitSystem = 'mm', onUnitChange, userRole = 'operator', userPasswords = { operator: 'op123', setup: 'setup123', engineering: 'eng123' }, onUpdatePasswords }) {
+export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknown', unitSystem = 'mm', onUnitChange, userRole = 'operator', userPasswords = { admin: '5771', operator: 'op123', setup: 'setup123', engineering: 'eng123' }, onUpdatePasswords, onOpenDebug = () => {}, homingTimeout = 60, onHomingTimeoutChange = () => {} }) {
   const [parameters, setParameters] = useState({
     maxTravel: 2, // stored in inches, displayed based on unitSystem
     minPosition: 0,
@@ -24,55 +23,51 @@ export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknow
 
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showPasswords, setShowPasswords] = useState(false);
-    const [connectionStatusOpen, setConnectionStatusOpen] = useState(false);
+  const [connectionStatusOpen, setConnectionStatusOpen] = useState(false);
+  const [netIDSettingsOpen, setNetIDSettingsOpen] = useState(false);
+  const [actualConnectionStatus, setActualConnectionStatus] = useState('unknown');
+  const [heartbeatValue, setHeartbeatValue] = useState(null);
+  const [heartbeatTag, setHeartbeatTag] = useState(null);
 
   const [editingParam, setEditingParam] = useState(null);
   const [editValue, setEditValue] = useState('');
-  const [ioMap, setIoMap] = useState([]);
-  const [dioInputs, setDioInputs] = useState([]);
-  const [dioOutputs, setDioOutputs] = useState([]);
-  const [dioStates, setDioStates] = useState({});
-  const [digitalIOOpen, setDigitalIOOpen] = useState(false);
+  const [editingHomingTimeout, setEditingHomingTimeout] = useState(false);
+  const [homingTimeoutEdit, setHomingTimeoutEdit] = useState((homingTimeout ?? 60).toString());
 
-  // Load IO map and prepare Digital IO indices
+  // Fetch actual backend connection status
   useEffect(() => {
-    async function loadIo() {
+    const checkConnectionStatus = async () => {
       try {
-        const map = await getIoMap();
-        setIoMap(map);
-        const inputs = filterIoMap(map, { direction: 'input', minIndex: 100, maxIndex: 149 });
-        const outputs = filterIoMap(map, { direction: 'output', minIndex: 150, maxIndex: 199 });
-        setDioInputs(inputs);
-        setDioOutputs(outputs);
+        const res = await fetch('http://localhost:3001/status');
+        if (res.ok) {
+          const data = await res.json();
+          setActualConnectionStatus(data.connected ? 'good' : 'bad');
+          setHeartbeatValue(data.heartbeat ?? null);
+          setHeartbeatTag(data.heartbeatTag || null);
+        } else {
+          setActualConnectionStatus('bad');
+          setHeartbeatValue(null);
+          setHeartbeatTag(null);
+        }
       } catch (err) {
-        console.error('[MachineParameters] Failed to load IO map:', err);
+        setActualConnectionStatus('bad');
+        setHeartbeatValue(null);
+        setHeartbeatTag(null);
       }
-    }
-    loadIo();
-  }, []);
+    };
 
-  // Poll Digital IO states (inputs 100+, outputs 150+) every 500ms
-  useEffect(() => {
-    if (dioInputs.length === 0 && dioOutputs.length === 0) return;
-    const indexes = [...dioInputs.map(i => i.index), ...dioOutputs.map(o => o.index)];
-
-    async function poll() {
-      try {
-        const results = await readIndices(indexes);
-        setDioStates(results);
-      } catch (err) {
-        console.error('[MachineParameters] Failed to read IO states:', err);
-      }
-    }
-
-    poll();
-    const interval = setInterval(poll, 500);
+    // Check immediately and then every 2 seconds
+    checkConnectionStatus();
+    const interval = setInterval(checkConnectionStatus, 2000);
     return () => clearInterval(interval);
-  }, [dioInputs, dioOutputs]);
+  }, []);
 
   const MM_TO_INCH = 0.0393701;
   const INCH_TO_MM = 25.4;
+  const isAdmin = userRole === 'admin';
+  const canChangePasswords = isAdmin; // Only admin can change passwords
   const passwordRoles = [
+    { id: 'admin', label: 'Admin' },
     { id: 'operator', label: 'Operator' },
     { id: 'setup', label: 'Setup' },
     { id: 'engineering', label: 'Engineering' }
@@ -141,11 +136,20 @@ export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknow
         <div className="params-header">
             <div>
               <h2>Machine Parameters</h2>
-              <div style={{ fontSize: '1em', color: plcStatus === 'good' ? 'green' : plcStatus === 'bad' ? 'red' : 'gray', marginTop: 4 }}>
-                PLC Connection: {plcStatus === 'good' ? 'Good' : plcStatus === 'bad' ? 'Bad' : 'Unknown'}
+              <div className="plc-connection-line">
+                <span className={`status-dot ${actualConnectionStatus}`}></span>
+                <span className="plc-connection-text">
+                  PLC Connection: {actualConnectionStatus === 'good' ? 'Good' : actualConnectionStatus === 'bad' ? 'Bad' : 'Unknown'}
+                </span>
+                <span className={`hb-pill ${heartbeatValue !== null && actualConnectionStatus === 'good' ? 'ok' : 'warn'}`}>
+                  <span className="hb-dot" />
+                  <span className="hb-label">HB</span>
+                  <span className="hb-value">{heartbeatValue !== null ? heartbeatValue : 'N/A'}</span>
+                  {heartbeatTag && <span className="hb-tag">{heartbeatTag}</span>}
+                </span>
               </div>
             </div>
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <div className="params-actions">
               <button
                 className="connection-btn"
                 onClick={() => setConnectionStatusOpen(true)}
@@ -153,7 +157,15 @@ export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknow
               >
                 <span className="btn-icon">🔌</span>
                 <span className="btn-label">Connection</span>
-                <span className={`status-dot ${plcStatus}`}></span>
+                <span className={`status-dot ${actualConnectionStatus}`}></span>
+              </button>
+              <button
+                className="debug-btn"
+                onClick={() => onOpenDebug && onOpenDebug()}
+                aria-label="Open Debug Panel"
+              >
+                <span className="btn-icon">🩺</span>
+                <span className="btn-label">Debug</span>
               </button>
               <button className="close-btn" onClick={onClose}>✕</button>
           </div>
@@ -233,58 +245,90 @@ export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknow
             ))}
           </div>
 
-          <div className="dio-status">
-            <h3 className="dio-title">Digital IO Status</h3>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-              <button
-                className="passwords-open-btn"
-                onClick={() => setDigitalIOOpen(true)}
-                title="Open Digital IO page"
-              >Open Digital IO</button>
-            </div>
-            <div className="dio-section">
-              <h4 className="dio-subtitle">Inputs (100+)</h4>
-              <div className="dio-grid">
-                {dioInputs.map(input => (
-                  <div key={input.index} className="dio-item">
-                    <div className="dio-label">{input.label}</div>
-                    <div className={`dio-led ${dioStates[input.index]?.value ? 'on' : 'off'}`}>
-                      {dioStates[input.index]?.value ? '●' : '○'}
-                    </div>
-                    <div className="dio-index">#{input.index}</div>
-                  </div>
-                ))}
+          {/* Homing Timeout Parameter */}
+          <div className="parameters-list">
+            <div className="parameter-row">
+              <div className="param-label-section">
+                <span className="param-label">Homing Timeout</span>
+                <span className="param-unit">seconds</span>
               </div>
-            </div>
 
-            <div className="dio-section">
-              <h4 className="dio-subtitle">Outputs (150+)</h4>
-              <div className="dio-grid">
-                {dioOutputs.map(output => (
-                  <div key={output.index} className="dio-item">
-                    <div className="dio-label">{output.label}</div>
-                    <div className={`dio-led ${dioStates[output.index]?.value ? 'on' : 'off'}`}>
-                      {dioStates[output.index]?.value ? '●' : '○'}
-                    </div>
-                    <div className="dio-index">#{output.index}</div>
-                  </div>
-                ))}
-              </div>
+              {editingHomingTimeout ? (
+                <div className="param-edit">
+                  <input
+                    type="number"
+                    value={homingTimeoutEdit}
+                    onChange={(e) => setHomingTimeoutEdit(e.target.value)}
+                    className="param-input"
+                    autoFocus
+                    min="5"
+                    max="300"
+                    step="1"
+                  />
+                  <button 
+                    className="save-btn"
+                    onClick={() => {
+                      const newTimeout = parseInt(homingTimeoutEdit, 10);
+                      if (newTimeout && newTimeout > 0) {
+                        onHomingTimeoutChange(newTimeout);
+                        setEditingHomingTimeout(false);
+                      }
+                    }}
+                  >
+                    ✓
+                  </button>
+                  <button 
+                    className="cancel-btn"
+                    onClick={() => {
+                      setEditingHomingTimeout(false);
+                      setHomingTimeoutEdit(homingTimeout.toString());
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : (
+                <div 
+                  className="param-value-section"
+                  onClick={() => {
+                    setEditingHomingTimeout(true);
+                    setHomingTimeoutEdit(homingTimeout.toString());
+                  }}
+                >
+                  <span className="param-value">{homingTimeout}</span>
+                  <span className="param-desc">(5-300 seconds)</span>
+                  <span className="edit-hint">✎</span>
+                </div>
+              )}
             </div>
           </div>
 
           <div className="passwords-trigger">
             <div>
               <h3 className="passwords-title">User Passwords</h3>
-              <p className="passwords-note">Only Engineering can view or change passwords.</p>
+              <p className="passwords-note">{isAdmin ? 'Admin can view and change all passwords.' : 'Only Admin can view or change passwords.'}</p>
             </div>
             <button
               className="passwords-open-btn"
-              onClick={() => userRole === 'engineering' && setShowPasswordModal(true)}
-              disabled={userRole !== 'engineering'}
-              title={userRole === 'engineering' ? 'Open password manager' : 'Only Engineering can access'}
+              onClick={() => isAdmin && setShowPasswordModal(true)}
+              disabled={!isAdmin}
+              title={isAdmin ? 'Open password manager' : 'Only Admin can access'}
             >
               Manage Passwords
+            </button>
+          </div>
+
+          <div className="netid-trigger">
+            <div>
+              <h3 className="netid-title">🌐 Network Configuration</h3>
+              <p className="netid-note">Configure PLC Net ID and SuperUser settings (requires SuperUser authentication).</p>
+            </div>
+            <button
+              className="netid-open-btn"
+              onClick={() => setNetIDSettingsOpen(true)}
+              title="Open network configuration settings"
+            >
+              ⚙️ Network Settings
             </button>
           </div>
 
@@ -319,6 +363,7 @@ export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknow
                 type="checkbox"
                 checked={showPasswords}
                 onChange={() => setShowPasswords((prev) => !prev)}
+                disabled={!canChangePasswords}
               />
               Show passwords
             </label>
@@ -332,13 +377,19 @@ export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknow
                   className="password-input"
                   value={passwordEdits[role.id] || ''}
                   onChange={(e) => handlePasswordChange(role.id, e.target.value)}
+                  disabled={!canChangePasswords}
                 />
-                <button className="password-save-btn" onClick={() => handlePasswordSave(role.id)}>
+                <button 
+                  className="password-save-btn" 
+                  onClick={() => handlePasswordSave(role.id)}
+                  disabled={!canChangePasswords}
+                >
                   Save
                 </button>
               </div>
             ))}
           </div>
+          {!canChangePasswords && <p style={{color: '#ff6b6b', marginTop: '10px', fontSize: '0.9rem'}}>Only Admin can change passwords</p>}
         </div>
       </ModernDialog>
 
@@ -347,9 +398,9 @@ export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknow
           onClose={() => setConnectionStatusOpen(false)}
         />
 
-        <DigitalIOPage
-          isOpen={digitalIOOpen}
-          onClose={() => setDigitalIOOpen(false)}
+        <NetIDSettings
+          isOpen={netIDSettingsOpen}
+          onClose={() => setNetIDSettingsOpen(false)}
         />
     </>
   );

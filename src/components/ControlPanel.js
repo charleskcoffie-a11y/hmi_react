@@ -2,12 +2,13 @@ import React from 'react';
 import { pulseButton } from '../services/ioService';
 import '../styles/ControlPanel.css';
 
-export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach, onMachineParameters, onStartPosition, userRole }) {
+export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach, onMachineParameters, onStartPosition, userRole, pumpEnabled }) {
   // Role-based access control
-  const canAutoTeach = userRole !== 'operator';
-  const canEditProgram = userRole !== 'operator';
-  const canMachineParams = userRole === 'engineering';
-  const canStartPosition = true; // All can start position
+  const isAdmin = userRole === 'admin';
+  const canAutoTeach = isAdmin || ((userRole !== 'operator') && pumpEnabled); // Admin always can access, others need pump enabled
+  const canEditProgram = userRole !== 'operator' || isAdmin;
+  const canMachineParams = userRole === 'engineering' || isAdmin;
+  const canStartPosition = pumpEnabled; // Only enabled when pump is running
   const canPartParameters = true; // All can access part parameters
 
   return (
@@ -18,14 +19,14 @@ export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach,
             className="control-btn start-position-btn start-left-btn"
             onClick={async () => {
               try {
-                await pulseButton(11, 150); // Index 11: GVL_GLEFTHEAD.bHmiLeftStartPosPb
+                await pulseButton(11, 150); // Index 11: bHmiLeftStartPosPb
                 onStartPosition && onStartPosition('left');
               } catch (err) {
                 console.error('Failed to pulse Start Left:', err);
               }
             }}
             disabled={!canStartPosition}
-            title={canStartPosition ? 'Set start position for left side' : 'Not available for your role'}
+            title={canStartPosition ? 'Set start position for left side' : 'Pump must be running to enable start position'}
           >
             <span className="btn-icon">↓</span>
             Start Left
@@ -34,14 +35,14 @@ export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach,
             className="control-btn start-position-btn start-right-btn"
             onClick={async () => {
               try {
-                await pulseButton(50, 150); // Index 50: GVL_GRIGHTHEAD.bHmiRightStartPosPb
+                await pulseButton(50, 150); // Index 50: bHmiRightStartPosPb
                 onStartPosition && onStartPosition('right');
               } catch (err) {
                 console.error('Failed to pulse Start Right:', err);
               }
             }}
             disabled={!canStartPosition}
-            title={canStartPosition ? 'Set start position for right side' : 'Not available for your role'}
+            title={canStartPosition ? 'Set start position for right side' : 'Pump must be running to enable start position'}
           >
             <span className="btn-icon">↓</span>
             Start Right
@@ -50,7 +51,7 @@ export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach,
             className="control-btn auto-teach-btn"
             onClick={onAutoTeach}
             disabled={!canAutoTeach}
-            title={canAutoTeach ? 'Create auto-teach program' : 'Operators cannot access Auto Teach'}
+            title={!pumpEnabled ? 'Pump must be running for Auto Teach' : canAutoTeach ? 'Create auto-teach program' : 'Operators cannot access Auto Teach'}
           >
             <span className="btn-icon">🎯</span>
             Auto Teach
