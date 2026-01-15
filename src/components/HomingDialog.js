@@ -97,6 +97,28 @@ export default function HomingDialog({ isOpen, onClose, side, timeout = 60 }) {
     onClose();
   };
 
+  const handleCancel = async () => {
+    try {
+      // Disable homing for both left and right sides
+      await Promise.all([
+        fetch(`http://localhost:3001/write`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tag: 'GLEFTHEAD.bHmiLeftHomeEna', value: false })
+        }),
+        fetch(`http://localhost:3001/write`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tag: 'GRIGHTHEAD.bHmiRightHomeEna', value: false })
+        })
+      ]);
+      console.log('[HomingDialog] Homing cancelled - disabled both sides');
+    } catch (error) {
+      console.error('[HomingDialog] Error disabling homing:', error);
+    }
+    onClose();
+  };
+
   if (!isOpen) return null;
 
   const getStatusIcon = () => {
@@ -173,13 +195,18 @@ export default function HomingDialog({ isOpen, onClose, side, timeout = 60 }) {
           )}
         </div>
 
-        {showOkButton && (
-          <div className="homing-dialog-footer">
+        <div className="homing-dialog-footer">
+          {!showOkButton && (
+            <button className="cancel-btn" onClick={handleCancel}>
+              Cancel
+            </button>
+          )}
+          {showOkButton && (
             <button className={`ok-btn ${getStatusColor()}`} onClick={handleClose}>
               OK
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

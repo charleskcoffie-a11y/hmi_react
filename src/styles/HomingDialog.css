@@ -227,6 +227,34 @@
   background: rgba(0, 0, 0, 0.02);
   display: flex;
   justify-content: center;
+  gap: 12px;
+}
+
+.cancel-btn {
+  padding: 12px 36px;
+  font-size: 16px;
+  font-weight: 600;
+  border: 2px solid #999;
+  border-radius: 12px;
+  cursor: pointer;
+  color: #666;
+  background: white;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.cancel-btn:hover {
+  border-color: #d32f2f;
+  color: #d32f2f;
+  background: rgba(211, 47, 47, 0.05);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(211, 47, 47, 0.2);
+}
+
+.cancel-btn:active {
+  transform: translateY(0);
 }
 
 .ok-btn {
