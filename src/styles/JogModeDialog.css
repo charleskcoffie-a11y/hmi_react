@@ -1,0 +1,341 @@
+.jog-mode-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.jog-mode-dialog {
+  background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%);
+  border: 3px solid #9C27B0;
+  border-radius: 12px;
+  padding: 24px;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  color: #fff;
+  animation: slideUp 0.3s ease-out;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.jog-header-banner {
+  background: linear-gradient(90deg, #9C27B0 0%, #7B1FA2 100%);
+  padding: 16px;
+  border-radius: 8px;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(156, 39, 176, 0.3);
+}
+
+.jog-header-banner h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    text-shadow: 0 0 5px rgba(156, 39, 176, 0.5);
+  }
+  50% {
+    text-shadow: 0 0 20px rgba(156, 39, 176, 1);
+  }
+}
+
+.jog-switch-side-btn {
+  background: linear-gradient(90deg, #FF6F00 0%, #E65100 100%);
+  border: 2px solid #FF6F00;
+  color: #fff;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: bold;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  align-self: flex-end;
+  min-width: 140px;
+}
+
+.jog-switch-side-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(255, 111, 0, 0.4);
+}
+
+.jog-switch-side-btn:active {
+  transform: scale(0.98);
+}
+
+.jog-mode-selector {
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(156, 39, 176, 0.3);
+  padding: 16px;
+  border-radius: 8px;
+}
+
+.jog-mode-selector h3 {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  color: #BB86FC;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.mode-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.mode-btn {
+  flex: 1;
+  padding: 12px 16px;
+  font-size: 16px;
+  font-weight: bold;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.mode-btn.id-btn {
+  background: linear-gradient(135deg, #2196F3 0%, #1565C0 100%);
+  color: #fff;
+}
+
+.mode-btn.id-btn:not(.disabled):hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(33, 150, 243, 0.4);
+  border-color: #64B5F6;
+}
+
+.mode-btn.id-btn.active {
+  border-color: #64B5F6;
+  box-shadow: 0 0 16px rgba(33, 150, 243, 0.6);
+}
+
+.mode-btn.od-btn {
+  background: linear-gradient(135deg, #FF5722 0%, #BF360C 100%);
+  color: #fff;
+}
+
+.mode-btn.od-btn:not(.disabled):hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(255, 87, 34, 0.4);
+  border-color: #FF8A65;
+}
+
+.mode-btn.od-btn.active {
+  border-color: #FF8A65;
+  box-shadow: 0 0 16px rgba(255, 87, 34, 0.6);
+}
+
+.mode-btn.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  filter: grayscale(1);
+}
+
+.jog-status-section {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 12px;
+  min-height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.status-message {
+  text-align: center;
+  padding: 8px;
+  border-radius: 6px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.status-message p {
+  margin: 4px 0;
+}
+
+.status-message.waiting {
+  background: rgba(255, 152, 0, 0.2);
+  border: 1px solid rgba(255, 152, 0, 0.4);
+  color: #FFD54F;
+}
+
+.status-message.ready {
+  background: rgba(76, 175, 80, 0.2);
+  border: 1px solid rgba(76, 175, 80, 0.4);
+  color: #81C784;
+}
+
+.status-message p:first-child {
+  font-weight: bold;
+  font-size: 15px;
+}
+
+.instruction {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #B3E5FC;
+  font-style: italic;
+}
+
+.instruction strong {
+  color: #FFD54F;
+  font-weight: bold;
+}
+
+.jog-controls {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.jog-extend-btn,
+.jog-retract-btn {
+  flex: 1;
+  padding: 14px 16px;
+  font-size: 16px;
+  font-weight: bold;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.jog-extend-btn {
+  background: linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%);
+  color: #fff;
+}
+
+.jog-extend-btn:not(:disabled):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(76, 175, 80, 0.4);
+}
+
+.jog-extend-btn:not(:disabled):active {
+  transform: translateY(0);
+}
+
+.jog-extend-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.jog-retract-btn {
+  background: linear-gradient(135deg, #F44336 0%, #C62828 100%);
+  color: #fff;
+}
+
+.jog-retract-btn:not(:disabled):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(244, 67, 54, 0.4);
+}
+
+.jog-retract-btn:not(:disabled):active {
+  transform: translateY(0);
+}
+
+.jog-retract-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.axis-position-display {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(156, 39, 176, 0.3);
+  padding: 12px;
+  border-radius: 6px;
+  display: flex;
+  justify-content: space-around;
+  gap: 12px;
+}
+
+.axis-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+
+.axis-label {
+  font-size: 12px;
+  color: #90CAF9;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 4px;
+}
+
+.axis-value {
+  font-size: 18px;
+  font-weight: bold;
+  color: #FFD54F;
+  font-family: 'Courier New', monospace;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 6px 12px;
+  border-radius: 4px;
+  min-width: 80px;
+  text-align: center;
+}
+
+.jog-close-btn {
+  background: linear-gradient(90deg, #424242 0%, #212121 100%);
+  border: 2px solid #616161;
+  color: #fff;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: bold;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  align-self: center;
+  min-width: 120px;
+}
+
+.jog-close-btn:hover {
+  background: linear-gradient(90deg, #616161 0%, #424242 100%);
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.1);
+  transform: scale(1.02);
+}
+
+.jog-close-btn:active {
+  transform: scale(0.98);
+}

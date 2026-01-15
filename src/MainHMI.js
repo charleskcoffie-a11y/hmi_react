@@ -19,6 +19,7 @@ import ProgramEditor from './components/ProgramEditor';
 import AutoAdjustProgram from './components/AutoAdjustProgram';
 import DownloadProgramModal from './components/DownloadProgramModal';
 import HomingDialog from './components/HomingDialog';
+import JogModeDialog from './components/JogModeDialog';
 import DebugPanel from './components/DebugPanel';
 import DigitalIOPage from './components/DigitalIOPage';
 import './styles/MainHMI.css';
@@ -190,6 +191,14 @@ export default function MainHMI() {
   });
 
   const [plcStatus, setPlcStatus] = useState('unknown');
+
+  // Jog mode dialog states
+  const [showJogDialog, setShowJogDialog] = useState(false);
+  const [jogActiveSide, setJogActiveSide] = useState(null); // 'left' or 'right'
+  const [jogReadyStatus, setJogReadyStatus] = useState({
+    left: { id: false, od: false },
+    right: { id: false, od: false }
+  });
   
   // Pump enable status (controls if Home and Start Position buttons are enabled)
   const [pumpEnabled, setPumpEnabled] = useState(false);
@@ -388,10 +397,62 @@ export default function MainHMI() {
               }
               return prev;
             });
+
+            // Update jog dialog visibility based on jog mode feedback
+            if (rightJogData.success && Boolean(rightJogData.value)) {
+              setShowJogDialog(true);
+              setJogActiveSide('right');
+            } else if (leftJogData.success && Boolean(leftJogData.value)) {
+              setShowJogDialog(true);
+              setJogActiveSide('left');
+            } else {
+              // Only close if neither side is in jog mode
+              setShowJogDialog(false);
+              setJogActiveSide(null);
+            }
           }
         } catch (modeErr) {
           console.warn('[MainHMI] Mode feedback read error:', modeErr.message || modeErr);
         }
+
+        // Read jog ready status from PLC (ID and OD ready flags)
+        try {
+          const leftIdRes = await fetch('http://localhost:3001/read?tag=GLEFTHEAD.bHmiLeftExpEna');
+          const leftOdRes = await fetch('http://localhost:3001/read?tag=GLEFTHEAD.bHmiLeftRedEna');
+          const rightIdRes = await fetch('http://localhost:3001/read?tag=GRIGHTHEAD.bHmiRightExpEna');
+          const rightOdRes = await fetch('http://localhost:3001/read?tag=GRIGHTHEAD.bHmiRightRedEna');
+          
+          if (leftIdRes.ok && leftOdRes.ok && rightIdRes.ok && rightOdRes.ok) {
+            const [leftIdData, leftOdData, rightIdData, rightOdData] = await Promise.all([
+              leftIdRes.json(),
+              leftOdRes.json(),
+              rightIdRes.json(),
+              rightOdRes.json()
+            ]);
+            
+            const newJogReadyStatus = {
+              left: {
+                id: leftIdData.success ? Boolean(leftIdData.value) : false,
+                od: leftOdData.success ? Boolean(leftOdData.value) : false
+              },
+              right: {
+                id: rightIdData.success ? Boolean(rightIdData.value) : false,
+                od: rightOdData.success ? Boolean(rightOdData.value) : false
+              }
+            };
+            
+            // Only update if changed
+            setJogReadyStatus(prev => {
+              if (JSON.stringify(prev) !== JSON.stringify(newJogReadyStatus)) {
+                return newJogReadyStatus;
+              }
+              return prev;
+            });
+          }
+        } catch (jogReadyErr) {
+          console.warn('[MainHMI] Jog ready status read error:', jogReadyErr.message || jogReadyErr);
+        }
+
 
         // Read alarm bitfield from PLC (GAxis.AlarmSystem)
         try {
@@ -1148,6 +1209,15 @@ export default function MainHMI() {
     setProgramToEdit(null);
   };
 
+  const handleJogModeSideSwitch = (newSide) => {
+    setJogActiveSide(newSide);
+  };
+
+  const handleJogDialogClose = () => {
+    setShowJogDialog(false);
+    setJogActiveSide(null);
+  };
+
   // Jog mode is now controlled via Enable Jog flow in ControlPanel
 
   const handleHomingSideSelect = async (side) => {
@@ -1705,6 +1775,18 @@ export default function MainHMI() {
           onSaveProgram={handleSaveAutoTeachProgram}
           onWriteToPLC={handlePLCWrite}
         />
+
+        {/* Jog Mode Dialog */}
+        {showJogDialog && jogActiveSide && (
+          <JogModeDialog
+            side={jogActiveSide}
+            isActive={showJogDialog}
+            readyStatus={jogReadyStatus[jogActiveSide]}
+            actualPositions={jogActiveSide === 'right' ? actualPositions.right : actualPositions.left}
+            onClose={handleJogDialogClose}
+            onSwitchSide={handleJogModeSideSwitch}
+          />
+        )}
       </>
 
       {/* DebugPanel disabled - Dev page hidden */}
