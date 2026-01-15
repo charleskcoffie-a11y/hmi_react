@@ -137,8 +137,8 @@ function createWindow() {
     } catch (e) {}
   });
 
-  // Open DevTools in preview mode
-  try { win.webContents.openDevTools({ mode: 'undocked' }); } catch (e) {}
+  // DevTools disabled for production
+  // try { win.webContents.openDevTools({ mode: 'undocked' }); } catch (e) {}
 
   console.log(`[electron] Running in 1024x768 preview mode (windowed)`);
 }
