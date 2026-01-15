@@ -85,7 +85,7 @@ function JogModeDialog({
       }
       
       // Brief delay to ensure head is disabled before enabling new one
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise(resolve => setTimeout(resolve, 300));
       
       // Step 2: Enable the new side
       console.log(`[JogModeDialog] Enabling ${newSide} head...`);
