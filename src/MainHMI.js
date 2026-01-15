@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import AxisPanel from './components/AxisPanel';
 import ModernDialog from './components/ModernDialog';
 import ControlPanel from './components/ControlPanel';
@@ -1235,14 +1235,14 @@ export default function MainHMI() {
     setProgramToEdit(null);
   };
 
-  const handleJogModeSideSwitch = (newSide) => {
+  const handleJogModeSideSwitch = useCallback((newSide) => {
     setJogActiveSide(newSide);
-  };
+  }, []);
 
-  const handleJogDialogClose = () => {
+  const handleJogDialogClose = useCallback(() => {
     setShowJogDialog(false);
     setJogActiveSide(null);
-  };
+  }, []);
 
   // Jog mode is now controlled via Enable Jog flow in ControlPanel
 
@@ -1310,6 +1310,40 @@ export default function MainHMI() {
       axis2: convertPos(actualPositions.left.axis2 || 0)
     }
   };
+
+  // Memoize stroke calculation to prevent recalculation on every render
+  const jogStrokeMemo = useMemo(() => {
+    if (!jogActiveSide) return { id: 2, od: 2 };
+    
+    const side = jogActiveSide;
+    // Read machine parameters from localStorage (stored in inches)
+    const machineParams = (() => {
+      try {
+        const saved = localStorage.getItem('machineParameters');
+        if (saved) return JSON.parse(saved);
+      } catch (e) {
+        console.warn('Failed to load machine parameters');
+      }
+      return {
+        rightIdStroke: 2,
+        rightOdStroke: 2,
+        leftIdStroke: 2,
+        leftOdStroke: 2
+      };
+    })();
+    
+    // Get stroke values for the active side (stored in inches)
+    const idStrokeInches = side === 'right' ? (machineParams.rightIdStroke || 2) : (machineParams.leftIdStroke || 2);
+    const odStrokeInches = side === 'right' ? (machineParams.rightOdStroke || 2) : (machineParams.leftOdStroke || 2);
+    
+    // Convert to current display units if needed
+    const convertPos2 = (val) => unitSystem === 'mm' ? val * 25.4 : val;
+    
+    return {
+      id: convertPos2(idStrokeInches),
+      od: convertPos2(odStrokeInches)
+    };
+  }, [jogActiveSide, unitSystem]);
 
   return (
     <div className="main-hmi">
@@ -1828,36 +1862,7 @@ export default function MainHMI() {
             readyStatus={jogReadyStatus[jogActiveSide]}
             actualPositions={jogActiveSide === 'right' ? actualPositions.right : actualPositions.left}
             modeFeedback={modeFeedback[jogActiveSide]}
-            strokes={(function() {
-              const side = jogActiveSide;
-              // Read machine parameters from localStorage (stored in inches)
-              const machineParams = (() => {
-                try {
-                  const saved = localStorage.getItem('machineParameters');
-                  if (saved) return JSON.parse(saved);
-                } catch (e) {
-                  console.warn('Failed to load machine parameters');
-                }
-                return {
-                  rightIdStroke: 2,
-                  rightOdStroke: 2,
-                  leftIdStroke: 2,
-                  leftOdStroke: 2
-                };
-              })();
-              
-              // Get stroke values for the active side (stored in inches)
-              const idStrokeInches = side === 'right' ? (machineParams.rightIdStroke || 2) : (machineParams.leftIdStroke || 2);
-              const odStrokeInches = side === 'right' ? (machineParams.rightOdStroke || 2) : (machineParams.leftOdStroke || 2);
-              
-              // Convert to current display units if needed
-              const convertPos = (val) => unitSystem === 'mm' ? val * 25.4 : val;
-              
-              return {
-                id: convertPos(idStrokeInches),
-                od: convertPos(odStrokeInches)
-              };
-            })()}
+            strokes={jogStrokeMemo}
             onClose={handleJogDialogClose}
             onSwitchSide={handleJogModeSideSwitch}
           />

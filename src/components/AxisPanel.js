@@ -1,7 +1,7 @@
 import React from 'react';
 import '../styles/AxisPanel.css';
 
-export default function AxisPanel({ side, axis1Name, axis2Name, onAxisChange, axis1State, axis2State, actualPositions, step, stepDescription, recipe, recipes, onRecipeChange, onOpenRecipeSelector, unitSystem = 'mm', userRole, runMode = false, jogMode = false }) {
+function AxisPanel({ side, axis1Name, axis2Name, onAxisChange, axis1State, axis2State, actualPositions, step, stepDescription, recipe, recipes, onRecipeChange, onOpenRecipeSelector, unitSystem = 'mm', userRole, runMode = false, jogMode = false }) {
   const canChangeRecipe = userRole !== 'operator';
   
   const selectedRecipe = recipes?.find(r => r.name === recipe);
@@ -68,3 +68,5 @@ export default function AxisPanel({ side, axis1Name, axis2Name, onAxisChange, ax
     </div>
   );
 }
+
+export default React.memo(AxisPanel);

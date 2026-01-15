@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { pulseBoolTag, writePLCVar } from '../services/plcApiService';
 import '../styles/JogModeDialog.css';
 
-export default function JogModeDialog({
+function JogModeDialog({
   side = 'left', // 'left' or 'right'
   isActive = false,
   readyStatus = { id: false, od: false },
@@ -90,6 +90,9 @@ export default function JogModeDialog({
       // Step 2: Enable the new side
       console.log(`[JogModeDialog] Enabling ${newSide} head...`);
       await writePLCVar({ command: 'enableJog', side: newSide });
+      
+      // Step 3: Update the UI immediately - clear the selected mode for smooth transition
+      setSelectedMode(null);
       
       console.log(`[JogModeDialog] Successfully switched to ${newSide} side`);
       onSwitchSide(newSide);
@@ -234,3 +237,18 @@ export default function JogModeDialog({
     </div>
   );
 }
+
+export default React.memo(JogModeDialog, (prevProps, nextProps) => {
+  // Custom equality check - only re-render if these specific props change
+  return (
+    prevProps.side === nextProps.side &&
+    prevProps.isActive === nextProps.isActive &&
+    prevProps.actualPositions.axis1 === nextProps.actualPositions.axis1 &&
+    prevProps.actualPositions.axis2 === nextProps.actualPositions.axis2 &&
+    prevProps.readyStatus.id === nextProps.readyStatus.id &&
+    prevProps.readyStatus.od === nextProps.readyStatus.od &&
+    prevProps.modeFeedback.jogMode === nextProps.modeFeedback.jogMode &&
+    prevProps.strokes.id === nextProps.strokes.id &&
+    prevProps.strokes.od === nextProps.strokes.od
+  );
+});
