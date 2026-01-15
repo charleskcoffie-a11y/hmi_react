@@ -239,9 +239,14 @@ function JogModeDialog({
 }
 
 export default React.memo(JogModeDialog, (prevProps, nextProps) => {
-  // Custom equality check - only re-render if these specific props change
+  // Return true to SKIP re-render (props are equal), false to re-render
+  // Always re-render if side changes (critical for switching heads)
+  if (prevProps.side !== nextProps.side) {
+    return false; // Side changed, must re-render
+  }
+  
+  // Skip re-render only if all other critical props are identical
   return (
-    prevProps.side === nextProps.side &&
     prevProps.isActive === nextProps.isActive &&
     prevProps.actualPositions.axis1 === nextProps.actualPositions.axis1 &&
     prevProps.actualPositions.axis2 === nextProps.actualPositions.axis2 &&
