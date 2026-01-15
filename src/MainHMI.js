@@ -26,6 +26,7 @@ import './styles/MainHMI.css';
 import { readPLCVar, writePLCVar, readAxisPositions, pulseBoolTag } from './services/plcApiService';
 import { saveRecipeToFile, loadRecipesFromFolder, deleteRecipeFile } from './services/recipeService';
 import { initializeBackendNetId } from './services/netIdService';
+import packageJson from '../package.json';
 
 // Define step configurations
 const STEP_CONFIG = {
@@ -191,6 +192,12 @@ export default function MainHMI() {
   });
 
   const [plcStatus, setPlcStatus] = useState('unknown');
+
+  // Start position enable status states (feedback from PLC)
+  const [startPosReadyStatus, setStartPosReadyStatus] = useState({
+    left: false,   // GLEFTHEAD.bHmiLeftStartPosEna
+    right: false   // GRIGHTHEAD.bHmiRightStartPosEna
+  });
 
   // Jog mode dialog states
   const [showJogDialog, setShowJogDialog] = useState(false);
@@ -398,21 +405,40 @@ export default function MainHMI() {
               return prev;
             });
 
-            // Update jog dialog visibility based on jog mode feedback
-            if (rightJogData.success && Boolean(rightJogData.value)) {
-              setShowJogDialog(true);
-              setJogActiveSide('right');
-            } else if (leftJogData.success && Boolean(leftJogData.value)) {
-              setShowJogDialog(true);
-              setJogActiveSide('left');
-            } else {
-              // Only close if neither side is in jog mode
-              setShowJogDialog(false);
-              setJogActiveSide(null);
-            }
+            // Note: Dialog visibility is now controlled by user selection (handleEnableJogButton)
+            // Not automatically opening/closing based on PLC feedback to avoid timing delays
+            // User can click CLOSE button to exit, which will clear jog mode on PLC
           }
         } catch (modeErr) {
           console.warn('[MainHMI] Mode feedback read error:', modeErr.message || modeErr);
+        }
+
+        // Read start position enable status from PLC (ready to move to start position)
+        try {
+          const leftStartRes = await fetch('http://localhost:3001/read?tag=GLEFTHEAD.bHmiLeftStartPosEna');
+          const rightStartRes = await fetch('http://localhost:3001/read?tag=GRIGHTHEAD.bHmiRightStartPosEna');
+          
+          if (leftStartRes.ok && rightStartRes.ok) {
+            const [leftStartData, rightStartData] = await Promise.all([
+              leftStartRes.json(),
+              rightStartRes.json()
+            ]);
+            
+            const newStartPosReadyStatus = {
+              left: leftStartData.success ? Boolean(leftStartData.value) : false,
+              right: rightStartData.success ? Boolean(rightStartData.value) : false
+            };
+            
+            // Only update if changed
+            setStartPosReadyStatus(prev => {
+              if (JSON.stringify(prev) !== JSON.stringify(newStartPosReadyStatus)) {
+                return newStartPosReadyStatus;
+              }
+              return prev;
+            });
+          }
+        } catch (startPosErr) {
+          console.warn('[MainHMI] Start position ready status read error:', startPosErr.message || startPosErr);
         }
 
         // Read jog ready status from PLC (ID and OD ready flags)
@@ -573,7 +599,7 @@ export default function MainHMI() {
       }
     };
     poll();
-    timer = setInterval(poll, 500); // Poll every 500ms for smoother updates
+    timer = setInterval(poll, 250); // Poll every 250ms for faster response
     return () => clearInterval(timer);
   }, []);
 
@@ -1252,8 +1278,11 @@ export default function MainHMI() {
         return;
       }
       await writePLCVar({ command: 'enableJog', side });
-      const sideText = side === 'left' ? 'left side' : 'right side';
-      showMessage('Jog Enabled', `Jog mode enabled for ${sideText}`, 'info');
+      setShowEnableSideSelector(false);
+      // Proactively open the Jog Mode dialog for the selected side
+      setJogActiveSide(side);
+      setShowJogDialog(true);
+      // Dialog will open automatically when PLC sets jog mode feedback
     } catch (error) {
       showMessage('Error', `Failed to enable jog: ${error.message}`, 'error');
     }
@@ -1285,7 +1314,10 @@ export default function MainHMI() {
   return (
     <div className="main-hmi">
       <div className="hmi-header">
-        <h1 className="modern-header">UFM CNC ENDFORMER</h1>
+        <div className="header-title">
+          <h1 className="modern-header">UFM CNC ENDFORMER</h1>
+          <span className="header-version">v{packageJson.version}</span>
+        </div>
         <div className="header-right">
           <div className="shift-counts">
             <div className="shift-count-card">
@@ -1428,7 +1460,6 @@ export default function MainHMI() {
               <span style={{ color: '#90CAF9', fontSize: '17px', fontWeight: '700', letterSpacing: '0.3px', textShadow: '0 1px 2px rgba(0, 0, 0, 0.4)' }}>• PLC not connected</span>
             )}
           </div>
-          <span className="machine-status-code">0x{machineStatusBits.toString(16).toUpperCase().padStart(8, '0')}</span>
         </div>
       </div>
 
@@ -1437,8 +1468,14 @@ export default function MainHMI() {
           <button 
             className="mode-control-btn homing-btn"
             onClick={handleHomeLeft}
-            disabled={!pumpEnabled}
-            title={pumpEnabled ? "Home Left Side" : "Pump must be running to enable homing"}
+            disabled={!pumpEnabled || homedSides.left}
+            title={
+              homedSides.left
+                ? 'Left side already homed'
+                : pumpEnabled
+                  ? 'Home Left Side'
+                  : 'Pump must be running to enable homing'
+            }
           >
             <span className="mode-icon">🏠</span>
             <span>HOME LEFT</span>
@@ -1447,8 +1484,14 @@ export default function MainHMI() {
           <button 
             className="mode-control-btn homing-btn"
             onClick={handleHomeRight}
-            disabled={!pumpEnabled}
-            title={pumpEnabled ? "Home Right Side" : "Pump must be running to enable homing"}
+            disabled={!pumpEnabled || homedSides.right}
+            title={
+              homedSides.right
+                ? 'Right side already homed'
+                : pumpEnabled
+                  ? 'Home Right Side'
+                  : 'Pump must be running to enable homing'
+            }
           >
             <span className="mode-icon">🏠</span>
             <span>HOME RIGHT</span>
@@ -1506,6 +1549,7 @@ export default function MainHMI() {
           onStartPosition={handleStartPosition}
           userRole={currentUser}
           pumpEnabled={pumpEnabled}
+          startPosReadyStatus={startPosReadyStatus}
         />
       </div>
  
@@ -1783,6 +1827,37 @@ export default function MainHMI() {
             isActive={showJogDialog}
             readyStatus={jogReadyStatus[jogActiveSide]}
             actualPositions={jogActiveSide === 'right' ? actualPositions.right : actualPositions.left}
+            modeFeedback={modeFeedback[jogActiveSide]}
+            strokes={(function() {
+              const side = jogActiveSide;
+              // Read machine parameters from localStorage (stored in inches)
+              const machineParams = (() => {
+                try {
+                  const saved = localStorage.getItem('machineParameters');
+                  if (saved) return JSON.parse(saved);
+                } catch (e) {
+                  console.warn('Failed to load machine parameters');
+                }
+                return {
+                  rightIdStroke: 2,
+                  rightOdStroke: 2,
+                  leftIdStroke: 2,
+                  leftOdStroke: 2
+                };
+              })();
+              
+              // Get stroke values for the active side (stored in inches)
+              const idStrokeInches = side === 'right' ? (machineParams.rightIdStroke || 2) : (machineParams.leftIdStroke || 2);
+              const odStrokeInches = side === 'right' ? (machineParams.rightOdStroke || 2) : (machineParams.leftOdStroke || 2);
+              
+              // Convert to current display units if needed
+              const convertPos = (val) => unitSystem === 'mm' ? val * 25.4 : val;
+              
+              return {
+                id: convertPos(idStrokeInches),
+                od: convertPos(odStrokeInches)
+              };
+            })()}
             onClose={handleJogDialogClose}
             onSwitchSide={handleJogModeSideSwitch}
           />

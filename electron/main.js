@@ -105,8 +105,8 @@ function createWindow() {
   try { win.setMinimumSize(1024, 768); } catch (e) {}
   try { win.center(); } catch (e) {}
 
-  // Load from localhost:3003 in development
-  const DEV_SERVER = 'http://localhost:3003';
+  // Load from dev server (allow override via env for preview)
+  const DEV_SERVER = process.env.DEV_SERVER_URL || 'http://localhost:3003';
   
   // Function to load from build files
   const loadFromBuild = () => {
@@ -137,7 +137,7 @@ function createWindow() {
     } catch (e) {}
   });
 
-  // DevTools disabled for production
+  // DevTools disabled for production performance
   // try { win.webContents.openDevTools({ mode: 'undocked' }); } catch (e) {}
 
   console.log(`[electron] Running in 1024x768 preview mode (windowed)`);

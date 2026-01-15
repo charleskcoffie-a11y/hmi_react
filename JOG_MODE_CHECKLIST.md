@@ -3,12 +3,14 @@
 ## ✅ Completed Features
 
 ### 1. **Auto-Opening Dialog on Jog Mode**
+
 - [x] Monitor `GLEFTHEAD.bHmiLeftJogMode` and `GRIGHTHEAD.bHmiRightJogMode`
 - [x] Auto-open JogModeDialog when either side enters jog
 - [x] Auto-close dialog when both sides exit jog
 - [x] Display banner with "LEFT/RIGHT SIDE JOG ACTIVE"
 
 ### 2. **ID/OD Mode Selection**
+
 - [x] Two selection buttons: ID (blue) and OD (orange/red)
 - [x] Read ready status from PLC:
   - [x] `GLEFTHEAD.bHmiLeftExpEna` (ID ready on left)
@@ -19,6 +21,7 @@
 - [x] Show checkmark (✓) when ready, X (✗) when not ready
 
 ### 3. **Status Messages**
+
 - [x] Display waiting message if no mode selected
 - [x] Display waiting message if selected mode not ready
 - [x] Display ready message with instructions when ready:
@@ -26,6 +29,7 @@
   - [x] "Push Retract Button to retract [ID/OD]"
 
 ### 4. **Extend/Retract Controls**
+
 - [x] Green "⬆️ EXTEND" button
 - [x] Red "⬇️ RETRACT" button
 - [x] Pulse correct PLC tags:
@@ -38,6 +42,7 @@
 - [x] Disable buttons until mode selected and ready
 
 ### 5. **Real-Time Axis Position Display**
+
 - [x] Show current axis positions from actualPositions
 - [x] Display with 3 decimal places
 - [x] Update in real-time as machine moves
@@ -45,6 +50,7 @@
 - [x] Use monospace font for clarity
 
 ### 6. **Side Switching**
+
 - [x] Orange "SWITCH TO RIGHT/LEFT SIDE" button
 - [x] On click:
   - [x] Call `writePLCVar({ command: 'enableJog', side: newSide })`
@@ -53,6 +59,7 @@
 - [x] Header banner updates to show new side
 
 ### 7. **UI/UX Polish**
+
 - [x] Dark gradient dialog background (#1e1e1e to #2d2d2d)
 - [x] Purple accent border (#9C27B0)
 - [x] Pulsing animation on header banner
@@ -63,6 +70,7 @@
 - [x] Smooth fade-in and slide-up animations
 
 ### 8. **Integration with MainHMI**
+
 - [x] Import JogModeDialog component
 - [x] Add state management:
   - [x] `showJogDialog` - controls visibility
@@ -74,6 +82,7 @@
 - [x] Pass correct props (side, isActive, readyStatus, actualPositions)
 
 ### 9. **Error Handling**
+
 - [x] Try/catch in polling loop for jog ready status reads
 - [x] Try/catch in extend/retract button handlers
 - [x] Try/catch in side switch handler
@@ -81,6 +90,7 @@
 - [x] Non-blocking errors (console.warn but continues operation)
 
 ### 10. **Documentation**
+
 - [x] Create JOG_MODE_IMPLEMENTATION.md with complete guide
   - [x] Overview and purpose
   - [x] PLC tag reference (inputs, outputs, pulses)
@@ -99,11 +109,13 @@
 ## 🔧 Configuration & Setup
 
 ### Branch Status
+
 - [x] Created feature branch: `JogMode`
 - [x] All changes committed locally
 - [x] Ready for testing on live PLC
 
 ### Build Status
+
 - [x] React app builds successfully (npm run build)
 - [x] No TypeScript/ESLint errors
 - [x] Component loads without runtime errors
@@ -134,6 +146,7 @@ GRIGHTHEAD.bHmiRightRedPb     (BOOL) - Input: OD retract momentary pulse
 ## 🧪 Testing Checklist
 
 ### Manual Testing (Without PLC)
+
 - [x] Dialog renders correctly
 - [x] Buttons are clickable (even in offline mode)
 - [x] No console errors or warnings
@@ -141,6 +154,7 @@ GRIGHTHEAD.bHmiRightRedPb     (BOOL) - Input: OD retract momentary pulse
 - [x] Animations smooth and performant
 
 ### Integration Testing (With Live PLC)
+
 - [ ] Jog mode dialog opens when PLC sets `bHmiLeftJogMode = true`
 - [ ] Dialog closes when PLC clears `bHmiLeftJogMode = false`
 - [ ] Ready buttons enable/disable based on `bHmiLeftExpEna` and `bHmiLeftRedEna`
@@ -151,6 +165,9 @@ GRIGHTHEAD.bHmiRightRedPb     (BOOL) - Input: OD retract momentary pulse
 - [ ] Dialog updates to show new side's status
 
 ### Edge Cases
+
+- [ ] Test with only ID ready (OD disabled)
+
 - [ ] Test with only ID ready (OD disabled)
 - [ ] Test with only OD ready (ID disabled)
 - [ ] Test with neither ready (both disabled)
@@ -206,3 +223,7 @@ The Jog Mode feature is **production-ready** with:
 **Status**: Ready for live PLC testing on JogMode branch.
 
 **Next Action**: Deploy to live PLC and verify jog mode tags are wired correctly in TwinCAT.
+
+The Jog Mode feature is **production-ready** with:
+
+- ✅ Complete UI implementation

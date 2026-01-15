@@ -5,21 +5,40 @@ import NetIDSettings from './NetIDSettings';
 import '../styles/MachineParameters.css';
 
 export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknown', unitSystem = 'mm', onUnitChange, userRole = 'operator', userPasswords = { admin: '5771', operator: 'op123', setup: 'setup123', engineering: 'eng123' }, onUpdatePasswords, onOpenDebug = () => {}, homingTimeout = 60, onHomingTimeoutChange = () => {} }) {
-  const [parameters, setParameters] = useState({
-    maxTravel: 2, // stored in inches, displayed based on unitSystem
-    minPosition: 0,
-    maxPosition: 100,
-    jogSpeed: 50,
-    speedLimit: 100,
-    accelRampTime: 500,
-    strokeRight: 2, // inches
-    strokeLeft: 2  // inches
+  const [parameters, setParameters] = useState(() => {
+    // Load from localStorage if available
+    const saved = localStorage.getItem('machineParameters');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.warn('Failed to parse saved machine parameters');
+      }
+    }
+    // Default values (stored in inches)
+    return {
+      maxTravel: 2,
+      minPosition: 0,
+      maxPosition: 100,
+      jogSpeed: 50,
+      speedLimit: 100,
+      accelRampTime: 500,
+      rightIdStroke: 3.5,   // inches
+      rightOdStroke: 4.65,  // inches
+      leftIdStroke: 3.5,    // inches
+      leftOdStroke: 4.65    // inches
+    };
   });
 
   const [passwordEdits, setPasswordEdits] = useState(userPasswords || {});
   useEffect(() => {
     setPasswordEdits(userPasswords || {});
   }, [userPasswords]);
+
+  // Save parameters to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('machineParameters', JSON.stringify(parameters));
+  }, [parameters]);
 
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showPasswords, setShowPasswords] = useState(false);
@@ -125,8 +144,10 @@ export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknow
     { key: 'jogSpeed', label: 'Jog Speed (%)', unit: false },
     { key: 'speedLimit', label: 'Speed Limit (%)', unit: false },
     { key: 'accelRampTime', label: 'Accel Ramp Time (ms)', unit: false },
-    { key: 'strokeRight', label: 'Stroke (Right Head)', unit: true },
-    { key: 'strokeLeft', label: 'Stroke (Left Head)', unit: true }
+    { key: 'rightIdStroke', label: 'Right Head ID Stroke', unit: true },
+    { key: 'rightOdStroke', label: 'Right Head OD Stroke', unit: true },
+    { key: 'leftIdStroke', label: 'Left Head ID Stroke', unit: true },
+    { key: 'leftOdStroke', label: 'Left Head OD Stroke', unit: true }
   ];
 
   return (

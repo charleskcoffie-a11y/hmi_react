@@ -15,9 +15,9 @@
 .parameters-modal {
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
   border-radius: 12px;
-  width: 90%;
-  max-width: 600px;
-  max-height: 90vh;
+  width: 92%;
+  max-width: 960px;
+  max-height: 92vh;
   display: flex;
   flex-direction: column;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
@@ -78,19 +78,25 @@
 .parameters-content {
   flex: 1;
   overflow: hidden;
-  padding: 20px;
+  padding: 16px;
 }
 
 .parameters-form {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
 }
 
 .param-group {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+/* Make summary and viewer span both columns */
+.param-summary,
+.tube-viewer-wrapper {
+  grid-column: 1 / -1;
 }
 
 .param-label {
@@ -201,7 +207,7 @@
 }
 
 .parameters-footer {
-  padding: 20px;
+  padding: 16px;
   border-top: 2px solid #2a4a7f;
   display: flex;
   gap: 12px;

@@ -2,13 +2,13 @@ import React from 'react';
 import { pulseButton } from '../services/ioService';
 import '../styles/ControlPanel.css';
 
-export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach, onMachineParameters, onStartPosition, userRole, pumpEnabled }) {
+export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach, onMachineParameters, onStartPosition, userRole, pumpEnabled, startPosReadyStatus }) {
   // Role-based access control
   const isAdmin = userRole === 'admin';
   const canAutoTeach = isAdmin || ((userRole !== 'operator') && pumpEnabled); // Admin always can access, others need pump enabled
   const canEditProgram = userRole !== 'operator' || isAdmin;
   const canMachineParams = userRole === 'engineering' || isAdmin;
-  const canStartPosition = pumpEnabled; // Only enabled when pump is running
+  const canStartPosition = pumpEnabled && startPosReadyStatus.left && startPosReadyStatus.right; // Both start position enables must be true
   const canPartParameters = true; // All can access part parameters
 
   return (
@@ -26,7 +26,7 @@ export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach,
               }
             }}
             disabled={!canStartPosition}
-            title={canStartPosition ? 'Set start position for left side' : 'Pump must be running to enable start position'}
+            title={!pumpEnabled ? 'Pump must be running to enable start position' : !startPosReadyStatus.left || !startPosReadyStatus.right ? 'Machine is not ready to move to start position' : 'Set start position for left side'}
           >
             <span className="btn-icon">↓</span>
             Start Left
@@ -42,7 +42,7 @@ export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach,
               }
             }}
             disabled={!canStartPosition}
-            title={canStartPosition ? 'Set start position for right side' : 'Pump must be running to enable start position'}
+            title={!pumpEnabled ? 'Pump must be running to enable start position' : !startPosReadyStatus.left || !startPosReadyStatus.right ? 'Machine is not ready to move to start position' : 'Set start position for right side'}
           >
             <span className="btn-icon">↓</span>
             Start Right

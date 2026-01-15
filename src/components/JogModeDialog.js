@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { pulseBoolTag, writeBoolTag, writePLCVar } from '../services/plcApiService';
+import React, { useState } from 'react';
+import { pulseBoolTag, writePLCVar } from '../services/plcApiService';
 import '../styles/JogModeDialog.css';
 
 export default function JogModeDialog({
@@ -7,17 +7,13 @@ export default function JogModeDialog({
   isActive = false,
   readyStatus = { id: false, od: false },
   actualPositions = { axis1: 0, axis2: 0 },
+  strokes = { id: 0, od: 0 },
+  modeFeedback = { runMode: false, jogMode: false }, // Add PLC feedback status
   onClose = () => {},
   onSwitchSide = () => {}
 }) {
   const [selectedMode, setSelectedMode] = useState(null); // 'id', 'od', or null
-  const [extending, setExtending] = useState(false);
-  const [retracting, setRetracting] = useState(false);
 
-  // Determine PLC tag prefixes
-  const headPrefix = side === 'left' ? 'GLEFTHEAD' : 'GRIGHTHEAD';
-  const headLabel = side === 'left' ? 'LEFT' : 'RIGHT';
-  
   // PLC tag mappings
   const tagMappings = {
     left: {
@@ -34,52 +30,75 @@ export default function JogModeDialog({
     }
   };
 
-  const tags = tagMappings[side];
-
-  const handleSelectMode = (mode) => {
+  const handleSelectMode = async (mode) => {
     setSelectedMode(mode);
-  };
-
-  const handleExtend = async () => {
-    if (extending || !selectedMode) return;
-    setExtending(true);
+    
+    // Pulse the PLC to enable the selected axis for jogging (momentary button)
     try {
-      // For ID (expand): pulse Extend button
-      // For OD (red/reduction): pulse Extend button as well (to extend the red head)
-      const tagToUse = selectedMode === 'id' ? tags.idPb : tags.idPb;
-      await pulseBoolTag(tagToUse, 150);
+      let index;
+      if (mode === 'id') {
+        // ID = Expand button: left=7, right=46
+        index = side === 'left' ? 7 : 46;
+      } else if (mode === 'od') {
+        // OD = Reduction button: left=9, right=48
+        index = side === 'left' ? 9 : 48;
+      }
+      
+      if (index !== undefined) {
+        console.log(`[JogModeDialog] Pulsing ${mode.toUpperCase()} enable index ${index}`);
+        await fetch('http://localhost:3001/io/pulse', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ index, durationMs: 500 })
+        });
+      }
     } catch (err) {
-      console.error('[JogModeDialog] Extend failed:', err);
-    } finally {
-      setExtending(false);
+      console.error(`[JogModeDialog] Failed to enable ${mode}:`, err);
     }
   };
 
-  const handleRetract = async () => {
-    if (retracting || !selectedMode) return;
-    setRetracting(true);
+
+
+  const handleClose = async () => {
     try {
-      // For ID: use retract button
-      // For OD: use OD retract button
-      const tagToUse = selectedMode === 'id' ? tags.odPb : tags.odPb;
-      await pulseBoolTag(tagToUse, 150);
+      // Pulse global jog-off tag so PLC exits jog mode
+      console.log('[JogModeDialog] Pulsing GAXIS.bJogOff to exit jog mode');
+      await pulseBoolTag('GAXIS.bJogOff', 500);
     } catch (err) {
-      console.error('[JogModeDialog] Retract failed:', err);
+      console.error('[JogModeDialog] Failed to clear jog mode:', err);
     } finally {
-      setRetracting(false);
+      onClose();
     }
   };
 
   const handleSwitchSide = async () => {
     const newSide = side === 'left' ? 'right' : 'left';
     try {
-      // Enable jog for the new side
+      // Step 1: Disable the current head to avoid both heads jogging together
+      console.log(`[JogModeDialog] Disabling ${side} head...`);
+      if (side === 'left') {
+        // Disable left head
+        await pulseBoolTag('GLEFTHEAD.bHmiLeftJogHeadEnabledOff', 500);
+      } else {
+        // Disable right head
+        await pulseBoolTag('GRIGHTHEAD.bHmiRightJogHeadEnabledOff', 500);
+      }
+      
+      // Brief delay to ensure head is disabled before enabling new one
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Step 2: Enable the new side
+      console.log(`[JogModeDialog] Enabling ${newSide} head...`);
       await writePLCVar({ command: 'enableJog', side: newSide });
+      
+      console.log(`[JogModeDialog] Successfully switched to ${newSide} side`);
       onSwitchSide(newSide);
     } catch (err) {
       console.error('[JogModeDialog] Switch side failed:', err);
     }
   };
+
+  const headLabel = side === 'left' ? 'LEFT' : 'RIGHT';
 
   if (!isActive) {
     return null;
@@ -90,12 +109,27 @@ export default function JogModeDialog({
   const axisDisplay1 = actualPositions.axis1 ? actualPositions.axis1.toFixed(3) : '0.000';
   const axisDisplay2 = actualPositions.axis2 ? actualPositions.axis2.toFixed(3) : '0.000';
 
+  const idStrokeMax = strokes?.id || 0;
+  const odStrokeMax = strokes?.od || 0;
+  const axis1Pct = idStrokeMax > 0 ? Math.max(0, Math.min(100, (actualPositions.axis1 / idStrokeMax) * 100)) : 0;
+  const axis2Pct = odStrokeMax > 0 ? Math.max(0, Math.min(100, (actualPositions.axis2 / odStrokeMax) * 100)) : 0;
+
   return (
     <div className="jog-mode-overlay">
       <div className="jog-mode-dialog">
         {/* Header Banner */}
         <div className="jog-header-banner">
-          <h2>{headLabel} SIDE JOG ACTIVE</h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
+            <h2>{headLabel} SIDE JOG ACTIVE</h2>
+            <div className={`head-jog-status ${modeFeedback?.jogMode ? 'confirmed' : 'waiting'}`}
+              title={modeFeedback?.jogMode ? 'Head confirmed in jog mode on PLC' : 'Waiting for PLC to confirm jog mode'}
+            >
+              <span className="status-dot" />
+              <span className="status-text">
+                {modeFeedback?.jogMode ? 'HEAD JOG ON' : 'HEAD JOG PENDING'}
+              </span>
+            </div>
+          </div>
         </div>
 
         {/* Side Selector Button */}
@@ -112,20 +146,18 @@ export default function JogModeDialog({
           <h3>Select Jog Mode:</h3>
           <div className="mode-buttons">
             <button
-              className={`mode-btn id-btn ${selectedMode === 'id' ? 'active' : ''} ${!isIdReady ? 'disabled' : ''}`}
+              className={`mode-btn id-btn ${selectedMode === 'id' ? 'active' : ''}`}
               onClick={() => handleSelectMode('id')}
-              disabled={!isIdReady}
-              title={isIdReady ? 'ID (Expand) Mode' : 'ID not ready'}
+              title="ID (Expand) Mode - Pulse to enable"
             >
-              ID {isIdReady ? '✓' : '✗'}
+              ID {isIdReady ? '✓' : '◯'}
             </button>
             <button
-              className={`mode-btn od-btn ${selectedMode === 'od' ? 'active' : ''} ${!isOdReady ? 'disabled' : ''}`}
+              className={`mode-btn od-btn ${selectedMode === 'od' ? 'active' : ''}`}
               onClick={() => handleSelectMode('od')}
-              disabled={!isOdReady}
-              title={isOdReady ? 'OD (Reduction) Mode' : 'OD not ready'}
+              title="OD (Reduction) Mode - Pulse to enable"
             >
-              OD {isOdReady ? '✓' : '✗'}
+              OD {isOdReady ? '✓' : '◯'}
             </button>
           </div>
         </div>
@@ -145,38 +177,16 @@ export default function JogModeDialog({
           {selectedMode === 'id' && isIdReady && (
             <div className="status-message ready">
               <p>✓ ID is ready to jog</p>
-              <p className="instruction">Push <strong>Extend Button</strong> to extend ID</p>
-              <p className="instruction">Push <strong>Retract Button</strong> to retract ID</p>
+              <p className="instruction">Use physical buttons on machine to jog</p>
             </div>
           )}
           {selectedMode === 'od' && isOdReady && (
             <div className="status-message ready">
               <p>✓ OD is ready to jog</p>
-              <p className="instruction">Push <strong>Extend Button</strong> to extend OD</p>
-              <p className="instruction">Push <strong>Retract Button</strong> to retract OD</p>
+              <p className="instruction">Use physical buttons on machine to jog</p>
             </div>
           )}
         </div>
-
-        {/* Jog Control Buttons */}
-        {selectedMode && (
-          <div className="jog-controls">
-            <button
-              className="jog-extend-btn"
-              onClick={handleExtend}
-              disabled={extending || !isIdReady && !isOdReady}
-            >
-              {extending ? '⏳ EXTENDING...' : '⬆️ EXTEND'}
-            </button>
-            <button
-              className="jog-retract-btn"
-              onClick={handleRetract}
-              disabled={retracting || !isIdReady && !isOdReady}
-            >
-              {retracting ? '⏳ RETRACTING...' : '⬇️ RETRACT'}
-            </button>
-          </div>
-        )}
 
         {/* Axis Position Display */}
         <div className="axis-position-display">
@@ -190,11 +200,33 @@ export default function JogModeDialog({
           </div>
         </div>
 
+        {/* Progress Bars */}
+        <div className="progress-section">
+          <div className={`progress-item ${selectedMode === 'id' ? 'active' : ''}`}>
+            <div className="progress-label">
+              <span>Axis 1 Progress</span>
+              <span>{idStrokeMax > 0 ? `${axisDisplay1} / ${idStrokeMax.toFixed(3)}` : `${axisDisplay1} / --`}</span>
+            </div>
+            <div className="progress-bar">
+              <div className="progress-fill id" style={{ width: `${axis1Pct}%` }} />
+            </div>
+          </div>
+          <div className={`progress-item ${selectedMode === 'od' ? 'active' : ''}`}>
+            <div className="progress-label">
+              <span>Axis 2 Progress</span>
+              <span>{odStrokeMax > 0 ? `${axisDisplay2} / ${odStrokeMax.toFixed(3)}` : `${axisDisplay2} / --`}</span>
+            </div>
+            <div className="progress-bar">
+              <div className="progress-fill od" style={{ width: `${axis2Pct}%` }} />
+            </div>
+          </div>
+        </div>
+
         {/* Close Button */}
         <button
           className="jog-close-btn"
-          onClick={onClose}
-          title="Close jog mode dialog"
+          onClick={handleClose}
+          title="Close jog mode and exit on PLC"
         >
           CLOSE
         </button>

@@ -267,12 +267,14 @@ export default function RecipeParameters({ isOpen, onClose, side, parameters, on
               </div>
             </div>
 
+            <div className="tube-viewer-wrapper">
             <TubeViewer parameters={{
               tubeID: parseFloat(tubeID) || 0,
               tubeOD: parseFloat(tubeOD) || 0,
               idFingerRadius: parseFloat(idFingerRadius) || 0,
               tubeLength: parseFloat(tubeLength) || 0
             }} />
+            </div>
 
           </div>
         </div>
