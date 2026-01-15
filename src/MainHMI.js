@@ -1540,8 +1540,16 @@ export default function MainHMI() {
               }
               setShowEnableSideSelector(true);
             }}
-            disabled={currentUser === 'operator' || !pumpEnabled}
-            title={!pumpEnabled ? 'Pump must be running to enable jog' : currentUser === 'operator' ? 'Operators cannot jog' : 'Enable jog mode for side'}
+            disabled={currentUser === 'operator' || (!pumpEnabled && currentUser !== 'admin')}
+            title={
+              currentUser === 'operator' 
+                ? 'Operators cannot jog' 
+                : !pumpEnabled && currentUser !== 'admin'
+                  ? 'Pump must be running to enable jog'
+                  : currentUser === 'admin' && !pumpEnabled
+                    ? 'Admin mode: Jog enabled without pump (testing)'
+                    : 'Enable jog mode for side'
+            }
           >
             <span className="mode-icon">⟷</span>
             <span>ENABLE JOG</span>
