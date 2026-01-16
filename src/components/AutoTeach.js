@@ -105,9 +105,11 @@ export default function AutoTeach({
     }
   }, [activeStepNumber, stepName]);
 
-  // Reset the sequence when starting a new program
+  // Reset the sequence ONLY when component first opens (not when props change)
+  const previousIsOpenRef = useRef(false);
   useEffect(() => {
-    if (isOpen) {
+    // Only reset if transitioning from closed (false) to open (true)
+    if (isOpen && !previousIsOpenRef.current) {
       setRecordedSteps([]);
       setStepName('');
       setPattern(0);
@@ -119,7 +121,8 @@ export default function AutoTeach({
       setRepeatCount(1);
       setRepeatKeypadOpen(false);
     }
-  }, [isOpen, programName, side]); // Reset when opening or when program name/side changes
+    previousIsOpenRef.current = isOpen;
+  }, [isOpen]); // Only depend on isOpen, not programName or side
 
   // Poll jog mode status
   useEffect(() => {
