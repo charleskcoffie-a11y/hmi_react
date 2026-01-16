@@ -36,21 +36,25 @@ function JogModeDialog({
     // Pulse the PLC to enable the selected axis for jogging (momentary button)
     try {
       let index;
+      let headType;
       if (mode === 'id') {
         // ID = Expand button: left=7, right=46
         index = side === 'left' ? 7 : 46;
+        headType = 'ID (Expand)';
       } else if (mode === 'od') {
         // OD = Reduction button: left=9, right=48
         index = side === 'left' ? 9 : 48;
+        headType = 'OD (Reduction)';
       }
       
       if (index !== undefined) {
-        console.log(`[JogModeDialog] Pulsing ${mode.toUpperCase()} enable index ${index}`);
+        console.log(`[JogModeDialog] Enabling ${side} side ${headType} (index ${index})`);
         await fetch('http://localhost:3001/io/pulse', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ index, durationMs: 500 })
         });
+        console.log(`[JogModeDialog] ${headType} enable pulse sent successfully`);
       }
     } catch (err) {
       console.error(`[JogModeDialog] Failed to enable ${mode}:`, err);
@@ -61,11 +65,11 @@ function JogModeDialog({
 
   const handleClose = async () => {
     try {
-      // Pulse global jog-off tag so PLC exits jog mode
-      console.log('[JogModeDialog] Pulsing GAXIS.bJogOff to exit jog mode');
-      await pulseBoolTag('GAXIS.bJogOff', 500);
+      // Disable jog mode via command which pulses the disable tag
+      console.log(`[JogModeDialog] Disabling ${side} jog mode`);
+      await writePLCVar({ command: 'disableJog', side });
     } catch (err) {
-      console.error('[JogModeDialog] Failed to clear jog mode:', err);
+      console.error('[JogModeDialog] Failed to disable jog mode:', err);
     } finally {
       onClose();
     }

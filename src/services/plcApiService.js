@@ -28,6 +28,8 @@ export async function writePLCVar(value) {
       return downloadProgram(payload);
     } else if (command === 'enableJog') {
       return enableJogMode(payload);
+    } else if (command === 'disableJog') {
+      return disableJogMode(payload);
     } else if (command === 'home') {
       return sendHomeCommand(payload);
     } else if (command === 'startPosition') {
@@ -105,17 +107,48 @@ async function enableJogMode(payload) {
   // Indices: 3=Left JogPb, 42=Right JogPb
   const index = side === 'left' ? 3 : 42;
   
-  const res = await fetch(`${API_BASE}/io/pulse`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ index, durationMs: 100 })
-  });
-  
-  const data = await res.json();
-  if (!data.success) {
-    throw new Error(data.error || 'Failed to enable jog mode');
+  try {
+    const res = await fetch(`${API_BASE}/io/pulse`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ index, durationMs: 100 })
+    });
+    
+    const data = await res.json();
+    if (!data.success) {
+      throw new Error(data.error || 'Failed to enable jog mode');
+    }
+    
+    console.log(`[plcApiService] Jog mode enabled for ${side} side via IO pulse`);
+    return data;
+  } catch (err) {
+    console.error(`[plcApiService] Failed to enable jog mode: ${err.message}`);
+    throw err;
   }
-  return data;
+}
+
+/**
+ * Disable jog mode for specified side
+ * @param {Object} payload - { side: 'left' or 'right' }
+ */
+async function disableJogMode(payload) {
+  const { side } = payload;
+  if (!side) {
+    throw new Error('Missing side for jog mode disable');
+  }
+  
+  // Use disable tags: GLEFTHEAD.bHmiLeftJogHeadEnabledOff or GRIGHTHEAD.bHmiRightJogHeadEnabledOff
+  const tag = side === 'left' 
+    ? 'GLEFTHEAD.bHmiLeftJogHeadEnabledOff' 
+    : 'GRIGHTHEAD.bHmiRightJogHeadEnabledOff';
+  
+  try {
+    await pulseBoolTag(tag, 100);
+    console.log(`[plcApiService] Jog mode disabled for ${side} side via ${tag}`);
+  } catch (err) {
+    console.error(`[plcApiService] Failed to disable jog mode: ${err.message}`);
+    throw err;
+  }
 }
 
 /**
