@@ -53,6 +53,10 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
           };
         })
         .filter(step => step.enabled !== false); // Only show enabled steps (default true)
+      
+      console.log('[ProgramEditor] Loaded program steps:', stepsArray.length, 'steps');
+      console.log('[ProgramEditor] Steps data:', stepsArray.map(s => `${s.stepNumber}:${s.stepName} (enabled=${s.enabled})`));
+      
       setEditedSteps(stepsArray);
       setProgramSpeed(program.speed || 100);
       setProgramDwell(program.dwell || 500);
@@ -278,6 +282,9 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
         } : {})
       };
     });
+
+    console.log('[ProgramEditor] Saving program with', Object.keys(stepsObject).length, 'steps');
+    console.log('[ProgramEditor] Steps being saved:', Object.keys(stepsObject).map(k => `${k}:${stepsObject[k].stepName} (enabled=${stepsObject[k].enabled})`));
 
     const updatedProgram = {
       ...program,
@@ -578,6 +585,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                 pattern: stepDialog.pattern ?? 0,
                 dwell: [1, 3, 4].includes(Number(stepDialog.pattern)) ? 0 : programDwell,
                 speed: programSpeed,
+                enabled: true, // Explicitly set enabled flag for new steps
                 timestamp: new Date().toISOString(),
                 ...(stepDialog.pattern === 5 ? {
                   repeatTargetStep: stepDialog.repeatTargetStep || 1,
