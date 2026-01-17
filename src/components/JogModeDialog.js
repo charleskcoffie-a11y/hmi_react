@@ -82,10 +82,10 @@ function JogModeDialog({
       console.log(`[JogModeDialog] Disabling ${side} head...`);
       if (side === 'left') {
         // Disable left head
-        await pulseBoolTag('GLEFTHEAD.bHmiLeftJogHeadEnabledOff', 500);
+        await pulseBoolTag('GLEFTHEAD.bLeftJogHeadEnabledOff', 500);
       } else {
         // Disable right head
-        await pulseBoolTag('GRIGHTHEAD.bHmiRightJogHeadEnabledOff', 500);
+        await pulseBoolTag('GRIGHTHEAD.bRightJogHeadEnabledOff', 500);
       }
       
       // Brief delay to ensure head is disabled before enabling new one
@@ -99,6 +99,7 @@ function JogModeDialog({
       setSelectedMode(null);
       
       console.log(`[JogModeDialog] Successfully switched to ${newSide} side`);
+      console.log(`[JogModeDialog] Calling onSwitchSide(${newSide}) callback`);
       onSwitchSide(newSide);
     } catch (err) {
       console.error('[JogModeDialog] Switch side failed:', err);

@@ -9,11 +9,14 @@ export default function HomingDialog({ isOpen, onClose, side, timeout = 60 }) {
   useEffect(() => {
     if (!isOpen) {
       // Reset state when dialog closes
+      console.log('[HomingDialog] Dialog closing, resetting state');
       setStatus('waiting');
       setMessage('Initializing homing sequence...');
       setShowOkButton(false);
       return;
     }
+
+    console.log(`[HomingDialog] Dialog opened for ${side} side`);
 
     // Poll PLC variables every 300ms to update dialog state
     const pollInterval = setInterval(async () => {
@@ -48,6 +51,7 @@ export default function HomingDialog({ isOpen, onClose, side, timeout = 60 }) {
 
         // Update status based on PLC feedback
         if (isHomed) {
+          console.log(`[HomingDialog] ${sideName} homing complete!`);
           setStatus('complete');
           setMessage(`${sideName} Head Home Complete ✓`);
           setShowOkButton(true);
@@ -80,26 +84,27 @@ export default function HomingDialog({ isOpen, onClose, side, timeout = 60 }) {
 
     // Check for timeout after configured seconds
     const timeoutTimer = setTimeout(() => {
-      if (status !== 'complete') {
-        setStatus('failed');
-        setMessage('Homing not complete - timeout reached');
-        setShowOkButton(true);
-      }
+      console.log('[HomingDialog] Homing timeout reached');
+      setStatus('failed');
+      setMessage('Homing not complete - timeout reached');
+      setShowOkButton(true);
     }, timeout * 1000);
 
     return () => {
       clearInterval(pollInterval);
       clearTimeout(timeoutTimer);
     };
-  }, [isOpen, side, status, timeout]);
+  }, [isOpen, side, timeout]);
 
   const handleClose = () => {
+    console.log('[HomingDialog] OK button clicked, calling onClose()');
     onClose();
   };
 
   const handleCancel = async () => {
     try {
       // Disable homing for both left and right sides
+      console.log('[HomingDialog] Cancel button clicked, disabling homing');
       await Promise.all([
         fetch(`http://localhost:3001/write`, {
           method: 'POST',

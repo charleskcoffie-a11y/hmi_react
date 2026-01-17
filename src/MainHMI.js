@@ -23,7 +23,7 @@ import JogModeDialog from './components/JogModeDialog';
 import DebugPanel from './components/DebugPanel';
 import DigitalIOPage from './components/DigitalIOPage';
 import './styles/MainHMI.css';
-import { readPLCVar, writePLCVar, readAxisPositions, pulseBoolTag } from './services/plcApiService';
+import { readPLCVar, writePLCVar, readAxisPositions, pulseBoolTag, writeScreenIndex } from './services/plcApiService';
 import { saveRecipeToFile, loadRecipesFromFolder, deleteRecipeFile } from './services/recipeService';
 import { initializeBackendNetId } from './services/netIdService';
 import packageJson from '../package.json';
@@ -76,6 +76,44 @@ const MACHINE_STATUS_MAP = [
   { bit: 10, label: 'Left Head Active', color: '#00BCD4' },
   { bit: 11, label: 'Power is Off..Turn Power On', color: '#FF5252' }
 ];
+
+// Screen index mapping for PLC tracking (GAXIS.dHmiCurrScrnIndex)
+const SCREEN_INDEX = {
+  MAIN_CONTROL: 0,
+  AUTO_TEACH: 1,
+  PROGRAM_EDITOR: 2,
+  RECIPE_MANAGER: 3,
+  RECIPE_PARAMETERS: 4,
+  MACHINE_PARAMETERS: 5,
+  JOG_MODE: 6,
+  HOMING: 7,
+  DIGITAL_IO: 8,
+  NET_ID_SETTINGS: 9,
+  // Right side program creation (10-19)
+  RIGHT_PROGRAM_STEP_1: 10,
+  RIGHT_PROGRAM_STEP_2: 11,
+  RIGHT_PROGRAM_STEP_3: 12,
+  RIGHT_PROGRAM_STEP_4: 13,
+  RIGHT_PROGRAM_STEP_5: 14,
+  RIGHT_PROGRAM_STEP_6: 15,
+  RIGHT_PROGRAM_STEP_7: 16,
+  RIGHT_PROGRAM_STEP_8: 17,
+  RIGHT_PROGRAM_STEP_9: 18,
+  RIGHT_PROGRAM_STEP_10: 19,
+  // Left side program creation (20-29)
+  LEFT_PROGRAM_STEP_1: 20,
+  LEFT_PROGRAM_STEP_2: 21,
+  LEFT_PROGRAM_STEP_3: 22,
+  LEFT_PROGRAM_STEP_4: 23,
+  LEFT_PROGRAM_STEP_5: 24,
+  LEFT_PROGRAM_STEP_6: 25,
+  LEFT_PROGRAM_STEP_7: 26,
+  LEFT_PROGRAM_STEP_8: 27,
+  LEFT_PROGRAM_STEP_9: 28,
+  LEFT_PROGRAM_STEP_10: 29,
+  AUTO_ADJUST: 30,
+  DOWNLOAD_PROGRAM: 31
+};
 
 function decodeAlarmBits(bits) {
   const active = [];
@@ -210,6 +248,9 @@ export default function MainHMI() {
   // Pump enable status (controls if Home and Start Position buttons are enabled)
   const [pumpEnabled, setPumpEnabled] = useState(false);
   
+  // Current screen tracking for PLC
+  const [currentScreen, setCurrentScreen] = useState(SCREEN_INDEX.MAIN_CONTROL);
+  
   // Handle alarm acknowledgment with auto-reshow after 5 seconds
   const handleAcknowledgeAlarm = () => {
     setAcknowledgedAlarms(alarms.map(a => a.bit));
@@ -240,6 +281,12 @@ export default function MainHMI() {
   useEffect(() => {
     initializeBackendNetId();
   }, []);
+  
+  // Write current screen index to PLC whenever it changes
+  useEffect(() => {
+    writeScreenIndex(currentScreen);
+    console.log(`[MainHMI] Screen changed to index ${currentScreen}`);
+  }, [currentScreen]);
   
   useEffect(() => {
     let timer;
@@ -672,15 +719,19 @@ export default function MainHMI() {
 
   // Homing handlers: pulse momentary tags for left/right heads
   const handleHomeLeft = async () => {
+    console.log(`[MainHMI] Home Left button clicked, showHomingDialog=${showHomingDialog}, homingSide=${homingSide}`);
     if (homingStatus.left.homed) {
       showMessage('Already Homed', 'Left axis is already homed', 'info');
       return;
     }
     
     try {
+      console.log('[MainHMI] Starting left side homing...');
       setHomingSide('left');
       setShowHomingDialog(true);
+      setCurrentScreen(SCREEN_INDEX.HOMING);
       await pulseBoolTag('GLEFTHEAD.bHmiEnaLeftHomePb', 200);
+      console.log('[MainHMI] Left homing pulse sent');
     } catch (error) {
       setShowHomingDialog(false);
       showMessage('Error', `Failed to trigger left homing: ${error.message}`, 'error');
@@ -688,15 +739,19 @@ export default function MainHMI() {
   };
 
   const handleHomeRight = async () => {
+    console.log(`[MainHMI] Home Right button clicked, showHomingDialog=${showHomingDialog}, homingSide=${homingSide}`);
     if (homingStatus.right.homed) {
       showMessage('Already Homed', 'Right axis is already homed', 'info');
       return;
     }
     
     try {
+      console.log('[MainHMI] Starting right side homing...');
       setHomingSide('right');
       setShowHomingDialog(true);
+      setCurrentScreen(SCREEN_INDEX.HOMING);
       await pulseBoolTag('GRIGHTHEAD.bHmiEnaRightHomePb', 200);
+      console.log('[MainHMI] Right homing pulse sent');
     } catch (error) {
       setShowHomingDialog(false);
       showMessage('Error', `Failed to trigger right homing: ${error.message}`, 'error');
@@ -778,6 +833,7 @@ export default function MainHMI() {
     }
     setRecipeSide(side);
     setRecipeOpen(true);
+    setCurrentScreen(SCREEN_INDEX.RECIPE_MANAGER);
   };
 
   // ...existing code...
@@ -1007,6 +1063,7 @@ export default function MainHMI() {
     setAutoTeachProgramName(programName);
     setShowAutoTeachNameModal(false);
     setAutoTeachOpen(true);
+    setCurrentScreen(SCREEN_INDEX.AUTO_TEACH);
   };
 
   const handlePLCWrite = (programPayload) => {
@@ -1236,12 +1293,15 @@ export default function MainHMI() {
   };
 
   const handleJogModeSideSwitch = useCallback((newSide) => {
+    console.log(`[MainHMI] handleJogModeSideSwitch called with newSide: ${newSide}`);
     setJogActiveSide(newSide);
+    console.log(`[MainHMI] jogActiveSide state updated to: ${newSide}`);
   }, []);
 
   const handleJogDialogClose = useCallback(() => {
     setShowJogDialog(false);
     setJogActiveSide(null);
+    setCurrentScreen(SCREEN_INDEX.MAIN_CONTROL);
   }, []);
 
   // Jog mode is now controlled via Enable Jog flow in ControlPanel
@@ -1282,6 +1342,7 @@ export default function MainHMI() {
       // Proactively open the Jog Mode dialog for the selected side
       setJogActiveSide(side);
       setShowJogDialog(true);
+      setCurrentScreen(SCREEN_INDEX.JOG_MODE);
       // Dialog will open automatically when PLC sets jog mode feedback
     } catch (error) {
       showMessage('Error', `Failed to enable jog: ${error.message}`, 'error');
@@ -1597,7 +1658,11 @@ export default function MainHMI() {
  
       <RecipeManager
         isOpen={recipeOpen}
-        onClose={() => { setRecipeOpen(false); setRecipeSide(null); }}
+        onClose={() => { 
+          setRecipeOpen(false); 
+          setRecipeSide(null);
+          setCurrentScreen(SCREEN_INDEX.MAIN_CONTROL);
+        }}
         recipes={recipeSide === 'right' ? recipesRight : recipesLeft}
         side={recipeSide}
         onLoadRecipe={handleLoadRecipe}
@@ -1832,8 +1897,11 @@ export default function MainHMI() {
         <HomingDialog
           isOpen={showHomingDialog}
           onClose={() => {
+            console.log(`[MainHMI] HomingDialog onClose called for ${homingSide} side`);
             setShowHomingDialog(false);
             setHomingSide(null);
+            setCurrentScreen(SCREEN_INDEX.MAIN_CONTROL);
+            console.log('[MainHMI] Homing dialog closed and state reset');
           }}
           side={homingSide}
           timeout={homingTimeout}
@@ -1853,6 +1921,7 @@ export default function MainHMI() {
             setAutoTeachOpen(false);
             setAutoTeachSide(null);
             setAutoTeachProgramName('');
+            setCurrentScreen(SCREEN_INDEX.MAIN_CONTROL);
           }}
           programName={autoTeachProgramName}
           side={autoTeachSide}

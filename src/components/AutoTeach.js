@@ -581,6 +581,100 @@ export default function AutoTeach({
                   {recordedSteps.length >= 10 ? 'Complete' : isRecording ? '⏺' : '⏺ Record'}
                 </button>
               </div>
+
+              {/* Jog Mode Controls */}
+              <div className="jog-controls-row">
+                <button
+                  className="jog-enable-btn"
+                  onClick={async () => {
+                    try {
+                      console.log(`[AutoTeach] Enabling jog for ${side} side`);
+                      const index = side === 'left' ? 3 : 42;
+                      await fetch('http://localhost:3001/io/pulse', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ index, durationMs: 100 })
+                      });
+                      console.log('[AutoTeach] Jog enable pulse sent');
+                    } catch (err) {
+                      console.error('[AutoTeach] Failed to enable jog:', err);
+                    }
+                  }}
+                  disabled={jogModeEnabled}
+                  title={jogModeEnabled ? 'Jog mode already enabled' : 'Enable jog mode for teaching'}
+                >
+                  🕹️ {jogModeEnabled ? 'JOG ON' : 'Enable Jog'}
+                </button>
+
+                {jogModeEnabled && (
+                  <>
+                    <button
+                      className="id-enable-btn"
+                      onClick={async () => {
+                        try {
+                          console.log(`[AutoTeach] Enabling ID head for ${side} side`);
+                          const index = side === 'left' ? 7 : 46;
+                          await fetch('http://localhost:3001/io/pulse', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ index, durationMs: 500 })
+                          });
+                          console.log('[AutoTeach] ID enable pulse sent');
+                        } catch (err) {
+                          console.error('[AutoTeach] Failed to enable ID:', err);
+                        }
+                      }}
+                      title="Enable ID head for teaching"
+                    >
+                      📍 ID
+                    </button>
+
+                    <button
+                      className="od-enable-btn"
+                      onClick={async () => {
+                        try {
+                          console.log(`[AutoTeach] Enabling OD head for ${side} side`);
+                          const index = side === 'left' ? 9 : 48;
+                          await fetch('http://localhost:3001/io/pulse', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ index, durationMs: 500 })
+                          });
+                          console.log('[AutoTeach] OD enable pulse sent');
+                        } catch (err) {
+                          console.error('[AutoTeach] Failed to enable OD:', err);
+                        }
+                      }}
+                      title="Enable OD head for teaching"
+                    >
+                      📍 OD
+                    </button>
+
+                    <button
+                      className="jog-disable-btn"
+                      onClick={async () => {
+                        try {
+                          console.log(`[AutoTeach] Disabling jog for ${side} side`);
+                          const tag = side === 'left' 
+                            ? 'GLEFTHEAD.bLeftJogHeadEnabledOff' 
+                            : 'GRIGHTHEAD.bRightJogHeadEnabledOff';
+                          await fetch('http://localhost:3001/pulse-bool', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ tag, durationMs: 100 })
+                          });
+                          console.log('[AutoTeach] Jog disable pulse sent');
+                        } catch (err) {
+                          console.error('[AutoTeach] Failed to disable jog:', err);
+                        }
+                      }}
+                      title="Disable jog mode and exit teaching"
+                    >
+                      ⏹ Disable Jog
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
 
             {/* Recorded Steps Grid - Only Show Recorded Steps */}

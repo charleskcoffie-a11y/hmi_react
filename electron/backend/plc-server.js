@@ -252,12 +252,22 @@ function createServer() {
 
   app.post('/write', async (req, res) => {
     try {
-      if (!connected) throw new Error('PLC not connected');
-      await writeTagValue(WRITE_SYMBOL, req.body.value);
-      res.sendStatus(200);
+      if (!connected) {
+        return res.status(500).json({ success: false, error: 'PLC not connected' });
+      }
+      
+      const { tag, value } = req.body;
+      
+      // If tag is provided, write to that specific tag, otherwise use default WRITE_SYMBOL
+      const targetTag = tag || WRITE_SYMBOL;
+      
+      console.log(`[plc-server] Writing to ${targetTag}:`, value);
+      await writeTagValue(targetTag, value, true);
+      
+      res.json({ success: true });
     } catch (err) {
       console.error('[plc-server] Write error:', err.message);
-      res.status(500).json({ error: err.message });
+      res.status(500).json({ success: false, error: err.message });
     }
   });
 
@@ -438,20 +448,26 @@ function createServer() {
   app.post('/io/pulse', async (req, res) => {
     try {
       const { index, durationMs = 150 } = req.body;
+      console.log(`[plc-server] IO pulse request - index: ${index}, duration: ${durationMs}ms`);
+      
       if (index === undefined) {
         return res.status(400).json({ success: false, error: 'Missing index' });
       }
       if (!connected) {
+        console.error('[plc-server] Cannot pulse IO - PLC not connected');
         return res.status(500).json({ success: false, error: 'PLC not connected' });
       }
       const tag = resolveTag(index);
       if (!tag) {
-        return res.status(400).json({ success: false, error: 'Unknown index' });
+        console.error(`[plc-server] Unknown IO index: ${index}`);
+        return res.status(400).json({ success: false, error: `Unknown index ${index}` });
       }
 
+      console.log(`[plc-server] Pulsing tag ${tag} (index ${index})`);
       await writeTagValue(tag, true);
       await sleep(Number(durationMs) || 150);
       await writeTagValue(tag, false);
+      console.log(`[plc-server] IO pulse complete for ${tag}`);
 
       res.json({ success: true, tag });
     } catch (err) {

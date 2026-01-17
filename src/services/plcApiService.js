@@ -252,3 +252,28 @@ export async function pulseBoolTag(tag, durationMs = 150) {
   if (!data.success) throw new Error(data.error || 'Failed to pulse boolean tag');
   return data;
 }
+
+/**
+ * Write current screen index to PLC for tracking
+ * @param {number} screenIndex - The screen index from SCREEN_INDEX mapping
+ */
+export async function writeScreenIndex(screenIndex) {
+  try {
+    const res = await fetch(`${API_BASE}/write`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        tag: 'GAXIS.dHmiCurrScrnIndex', 
+        value: screenIndex 
+      })
+    });
+    const data = await res.json();
+    if (!data.success) {
+      console.warn('[plcApiService] Failed to write screen index:', data.error);
+    }
+    return data;
+  } catch (err) {
+    console.warn('[plcApiService] Error writing screen index:', err.message);
+    // Non-blocking - app continues if this fails
+  }
+}
