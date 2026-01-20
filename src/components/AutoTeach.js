@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import ModernDialog from './ModernDialog';
 import NumericKeypad from './NumericKeypad';
-import AutoTeachAxisSelectorModal from './AutoTeachAxisSelectorModal';
-import { writePLCVar } from '../services/plcApiService';
+import { writePLCVar, pulseBoolTag } from '../services/plcApiService';
 import '../styles/AutoTeach.css';
 
 export default function AutoTeach({
@@ -44,6 +43,7 @@ export default function AutoTeach({
   const [stepName, setStepName] = useState('');
   const [pattern, setPattern] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
+  const [enabledAxis, setEnabledAxis] = useState(null); // 'id' or 'od' - tracks which axis is enabled
 
   const [editingStepIndex, setEditingStepIndex] = useState(null);
   const [editStepName, setEditStepName] = useState('');
@@ -58,8 +58,6 @@ export default function AutoTeach({
   const [plcStatus, setPlcStatus] = useState('unknown');
   const [loading, setLoading] = useState(false);
   const [jogModeEnabled, setJogModeEnabled] = useState(false);
-  const [showAxisSelector, setShowAxisSelector] = useState(false);
-  const [jogReadyStatus, setJogReadyStatus] = useState({ id: false, od: false });
   const activeCardRef = useRef(null);
 
   const activeStepNumber = Math.min(recordedSteps.length + 1, 10);
@@ -123,7 +121,7 @@ export default function AutoTeach({
       setRepeatTargetStep(null);
       setRepeatCount(1);
       setRepeatKeypadOpen(false);
-      setShowAxisSelector(false); // Ensure axis selector modal is closed on open
+      setEnabledAxis(null); // Reset axis selection on open
     }
     previousIsOpenRef.current = isOpen;
   }, [isOpen]); // Only depend on isOpen, not programName or side
@@ -154,37 +152,9 @@ export default function AutoTeach({
       }
     };
 
-    // Poll axis feedback
-    const pollAxisFeedback = async () => {
-      try {
-        const idFeedbackTag = side === 'right' ? 'GRIGHTHEAD.bHmiRightExpEna' : 'GLEFTHEAD.bHmiLeftExpEna';
-        const odFeedbackTag = side === 'right' ? 'GRIGHTHEAD.bHmiRightRedEna' : 'GLEFTHEAD.bHmiLeftRedEna';
-
-        const [idRes, odRes] = await Promise.all([
-          fetch(`http://localhost:3001/read?tag=${idFeedbackTag}`),
-          fetch(`http://localhost:3001/read?tag=${odFeedbackTag}`)
-        ]);
-
-        if (idRes.ok && odRes.ok) {
-          const idData = await idRes.json();
-          const odData = await odRes.json();
-          setJogReadyStatus({
-            id: Boolean(idData.value),
-            od: Boolean(odData.value)
-          });
-        }
-      } catch (err) {
-        console.warn('[AutoTeach] Axis feedback poll error:', err.message);
-      }
-    };
-
-    const interval = setInterval(() => {
-      pollJogMode();
-      pollAxisFeedback();
-    }, 500);
+    const interval = setInterval(pollJogMode, 500);
     
     pollJogMode(); // Initial read
-    pollAxisFeedback();
     
     return () => clearInterval(interval);
   }, [isOpen, side]);
@@ -378,32 +348,11 @@ export default function AutoTeach({
       }
     }
 
-    // For Step 2+ with patterns that require axis selection, show the axis selector modal
-    const requiresAxisSelection = stepNumberToRecord > 1 && 
-      (patternToRecord === 0 || patternToRecord === 1 || patternToRecord === 2 || patternToRecord === 3);
-    
-    if (requiresAxisSelection) {
-      setShowAxisSelector(true);
-      setIsRecording(false);
-      return;
-    }
-
-    // Otherwise, proceed with normal recording
-    recordStepWithAxis(stepNumberToRecord, patternToRecord, null);
+    // Just record directly
+    recordStepWithAxis(stepNumberToRecord, patternToRecord);
   };
 
-  const handleAxisSelected = (selectedAxis) => {
-    setShowAxisSelector(false);
-    // If user cancelled (null), don't record anything
-    if (selectedAxis === null) {
-      return;
-    }
-    const stepNumberToRecord = Math.min(recordedSteps.length + 1, 10);
-    const patternToRecord = stepNumberToRecord === 1 ? 6 : pattern;
-    recordStepWithAxis(stepNumberToRecord, patternToRecord, selectedAxis);
-  };
-
-  const recordStepWithAxis = (stepNumberToRecord, patternToRecord, selectedAxis) => {
+  const recordStepWithAxis = (stepNumberToRecord, patternToRecord) => {
     const defaultStepName = stepNumberToRecord === 1 ? 'Start Position' : `Step ${stepNumberToRecord}`;
     const defaultDwell = 0;
     const newStep = {
@@ -416,6 +365,7 @@ export default function AutoTeach({
         axis2Cmd: Number(safeActualPositions.axis2) || 0,
       },
       dwell: defaultDwell,
+      enabledAxis: enabledAxis, // Track which axis was enabled
       ...(patternToRecord === 5
         ? {
             repeatTargetStep,
@@ -430,6 +380,7 @@ export default function AutoTeach({
       return next;
     });
     setStepName('');
+    setIsRecording(false);
   };
 
   const handleEditStep = (index) => {
@@ -547,14 +498,6 @@ export default function AutoTeach({
         onCancel={dialog.cancel}
       />
 
-      <AutoTeachAxisSelectorModal
-        isOpen={showAxisSelector}
-        onClose={handleAxisSelected}
-        patternName={patternOptions.find(p => p.code === pattern)?.name || `Pattern ${pattern}`}
-        side={side}
-        jogReadyStatus={jogReadyStatus}
-      />
-
       <div className="auto-teach-overlay" onClick={onClose}>
         <div className="auto-teach-modal" onClick={(e) => e.stopPropagation()}>
           <div className="auto-teach-header">
@@ -652,48 +595,41 @@ export default function AutoTeach({
 
               {/* Jog Mode Controls */}
               <div className="jog-controls-row">
-                {jogModeEnabled && (
-                  <>
-                    <button
-                      className="id-enable-btn"
+                <>
+                  <button
+                    className={`id-enable-btn ${enabledAxis === 'id' ? 'active' : ''}`}
                       onClick={async () => {
                         try {
-                          console.log(`[AutoTeach] Enabling ID head for ${side} side`);
-                          const index = side === 'left' ? 7 : 46;
-                          await fetch('http://localhost:3001/io/pulse', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ index, durationMs: 500 })
-                          });
-                          console.log('[AutoTeach] ID enable pulse sent');
+                          console.log(`[AutoTeach] Enabling ID axis for ${side} side`);
+                          const idTag = side === 'left' ? 'GLEFTHEAD.bHmiLeftExpPb' : 'GRIGHTHEAD.bHmiRightExpPb';
+                          await pulseBoolTag(idTag, 200);
+                          setEnabledAxis('id');
+                          console.log('[AutoTeach] ID axis enabled');
                         } catch (err) {
                           console.error('[AutoTeach] Failed to enable ID:', err);
                         }
                       }}
-                      title="Enable ID head for teaching"
+                      title="Enable ID axis for jog and record"
                     >
-                      📍 ID
+                      {enabledAxis === 'id' ? '✓ ID' : '📍 ID'}
                     </button>
 
                     <button
-                      className="od-enable-btn"
+                      className={`od-enable-btn ${enabledAxis === 'od' ? 'active' : ''}`}
                       onClick={async () => {
                         try {
-                          console.log(`[AutoTeach] Enabling OD head for ${side} side`);
-                          const index = side === 'left' ? 9 : 48;
-                          await fetch('http://localhost:3001/io/pulse', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ index, durationMs: 500 })
-                          });
-                          console.log('[AutoTeach] OD enable pulse sent');
+                          console.log(`[AutoTeach] Enabling OD axis for ${side} side`);
+                          const odTag = side === 'left' ? 'GLEFTHEAD.bHmiLeftRedPb' : 'GRIGHTHEAD.bHmiRightRedPb';
+                          await pulseBoolTag(odTag, 200);
+                          setEnabledAxis('od');
+                          console.log('[AutoTeach] OD axis enabled');
                         } catch (err) {
                           console.error('[AutoTeach] Failed to enable OD:', err);
                         }
                       }}
-                      title="Enable OD head for teaching"
+                      title="Enable OD axis for jog and record"
                     >
-                      📍 OD
+                      {enabledAxis === 'od' ? '✓ OD' : '📍 OD'}
                     </button>
 
                     <button
@@ -719,7 +655,6 @@ export default function AutoTeach({
                       ⏹ Disable Jog
                     </button>
                   </>
-                )}
               </div>
             </div>
 
