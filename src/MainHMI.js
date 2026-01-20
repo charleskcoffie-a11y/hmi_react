@@ -1551,25 +1551,25 @@ export default function MainHMI() {
       <div className="machine-status-banner">
         <div className="machine-status-content">
           <span className="machine-status-header">Machine Status:</span>
-          <div className="machine-status-indicators">
+          <div className="machine-status-list">
             {plcConnected ? (
               machineStatus.length > 0 ? (
                 machineStatus.map(status => (
                   <div 
                     key={status.bit} 
-                    className="status-indicator"
+                    className="status-list-item"
                     style={{ borderColor: status.color, color: status.color }}
                     title={`Bit ${status.bit}`}
                   >
                     <span className="status-dot" style={{ backgroundColor: status.color }} />
-                    {status.label}
+                    <span className="status-label">{status.label}</span>
                   </div>
                 ))
               ) : (
-                <span style={{ color: '#FFC107', fontSize: '17px', fontWeight: '700', letterSpacing: '0.3px', textShadow: '0 1px 2px rgba(0, 0, 0, 0.4)' }}>⚠ Pump Not Running</span>
+                <span style={{ color: '#FFC107', fontSize: '14px', fontWeight: '700', letterSpacing: '0.3px', textShadow: '0 1px 2px rgba(0, 0, 0, 0.4)', gridColumn: '1 / -1' }}>⚠ Pump Not Running</span>
               )
             ) : (
-              <span style={{ color: '#90CAF9', fontSize: '17px', fontWeight: '700', letterSpacing: '0.3px', textShadow: '0 1px 2px rgba(0, 0, 0, 0.4)' }}>• PLC not connected</span>
+              <span style={{ color: '#90CAF9', fontSize: '14px', fontWeight: '700', letterSpacing: '0.3px', textShadow: '0 1px 2px rgba(0, 0, 0, 0.4)', gridColumn: '1 / -1' }}>• PLC not connected</span>
             )}
           </div>
         </div>

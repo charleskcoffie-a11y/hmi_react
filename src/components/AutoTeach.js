@@ -584,28 +584,6 @@ export default function AutoTeach({
 
               {/* Jog Mode Controls */}
               <div className="jog-controls-row">
-                <button
-                  className="jog-enable-btn"
-                  onClick={async () => {
-                    try {
-                      console.log(`[AutoTeach] Enabling jog for ${side} side`);
-                      const index = side === 'left' ? 3 : 42;
-                      await fetch('http://localhost:3001/io/pulse', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ index, durationMs: 100 })
-                      });
-                      console.log('[AutoTeach] Jog enable pulse sent');
-                    } catch (err) {
-                      console.error('[AutoTeach] Failed to enable jog:', err);
-                    }
-                  }}
-                  disabled={jogModeEnabled}
-                  title={jogModeEnabled ? 'Jog mode already enabled' : 'Enable jog mode for teaching'}
-                >
-                  🕹️ {jogModeEnabled ? 'JOG ON' : 'Enable Jog'}
-                </button>
-
                 {jogModeEnabled && (
                   <>
                     <button

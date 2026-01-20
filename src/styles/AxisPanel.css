@@ -2,10 +2,10 @@
   background: linear-gradient(135deg, #2a2a2a 0%, #1f1f1f 100%);
   border: 2px solid #0066cc;
   border-radius: 10px;
-  padding: 14px;
+  padding: 14px 14px 8px; /* tighter bottom padding to pull border up */
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px; /* reduce vertical gap to reclaim space */
   box-shadow: 0 4px 12px rgba(0, 102, 204, 0.2);
   transition: all 0.3s ease;
 }
