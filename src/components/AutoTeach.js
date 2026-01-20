@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import ModernDialog from './ModernDialog';
 import NumericKeypad from './NumericKeypad';
+import AutoTeachAxisSelectorModal from './AutoTeachAxisSelectorModal';
 import { writePLCVar } from '../services/plcApiService';
 import '../styles/AutoTeach.css';
 
@@ -57,6 +58,8 @@ export default function AutoTeach({
   const [plcStatus, setPlcStatus] = useState('unknown');
   const [loading, setLoading] = useState(false);
   const [jogModeEnabled, setJogModeEnabled] = useState(false);
+  const [showAxisSelector, setShowAxisSelector] = useState(false);
+  const [jogReadyStatus, setJogReadyStatus] = useState({ id: false, od: false });
   const activeCardRef = useRef(null);
 
   const activeStepNumber = Math.min(recordedSteps.length + 1, 10);
@@ -124,7 +127,7 @@ export default function AutoTeach({
     previousIsOpenRef.current = isOpen;
   }, [isOpen]); // Only depend on isOpen, not programName or side
 
-  // Poll jog mode status
+  // Poll jog mode status and axis feedback
   useEffect(() => {
     if (!isOpen) return;
 
@@ -150,8 +153,38 @@ export default function AutoTeach({
       }
     };
 
-    const interval = setInterval(pollJogMode, 500);
+    // Poll axis feedback
+    const pollAxisFeedback = async () => {
+      try {
+        const idFeedbackTag = side === 'right' ? 'GRIGHTHEAD.bHmiRightExpEna' : 'GLEFTHEAD.bHmiLeftExpEna';
+        const odFeedbackTag = side === 'right' ? 'GRIGHTHEAD.bHmiRightRedEna' : 'GLEFTHEAD.bHmiLeftRedEna';
+
+        const [idRes, odRes] = await Promise.all([
+          fetch(`http://localhost:3001/read?tag=${idFeedbackTag}`),
+          fetch(`http://localhost:3001/read?tag=${odFeedbackTag}`)
+        ]);
+
+        if (idRes.ok && odRes.ok) {
+          const idData = await idRes.json();
+          const odData = await odRes.json();
+          setJogReadyStatus({
+            id: Boolean(idData.value),
+            od: Boolean(odData.value)
+          });
+        }
+      } catch (err) {
+        console.warn('[AutoTeach] Axis feedback poll error:', err.message);
+      }
+    };
+
+    const interval = setInterval(() => {
+      pollJogMode();
+      pollAxisFeedback();
+    }, 500);
+    
     pollJogMode(); // Initial read
+    pollAxisFeedback();
+    
     return () => clearInterval(interval);
   }, [isOpen, side]);
   useEffect(() => {
@@ -343,6 +376,29 @@ export default function AutoTeach({
         return;
       }
     }
+
+    // For Step 2+ with patterns that require axis selection, show the axis selector modal
+    const requiresAxisSelection = stepNumberToRecord > 1 && 
+      (patternToRecord === 0 || patternToRecord === 1 || patternToRecord === 2 || patternToRecord === 3);
+    
+    if (requiresAxisSelection) {
+      setShowAxisSelector(true);
+      setIsRecording(false);
+      return;
+    }
+
+    // Otherwise, proceed with normal recording
+    recordStepWithAxis(stepNumberToRecord, patternToRecord, null);
+  };
+
+  const handleAxisSelected = (selectedAxis) => {
+    setShowAxisSelector(false);
+    const stepNumberToRecord = Math.min(recordedSteps.length + 1, 10);
+    const patternToRecord = stepNumberToRecord === 1 ? 6 : pattern;
+    recordStepWithAxis(stepNumberToRecord, patternToRecord, selectedAxis);
+  };
+
+  const recordStepWithAxis = (stepNumberToRecord, patternToRecord, selectedAxis) => {
     const defaultStepName = stepNumberToRecord === 1 ? 'Start Position' : `Step ${stepNumberToRecord}`;
     const defaultDwell = 0;
     const newStep = {
@@ -369,7 +425,6 @@ export default function AutoTeach({
       return next;
     });
     setStepName('');
-    setIsRecording(false);
   };
 
   const handleEditStep = (index) => {
@@ -485,6 +540,14 @@ export default function AutoTeach({
         cancelText={dialog.cancel ? 'Cancel' : undefined}
         onConfirm={dialog.confirm}
         onCancel={dialog.cancel}
+      />
+
+      <AutoTeachAxisSelectorModal
+        isOpen={showAxisSelector}
+        onClose={handleAxisSelected}
+        patternName={patternOptions.find(p => p.code === pattern)?.name || `Pattern ${pattern}`}
+        side={side}
+        jogReadyStatus={jogReadyStatus}
       />
 
       <div className="auto-teach-overlay" onClick={onClose}>
