@@ -134,11 +134,13 @@ function createWindow() {
     try {
       win.show();
       win.focus();
-    } catch (e) {}
+      // Open DevTools after window is shown
+      win.webContents.openDevTools({ mode: 'detach' });
+      console.log('[electron] DevTools opened');
+    } catch (e) {
+      console.error('[electron] Failed to open DevTools:', e);
+    }
   });
-
-  // DevTools enabled for debugging
-  try { win.webContents.openDevTools({ mode: 'undocked' }); } catch (e) {}
 
   console.log(`[electron] Running in 1024x768 preview mode (windowed)`);
 }

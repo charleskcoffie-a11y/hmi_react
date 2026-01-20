@@ -106,23 +106,40 @@ async function enableJogMode(payload) {
   
   // Indices: 3=Left JogPb, 42=Right JogPb
   const index = side === 'left' ? 3 : 42;
+  const tagName = side === 'left' ? 'GLEFTHEAD.bHmiLeftJogPb' : 'GRIGHTHEAD.bHmiRightJogPb';
+  
+  console.log(`[plcApiService] Enabling jog mode for ${side} side - index: ${index}, tag: ${tagName}`);
   
   try {
+    // First try by index via io/pulse
     const res = await fetch(`${API_BASE}/io/pulse`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ index, durationMs: 100 })
+      body: JSON.stringify({ index, durationMs: 200 })
     });
-    
     const data = await res.json();
+
+    // If index-based pulse fails, fall back to direct tag pulse
     if (!data.success) {
-      throw new Error(data.error || 'Failed to enable jog mode');
+      console.warn(`[plcApiService] io/pulse failed for ${side} side (index ${index}). Falling back to tag ${tagName}. Error: ${data.error}`);
+      const fallback = await fetch(`${API_BASE}/pulse-bool`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tag: tagName, durationMs: 200 })
+      });
+      const fb = await fallback.json();
+      if (!fb.success) {
+        console.error(`[plcApiService] Jog mode enable FAILED for ${side} side via tag:`, fb.error);
+        throw new Error(fb.error || 'Failed to enable jog mode');
+      }
+      console.log(`[plcApiService] Jog mode enabled SUCCESS for ${side} side via tag pulse: ${tagName}`);
+      return fb;
     }
-    
-    console.log(`[plcApiService] Jog mode enabled for ${side} side via IO pulse`);
+
+    console.log(`[plcApiService] Jog mode enabled SUCCESS for ${side} side - pulsed tag: ${data.tag || tagName}`);
     return data;
   } catch (err) {
-    console.error(`[plcApiService] Failed to enable jog mode: ${err.message}`);
+    console.error(`[plcApiService] Failed to enable jog mode for ${side} side:`, err.message);
     throw err;
   }
 }
@@ -259,7 +276,7 @@ export async function pulseBoolTag(tag, durationMs = 150) {
  */
 export async function writeScreenIndex(screenIndex) {
   try {
-    console.log('[plcApiService] Writing screen index to PLC:', screenIndex);
+    console.log(`[plcApiService] ===== WRITING SCREEN INDEX to GAXIS.dHmiCurrScrnIndex: ${screenIndex} =====`);
     const res = await fetch(`${API_BASE}/write`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -268,15 +285,22 @@ export async function writeScreenIndex(screenIndex) {
         value: screenIndex 
       })
     });
+    
+    if (!res.ok) {
+      console.error(`[plcApiService] Screen index write HTTP error: ${res.status} ${res.statusText}`);
+      return { success: false, error: `HTTP ${res.status}` };
+    }
+    
     const data = await res.json();
     if (!data.success) {
-      console.error('[plcApiService] Failed to write screen index:', data.error);
+      console.error(`[plcApiService] ❌ Screen index write FAILED: ${data.error}`);
     } else {
-      console.log('[plcApiService] Screen index write successful:', screenIndex);
+      console.log(`[plcApiService] ✓ Screen index write SUCCESS: ${screenIndex} written to GAXIS.dHmiCurrScrnIndex`);
     }
     return data;
   } catch (err) {
-    console.error('[plcApiService] Error writing screen index:', err.message);
+    console.error(`[plcApiService] ❌ EXCEPTION writing screen index:`, err.message, err);
     // Non-blocking - app continues if this fails
+    return { success: false, error: err.message };
   }
 }

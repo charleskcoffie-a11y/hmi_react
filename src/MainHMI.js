@@ -80,39 +80,43 @@ const MACHINE_STATUS_MAP = [
 // Screen index mapping for PLC tracking (GAXIS.dHmiCurrScrnIndex)
 const SCREEN_INDEX = {
   MAIN_CONTROL: 0,
-  AUTO_TEACH: 1,
-  PROGRAM_EDITOR: 2,
-  RECIPE_MANAGER: 3,
-  RECIPE_PARAMETERS: 4,
-  MACHINE_PARAMETERS: 5,
-  JOG_MODE: 6,
-  HOMING: 7,
-  DIGITAL_IO: 8,
-  NET_ID_SETTINGS: 9,
-  // Right side program creation (10-19)
-  RIGHT_PROGRAM_STEP_1: 10,
-  RIGHT_PROGRAM_STEP_2: 11,
-  RIGHT_PROGRAM_STEP_3: 12,
-  RIGHT_PROGRAM_STEP_4: 13,
-  RIGHT_PROGRAM_STEP_5: 14,
-  RIGHT_PROGRAM_STEP_6: 15,
-  RIGHT_PROGRAM_STEP_7: 16,
-  RIGHT_PROGRAM_STEP_8: 17,
-  RIGHT_PROGRAM_STEP_9: 18,
-  RIGHT_PROGRAM_STEP_10: 19,
-  // Left side program creation (20-29)
-  LEFT_PROGRAM_STEP_1: 20,
-  LEFT_PROGRAM_STEP_2: 21,
-  LEFT_PROGRAM_STEP_3: 22,
-  LEFT_PROGRAM_STEP_4: 23,
-  LEFT_PROGRAM_STEP_5: 24,
-  LEFT_PROGRAM_STEP_6: 25,
-  LEFT_PROGRAM_STEP_7: 26,
-  LEFT_PROGRAM_STEP_8: 27,
-  LEFT_PROGRAM_STEP_9: 28,
-  LEFT_PROGRAM_STEP_10: 29,
-  AUTO_ADJUST: 30,
-  DOWNLOAD_PROGRAM: 31
+  AUTO_TEACH_LEFT: 1,
+  AUTO_TEACH_RIGHT: 2,
+  PROGRAM_EDITOR: 3,
+  RECIPE_MANAGER: 4,
+  RECIPE_PARAMETERS: 5,
+  MACHINE_PARAMETERS: 6,
+  JOG_MODE: 7,
+  JOG_SIDE_SELECTOR: 8,
+  HOMING: 9,
+  JOG_MODE_LEFT: 12,
+  JOG_MODE_RIGHT: 13,
+  DIGITAL_IO: 10,
+  NET_ID_SETTINGS: 11,
+  // Right side program creation (20-29)
+  RIGHT_PROGRAM_STEP_1: 20,
+  RIGHT_PROGRAM_STEP_2: 21,
+  RIGHT_PROGRAM_STEP_3: 22,
+  RIGHT_PROGRAM_STEP_4: 23,
+  RIGHT_PROGRAM_STEP_5: 24,
+  RIGHT_PROGRAM_STEP_6: 25,
+  RIGHT_PROGRAM_STEP_7: 26,
+  RIGHT_PROGRAM_STEP_8: 27,
+  RIGHT_PROGRAM_STEP_9: 28,
+  RIGHT_PROGRAM_STEP_10: 29,
+  // Left side program creation (30-39)
+  LEFT_PROGRAM_STEP_1: 30,
+  LEFT_PROGRAM_STEP_2: 31,
+  LEFT_PROGRAM_STEP_3: 32,
+  LEFT_PROGRAM_STEP_4: 33,
+  LEFT_PROGRAM_STEP_5: 34,
+  LEFT_PROGRAM_STEP_6: 35,
+  LEFT_PROGRAM_STEP_7: 36,
+  LEFT_PROGRAM_STEP_8: 37,
+  LEFT_PROGRAM_STEP_9: 38,
+  LEFT_PROGRAM_STEP_10: 39,
+  AUTO_ADJUST: 40,
+  DOWNLOAD_PROGRAM: 41
 };
 
 function decodeAlarmBits(bits) {
@@ -1063,7 +1067,9 @@ export default function MainHMI() {
     setAutoTeachProgramName(programName);
     setShowAutoTeachNameModal(false);
     setAutoTeachOpen(true);
-    setCurrentScreen(SCREEN_INDEX.AUTO_TEACH);
+    // Set screen index based on side
+    const screenIndex = autoTeachSide === 'left' ? SCREEN_INDEX.AUTO_TEACH_LEFT : SCREEN_INDEX.AUTO_TEACH_RIGHT;
+    setCurrentScreen(screenIndex);
   };
 
   const handlePLCWrite = (programPayload) => {
@@ -1295,7 +1301,10 @@ export default function MainHMI() {
   const handleJogModeSideSwitch = useCallback((newSide) => {
     console.log(`[MainHMI] handleJogModeSideSwitch called with newSide: ${newSide}`);
     setJogActiveSide(newSide);
-    console.log(`[MainHMI] jogActiveSide state updated to: ${newSide}`);
+    // Update screen index to match the new side
+    const jogScreenIndex = newSide === 'left' ? SCREEN_INDEX.JOG_MODE_LEFT : SCREEN_INDEX.JOG_MODE_RIGHT;
+    setCurrentScreen(jogScreenIndex);
+    console.log(`[MainHMI] jogActiveSide state updated to: ${newSide}, screen index: ${jogScreenIndex}`);
   }, []);
 
   const handleJogDialogClose = useCallback(() => {
@@ -1332,19 +1341,27 @@ export default function MainHMI() {
   };
 
   const handleEnableJogButton = async (side) => {
+    console.log(`[MainHMI] handleEnableJogButton called for ${side} side`);
     try {
       if (currentUser === 'operator') {
         showMessage('Access Denied', 'Operators cannot jog the machine', 'warning');
         return;
       }
+      console.log(`[MainHMI] Calling writePLCVar enableJog for ${side} side...`);
       await writePLCVar({ command: 'enableJog', side });
+      console.log(`[MainHMI] EnableJog command successful for ${side} side`);
+      
       setShowEnableSideSelector(false);
       // Proactively open the Jog Mode dialog for the selected side
       setJogActiveSide(side);
       setShowJogDialog(true);
-      setCurrentScreen(SCREEN_INDEX.JOG_MODE);
+      // Set screen index based on which side is active
+      const jogScreenIndex = side === 'left' ? SCREEN_INDEX.JOG_MODE_LEFT : SCREEN_INDEX.JOG_MODE_RIGHT;
+      setCurrentScreen(jogScreenIndex);
+      console.log(`[MainHMI] Jog dialog opened for ${side} side with screen index ${jogScreenIndex}`);
       // Dialog will open automatically when PLC sets jog mode feedback
     } catch (error) {
+      console.error(`[MainHMI] Failed to enable jog for ${side} side:`, error);
       showMessage('Error', `Failed to enable jog: ${error.message}`, 'error');
     }
   };
@@ -1599,6 +1616,7 @@ export default function MainHMI() {
                 showMessage('Access Denied', 'Operators cannot jog the machine', 'warning');
                 return;
               }
+              setCurrentScreen(SCREEN_INDEX.JOG_SIDE_SELECTOR);
               setShowEnableSideSelector(true);
             }}
             disabled={currentUser === 'operator' || (!pumpEnabled && currentUser !== 'admin')}

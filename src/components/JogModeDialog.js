@@ -1,6 +1,10 @@
-import React, { useState } from 'react';
-import { pulseBoolTag, writePLCVar } from '../services/plcApiService';
+import React, { useState, useEffect } from 'react';
+import { pulseBoolTag, writePLCVar, writeScreenIndex } from '../services/plcApiService';
 import '../styles/JogModeDialog.css';
+
+// Screen indices for jog mode (must match MainHMI.js)
+const JOG_MODE_LEFT_INDEX = 12;
+const JOG_MODE_RIGHT_INDEX = 13;
 
 function JogModeDialog({
   side = 'left', // 'left' or 'right'
@@ -13,6 +17,11 @@ function JogModeDialog({
   onSwitchSide = () => {}
 }) {
   const [selectedMode, setSelectedMode] = useState(null); // 'id', 'od', or null
+
+  // Log when side prop changes
+  useEffect(() => {
+    console.log(`[JogModeDialog] Side prop changed to: ${side}`);
+  }, [side]);
 
   // PLC tag mappings
   const tagMappings = {
@@ -37,27 +46,35 @@ function JogModeDialog({
     try {
       let index;
       let headType;
+      let tagName;
       if (mode === 'id') {
         // ID = Expand button: left=7, right=46
         index = side === 'left' ? 7 : 46;
         headType = 'ID (Expand)';
+        tagName = side === 'left' ? 'GLEFTHEAD.bHmiLeftExpPb' : 'GRIGHTHEAD.bHmiRightExpPb';
       } else if (mode === 'od') {
         // OD = Reduction button: left=9, right=48
         index = side === 'left' ? 9 : 48;
         headType = 'OD (Reduction)';
+        tagName = side === 'left' ? 'GLEFTHEAD.bHmiLeftRedPb' : 'GRIGHTHEAD.bHmiRightRedPb';
       }
       
       if (index !== undefined) {
-        console.log(`[JogModeDialog] Enabling ${side} side ${headType} (index ${index})`);
-        await fetch('http://localhost:3001/io/pulse', {
+        console.log(`[JogModeDialog] Pulsing ${side} side ${headType} (index ${index}, tag ${tagName})`);
+        const response = await fetch('http://localhost:3001/io/pulse', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ index, durationMs: 500 })
         });
-        console.log(`[JogModeDialog] ${headType} enable pulse sent successfully`);
+        const result = await response.json();
+        if (result.success) {
+          console.log(`[JogModeDialog] ${headType} pulse successful - tag: ${result.tag}`);
+        } else {
+          console.error(`[JogModeDialog] ${headType} pulse failed:`, result.error);
+        }
       }
     } catch (err) {
-      console.error(`[JogModeDialog] Failed to enable ${mode}:`, err);
+      console.error(`[JogModeDialog] Failed to pulse ${mode}:`, err);
     }
   };
 
@@ -65,6 +82,14 @@ function JogModeDialog({
 
   const handleClose = async () => {
     try {
+      // Pulse the global jog-off tag first so PLC exits jog mode
+      try {
+        await pulseBoolTag('GAXIS.bJogOff', 300);
+        console.log('[JogModeDialog] Pulsed GAXIS.bJogOff to exit jog mode');
+      } catch (e) {
+        console.warn('[JogModeDialog] Failed to pulse GAXIS.bJogOff:', e?.message || e);
+      }
+
       // Disable jog mode via command which pulses the disable tag
       console.log(`[JogModeDialog] Disabling ${side} jog mode`);
       await writePLCVar({ command: 'disableJog', side });
@@ -78,24 +103,23 @@ function JogModeDialog({
   const handleSwitchSide = async () => {
     const newSide = side === 'left' ? 'right' : 'left';
     try {
-      // Step 1: Disable the current head to avoid both heads jogging together
-      console.log(`[JogModeDialog] Disabling ${side} head...`);
-      if (side === 'left') {
-        // Disable left head
-        await pulseBoolTag('GLEFTHEAD.bLeftJogHeadEnabledOff', 500);
-      } else {
-        // Disable right head
-        await pulseBoolTag('GRIGHTHEAD.bRightJogHeadEnabledOff', 500);
-      }
+      // Step 1: Turn off jog mode completely via GAXIS.bJogOff
+      console.log(`[JogModeDialog] Turning off jog mode via GAXIS.bJogOff before switching...`);
+      await pulseBoolTag('GAXIS.bJogOff', 500);
       
-      // Brief delay to ensure head is disabled before enabling new one
-      await new Promise(resolve => setTimeout(resolve, 300));
+      // Wait for PLC to process the jog off command
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       // Step 2: Enable the new side
       console.log(`[JogModeDialog] Enabling ${newSide} head...`);
       await writePLCVar({ command: 'enableJog', side: newSide });
       
-      // Step 3: Update the UI immediately - clear the selected mode for smooth transition
+      // Step 3: Write screen index to PLC with the new side's specific index
+      const newScreenIndex = newSide === 'left' ? JOG_MODE_LEFT_INDEX : JOG_MODE_RIGHT_INDEX;
+      console.log(`[JogModeDialog] Writing screen index ${newScreenIndex} to PLC for ${newSide} side`);
+      await writeScreenIndex(newScreenIndex);
+      
+      // Step 4: Update the UI immediately - clear the selected mode for smooth transition
       setSelectedMode(null);
       
       console.log(`[JogModeDialog] Successfully switched to ${newSide} side`);
