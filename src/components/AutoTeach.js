@@ -274,8 +274,8 @@ export default function AutoTeach({
 
   if (!isOpen) return null;
 
-  const axis1Label = side === 'right' ? 'Axis 1 (ID)' : 'Axis 3 (ID)';
-  const axis2Label = side === 'right' ? 'Axis 2 (OD)' : 'Axis 4 (OD)';
+  const axis1Label = 'ID';
+  const axis2Label = 'OD';
 
   const closeDialog = () => setDialog({ open: false, title: '', message: '', confirm: null, cancel: null });
 
