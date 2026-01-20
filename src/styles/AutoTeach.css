@@ -1008,6 +1008,33 @@
   cursor: not-allowed;
 }
 
+.add-step-btn {
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #5a9aff 0%, #3a6ac0 100%);
+  color: white;
+  border: 2px solid #5a9aff;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s;
+  white-space: nowrap;
+}
+
+.add-step-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #6aabff 0%, #4a7aff 100%);
+  box-shadow: 0 2px 10px rgba(90, 154, 255, 0.5);
+}
+
+.add-step-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.add-step-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Jog Mode Controls */
 .jog-controls-row {
   display: flex;

@@ -1,0 +1,60 @@
+/* PatternSelectionModal.css */
+
+.pattern-selection-modal-content {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: linear-gradient(135deg, rgba(0, 20, 60, 0.6), rgba(20, 40, 80, 0.6));
+  border-radius: 8px;
+}
+
+.pattern-buttons-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  max-width: 100%;
+}
+
+.pattern-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 12px;
+  background: linear-gradient(135deg, #1a3a6b, #0f2845);
+  border: 2px solid #3a6ac0;
+  border-radius: 8px;
+  color: #88c0ff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-height: 80px;
+  font-size: 0.95rem;
+}
+
+.pattern-button:hover {
+  background: linear-gradient(135deg, #2a4a8b, #1a3a6b);
+  border-color: #5a9aff;
+  box-shadow: 0 0 12px rgba(88, 154, 255, 0.4);
+  transform: translateY(-2px);
+}
+
+.pattern-button:active {
+  transform: translateY(0);
+  box-shadow: 0 0 8px rgba(88, 154, 255, 0.3);
+}
+
+.pattern-code {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #5a9aff;
+  margin-bottom: 4px;
+}
+
+.pattern-name {
+  font-size: 0.85rem;
+  color: #88c0ff;
+  text-align: center;
+  line-height: 1.2;
+}

@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import ModernDialog from './ModernDialog';
 import NumericKeypad from './NumericKeypad';
-import { writePLCVar, pulseBoolTag } from '../services/plcApiService';
+import PatternSelectionModal from './PatternSelectionModal';
+import AxisSelectionModal from './AxisSelectionModal';
+import { writePLCVar } from '../services/plcApiService';
 import '../styles/AutoTeach.css';
 
 export default function AutoTeach({
@@ -14,7 +16,6 @@ export default function AutoTeach({
   onSaveProgram,
   onWriteToPLC,
 }) {
-  const safeParameters = parameters ?? {};
   const safeActualPositions = actualPositions ?? { axis1: 0, axis2: 0 };
 
   const patternOptions = useMemo(
@@ -51,6 +52,11 @@ export default function AutoTeach({
 
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
 
+  // New modal states for refactored workflow
+  const [showPatternModal, setShowPatternModal] = useState(false);
+  const [showAxisModal, setShowAxisModal] = useState(false);
+  const [pendingPattern, setPendingPattern] = useState(null);
+
   const [repeatConfigOpen, setRepeatConfigOpen] = useState(false);
   const [repeatTargetStep, setRepeatTargetStep] = useState(null);
   const [repeatCount, setRepeatCount] = useState(1);
@@ -75,22 +81,6 @@ export default function AutoTeach({
     activeStepNumber >= 2 &&
     activeStepNumber <= 9 &&
     eligibleRepeatTargets.length > 0;
-
-  const availablePatternOptions = useMemo(() => {
-    const forbidden = new Set(
-      activeStepNumber === 2
-        ? [1, 3, 4, 5, 8]
-        : activeStepNumber === 10
-          ? [0, 2, 6, 5]
-          : []
-    );
-    return patternOptions.map((opt) => {
-      if (forbidden.has(opt.code)) return { ...opt, disabled: true };
-      if (opt.code !== 5) return { ...opt, disabled: false };
-      const disabled = !repeatAllowedForActiveStep;
-      return { ...opt, disabled };
-    });
-  }, [patternOptions, repeatAllowedForActiveStep, activeStepNumber]);
 
   // Step 1 is fixed to PLC pattern code 6 (RedExt + ExpExt) and must not be editable.
   useEffect(() => {
@@ -383,6 +373,83 @@ export default function AutoTeach({
     setIsRecording(false);
   };
 
+  // Handle "Add Step" button click - open pattern selection modal
+  const handleAddStep = () => {
+    setShowPatternModal(true);
+  };
+
+  // Handle pattern selection from PatternSelectionModal
+  const handlePatternSelected = async (patternCode) => {
+    setPendingPattern(patternCode);
+    setPattern(patternCode);
+
+    // Check if this is a return pattern (1=Red Ret, 3=Exp Ret, 4=RedRet+ExpRet)
+    const returnPatterns = [1, 3, 4];
+    if (returnPatterns.includes(patternCode) && recordedSteps.length > 0) {
+      // Auto-copy previous step's position
+      const previousStep = recordedSteps[recordedSteps.length - 1];
+      const stepNumberToRecord = Math.min(recordedSteps.length + 1, 10);
+      const defaultStepName = stepNumberToRecord === 1 ? 'Start Position' : `Step ${stepNumberToRecord}`;
+
+      const newStep = {
+        step: stepNumberToRecord,
+        stepName: defaultStepName,
+        pattern: patternCode,
+        needsReteach: false,
+        positions: {
+          axis1Cmd: previousStep.positions.axis1Cmd,
+          axis2Cmd: previousStep.positions.axis2Cmd,
+        },
+        dwell: 0,
+        enabledAxis: null, // Auto-copy doesn't need axis selection
+      };
+
+      setRecordedSteps((prev) => {
+        const next = [...prev, newStep];
+        pushProgramToPLC(next);
+        return next;
+      });
+
+      setShowPatternModal(false);
+      setPendingPattern(null);
+      setPattern(0);
+    } else {
+      // Non-return pattern or first step - show axis selection modal
+      setShowPatternModal(false);
+      setShowAxisModal(true);
+    }
+  };
+
+  // Handle axis selection from AxisSelectionModal
+  const handleAxisSelected = (axis) => {
+    const stepNumberToRecord = Math.min(recordedSteps.length + 1, 10);
+    const defaultStepName = stepNumberToRecord === 1 ? 'Start Position' : `Step ${stepNumberToRecord}`;
+
+    const newStep = {
+      step: stepNumberToRecord,
+      stepName: defaultStepName,
+      pattern: pendingPattern ?? pattern,
+      needsReteach: false,
+      positions: {
+        axis1Cmd: Number(safeActualPositions.axis1) || 0,
+        axis2Cmd: Number(safeActualPositions.axis2) || 0,
+      },
+      dwell: 0,
+      enabledAxis: axis,
+    };
+
+    setRecordedSteps((prev) => {
+      const next = [...prev, newStep];
+      pushProgramToPLC(next);
+      return next;
+    });
+
+    setShowAxisModal(false);
+    setPendingPattern(null);
+    setPattern(0);
+    setEnabledAxis(null);
+  };
+
   const handleEditStep = (index) => {
     const step = recordedSteps[index];
     if (!step) return;
@@ -534,127 +601,51 @@ export default function AutoTeach({
                   placeholder={activeStepNumber === 1 ? 'Start Position' : `Step ${activeStepNumber}`}
                   className="step-name-input-compact"
                 />
-                <select
-                  value={activeStepNumber === 1 ? 6 : pattern}
-                  onChange={(e) => {
-                    const next = parseInt(e.target.value, 10);
-                    if (activeStepNumber === 1) return;
-                    const forbidden = new Set(
-                      activeStepNumber === 2
-                        ? [1, 3, 4, 5, 8]
-                        : activeStepNumber === 10
-                          ? [0, 2, 6, 5]
-                          : []
-                    );
-                    if (forbidden.has(next)) {
-                      setDialog({
-                        open: true,
-                        title: 'Pattern Not Allowed',
-                        message: 'Selected pattern is not allowed for this step.',
-                        confirm: closeDialog,
-                        cancel: null,
-                      });
-                      return;
-                    }
-                    if (next === 5) {
-                      if (!repeatAllowedForActiveStep) {
-                        setDialog({
-                          open: true,
-                          title: 'Repeat Not Available',
-                          message: 'Record a step between 2 and 9 first.',
-                          confirm: closeDialog,
-                          cancel: null,
-                        });
-                        return;
-                      }
-                      setPattern(5);
-                      setRepeatTargetStep((prev) => prev ?? eligibleRepeatTargets[0] ?? null);
-                      setRepeatCount((prev) => (Number.isFinite(prev) && prev >= 1 ? prev : 1));
-                      setRepeatConfigOpen(true);
-                      return;
-                    }
-                    setPattern(next);
-                  }}
-                  className="pattern-select-compact"
-                  disabled={activeStepNumber === 1}
-                >
-                  {availablePatternOptions.map((opt) => (
-                    <option key={opt.code} value={opt.code} disabled={!!opt.disabled}>
-                      {opt.code} - {opt.name}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  className={`record-btn-compact ${isRecording ? 'recording' : ''}`}
-                  onClick={handleRecordPosition}
-                  disabled={isRecording || recordedSteps.length >= 10}
-                >
-                  {recordedSteps.length >= 10 ? 'Complete' : isRecording ? '⏺' : '⏺ Record'}
-                </button>
+                {activeStepNumber === 1 ? (
+                  // Step 1 only shows Record button (pattern 6 is fixed)
+                  <button
+                    className={`record-btn-compact ${isRecording ? 'recording' : ''}`}
+                    onClick={handleRecordPosition}
+                    disabled={isRecording || recordedSteps.length >= 10}
+                  >
+                    {recordedSteps.length >= 10 ? 'Complete' : isRecording ? '⏺' : '⏺ Record'}
+                  </button>
+                ) : (
+                  // Steps 2+ show "Add Step" button
+                  <button
+                    className="add-step-btn"
+                    onClick={handleAddStep}
+                    disabled={recordedSteps.length >= 10}
+                  >
+                    ➕ Add Step
+                  </button>
+                )}
               </div>
 
-              {/* Jog Mode Controls */}
+              {/* Jog Mode Controls - Simple disable button only */}
               <div className="jog-controls-row">
-                <>
-                  <button
-                    className={`id-enable-btn ${enabledAxis === 'id' ? 'active' : ''}`}
-                      onClick={async () => {
-                        try {
-                          console.log(`[AutoTeach] Enabling ID axis for ${side} side`);
-                          const idTag = side === 'left' ? 'GLEFTHEAD.bHmiLeftExpPb' : 'GRIGHTHEAD.bHmiRightExpPb';
-                          await pulseBoolTag(idTag, 200);
-                          setEnabledAxis('id');
-                          console.log('[AutoTeach] ID axis enabled');
-                        } catch (err) {
-                          console.error('[AutoTeach] Failed to enable ID:', err);
-                        }
-                      }}
-                      title="Enable ID axis for jog and record"
-                    >
-                      {enabledAxis === 'id' ? '✓ ID' : '📍 ID'}
-                    </button>
-
-                    <button
-                      className={`od-enable-btn ${enabledAxis === 'od' ? 'active' : ''}`}
-                      onClick={async () => {
-                        try {
-                          console.log(`[AutoTeach] Enabling OD axis for ${side} side`);
-                          const odTag = side === 'left' ? 'GLEFTHEAD.bHmiLeftRedPb' : 'GRIGHTHEAD.bHmiRightRedPb';
-                          await pulseBoolTag(odTag, 200);
-                          setEnabledAxis('od');
-                          console.log('[AutoTeach] OD axis enabled');
-                        } catch (err) {
-                          console.error('[AutoTeach] Failed to enable OD:', err);
-                        }
-                      }}
-                      title="Enable OD axis for jog and record"
-                    >
-                      {enabledAxis === 'od' ? '✓ OD' : '📍 OD'}
-                    </button>
-
-                    <button
-                      className="jog-disable-btn"
-                      onClick={async () => {
-                        try {
-                          console.log(`[AutoTeach] Disabling jog for ${side} side`);
-                          const tag = side === 'left' 
-                            ? 'GLEFTHEAD.bLeftJogHeadEnabledOff' 
-                            : 'GRIGHTHEAD.bRightJogHeadEnabledOff';
-                          await fetch('http://localhost:3001/pulse-bool', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ tag, durationMs: 100 })
-                          });
-                          console.log('[AutoTeach] Jog disable pulse sent');
-                        } catch (err) {
-                          console.error('[AutoTeach] Failed to disable jog:', err);
-                        }
-                      }}
-                      title="Disable jog mode and exit teaching"
-                    >
-                      ⏹ Disable Jog
-                    </button>
-                  </>
+                <button
+                  className="jog-disable-btn"
+                  onClick={async () => {
+                    try {
+                      console.log(`[AutoTeach] Disabling jog for ${side} side`);
+                      const tag = side === 'left' 
+                        ? 'GLEFTHEAD.bLeftJogHeadEnabledOff' 
+                        : 'GRIGHTHEAD.bRightJogHeadEnabledOff';
+                      await fetch('http://localhost:3001/pulse-bool', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ tag, durationMs: 100 })
+                      });
+                      console.log('[AutoTeach] Jog disable pulse sent');
+                    } catch (err) {
+                      console.error('[AutoTeach] Failed to disable jog:', err);
+                    }
+                  }}
+                  title="Disable jog mode and exit teaching"
+                >
+                  ⏹ Disable Jog
+                </button>
               </div>
             </div>
 
@@ -837,6 +828,29 @@ export default function AutoTeach({
                 setRepeatKeypadOpen(false);
               }}
               onCancel={() => setRepeatKeypadOpen(false)}
+            />
+
+            {/* Pattern Selection Modal */}
+            <PatternSelectionModal
+              isOpen={showPatternModal}
+              onClose={() => {
+                setShowPatternModal(false);
+                setPendingPattern(null);
+              }}
+              onSelectPattern={handlePatternSelected}
+              stepNumber={activeStepNumber}
+            />
+
+            {/* Axis Selection Modal */}
+            <AxisSelectionModal
+              isOpen={showAxisModal}
+              onClose={() => {
+                setShowAxisModal(false);
+                setEnabledAxis(null);
+              }}
+              onSelectAxis={handleAxisSelected}
+              side={side}
+              patternCode={pendingPattern ?? pattern}
             />
 
             <ModernDialog

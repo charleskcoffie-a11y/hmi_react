@@ -1,0 +1,66 @@
+/* AxisSelectionModal.css */
+
+.axis-selection-modal-content {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: linear-gradient(135deg, rgba(0, 20, 60, 0.6), rgba(20, 40, 80, 0.6));
+  border-radius: 8px;
+}
+
+.axis-buttons-container {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+}
+
+.axis-button {
+  flex: 1;
+  padding: 20px 16px;
+  background: linear-gradient(135deg, #1a3a6b, #0f2845);
+  border: 2px solid #3a6ac0;
+  border-radius: 8px;
+  color: #88c0ff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80px;
+}
+
+.axis-button:hover {
+  background: linear-gradient(135deg, #2a4a8b, #1a3a6b);
+  border-color: #5a9aff;
+  box-shadow: 0 0 12px rgba(88, 154, 255, 0.4);
+  transform: translateY(-2px);
+}
+
+.axis-button.active {
+  background: linear-gradient(135deg, #2a5a1a, #1a4a0a);
+  border-color: #5aff2a;
+  box-shadow: 0 0 16px rgba(90, 255, 42, 0.5);
+  color: #5aff2a;
+}
+
+.axis-button:active {
+  transform: translateY(0);
+}
+
+.axis-label {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.axis-instructions {
+  text-align: center;
+  color: #88c0ff;
+  font-size: 0.95rem;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  border-left: 3px solid #5a9aff;
+}
