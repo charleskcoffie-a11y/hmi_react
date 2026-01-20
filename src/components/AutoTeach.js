@@ -393,6 +393,10 @@ export default function AutoTeach({
 
   const handleAxisSelected = (selectedAxis) => {
     setShowAxisSelector(false);
+    // If user cancelled (null), don't record anything
+    if (selectedAxis === null) {
+      return;
+    }
     const stepNumberToRecord = Math.min(recordedSteps.length + 1, 10);
     const patternToRecord = stepNumberToRecord === 1 ? 6 : pattern;
     recordStepWithAxis(stepNumberToRecord, patternToRecord, selectedAxis);

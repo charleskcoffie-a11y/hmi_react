@@ -65,6 +65,10 @@ function AutoTeachAxisSelectorModal({
     }
   };
 
+  const handleCancel = () => {
+    onClose(null);
+  };
+
   if (!isOpen) return null;
 
   const headLabel = side === 'left' ? 'LEFT' : 'RIGHT';
@@ -121,7 +125,7 @@ function AutoTeachAxisSelectorModal({
           <div className="modal-actions">
             <button
               className="btn-cancel"
-              onClick={onClose}
+              onClick={handleCancel}
               disabled={loading}
             >
               Cancel
