@@ -259,6 +259,7 @@ export async function pulseBoolTag(tag, durationMs = 150) {
  */
 export async function writeScreenIndex(screenIndex) {
   try {
+    console.log('[plcApiService] Writing screen index to PLC:', screenIndex);
     const res = await fetch(`${API_BASE}/write`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -269,11 +270,13 @@ export async function writeScreenIndex(screenIndex) {
     });
     const data = await res.json();
     if (!data.success) {
-      console.warn('[plcApiService] Failed to write screen index:', data.error);
+      console.error('[plcApiService] Failed to write screen index:', data.error);
+    } else {
+      console.log('[plcApiService] Screen index write successful:', screenIndex);
     }
     return data;
   } catch (err) {
-    console.warn('[plcApiService] Error writing screen index:', err.message);
+    console.error('[plcApiService] Error writing screen index:', err.message);
     // Non-blocking - app continues if this fails
   }
 }

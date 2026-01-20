@@ -53,7 +53,14 @@ function createServer() {
   }
 
   async function writeTagValue(tag, value, autoFill = false) {
-    await ads.writeValue(tag, value, autoFill);
+    try {
+      const result = await ads.writeValue(tag, value, autoFill);
+      console.log(`[plc-server] writeTagValue completed for ${tag}: value=${value}, autoFill=${autoFill}`, result);
+      return result;
+    } catch (err) {
+      console.error(`[plc-server] writeTagValue failed for ${tag}:`, err.message);
+      throw err;
+    }
   }
 
   function resolveTag(index) {
@@ -253,6 +260,7 @@ function createServer() {
   app.post('/write', async (req, res) => {
     try {
       if (!connected) {
+        console.error('[plc-server] /write called but PLC not connected');
         return res.status(500).json({ success: false, error: 'PLC not connected' });
       }
       
@@ -261,12 +269,13 @@ function createServer() {
       // If tag is provided, write to that specific tag, otherwise use default WRITE_SYMBOL
       const targetTag = tag || WRITE_SYMBOL;
       
-      console.log(`[plc-server] Writing to ${targetTag}:`, value);
+      console.log(`[plc-server] /write endpoint - Writing to ${targetTag}:`, value);
       await writeTagValue(targetTag, value, true);
+      console.log(`[plc-server] /write endpoint - Write successful for ${targetTag}`);
       
       res.json({ success: true });
     } catch (err) {
-      console.error('[plc-server] Write error:', err.message);
+      console.error('[plc-server] /write endpoint error for tag:', req.body?.tag, 'error:', err.message);
       res.status(500).json({ success: false, error: err.message });
     }
   });
