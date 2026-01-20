@@ -1935,11 +1935,13 @@ export default function MainHMI() {
 
         <AutoTeach
           isOpen={autoTeachOpen}
-          onClose={() => {
+          onClose={async () => {
             setAutoTeachOpen(false);
             setAutoTeachSide(null);
             setAutoTeachProgramName('');
             setCurrentScreen(SCREEN_INDEX.MAIN_CONTROL);
+            // Explicitly write screen index to PLC on close
+            await writeScreenIndex(SCREEN_INDEX.MAIN_CONTROL);
           }}
           programName={autoTeachProgramName}
           side={autoTeachSide}
