@@ -123,6 +123,7 @@ export default function AutoTeach({
       setRepeatTargetStep(null);
       setRepeatCount(1);
       setRepeatKeypadOpen(false);
+      setShowAxisSelector(false); // Ensure axis selector modal is closed on open
     }
     previousIsOpenRef.current = isOpen;
   }, [isOpen]); // Only depend on isOpen, not programName or side
