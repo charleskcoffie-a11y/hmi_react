@@ -27,7 +27,6 @@ export default function AutoTeach({
       { code: 4, name: 'RedRet + ExpRet' },
       { code: 5, name: 'Repeat' },
       { code: 6, name: 'RedExt + ExpExt' },
-      { code: 8, name: 'All off' },
     ],
     []
   );
@@ -64,18 +63,30 @@ export default function AutoTeach({
   const [plcStatus, setPlcStatus] = useState('unknown');
   const [loading, setLoading] = useState(false);
   const [jogModeEnabled, setJogModeEnabled] = useState(false);
+  const [axesEnabled, setAxesEnabled] = useState(false); // ID/OD axes must be manually enabled
+  const [enablingAxes, setEnablingAxes] = useState(false);
   const activeCardRef = useRef(null);
 
   const activeStepNumber = Math.min(recordedSteps.length + 1, 10);
 
   const eligibleRepeatTargets = useMemo(() => {
-    // Only allow repeating previously-recorded steps; never allow repeating step 1 or step 10.
-    const targets = recordedSteps
+    // Allow repeating previously-recorded steps (2-9) AND the current active step
+    // Never allow repeating step 1 or step 10
+    const recordedTargets = recordedSteps
       .map((s) => s.step)
       .filter((n) => typeof n === 'number' && n >= 2 && n <= 9);
-    // Unique + sorted.
-    return Array.from(new Set(targets)).sort((a, b) => a - b);
-  }, [recordedSteps]);
+    
+    // Add the current active step to the list (if it's not step 1 or 10)
+    const allTargets = [...recordedTargets];
+    if (activeStepNumber >= 2 && activeStepNumber <= 9 && !allTargets.includes(activeStepNumber)) {
+      allTargets.push(activeStepNumber);
+    }
+    
+    // Unique + sorted
+    const result = Array.from(new Set(allTargets)).sort((a, b) => a - b);
+    console.log('[AutoTeach] eligibleRepeatTargets:', result, 'recordedSteps:', recordedSteps.map(s => ({ step: s.step, name: s.stepName })), 'activeStepNumber:', activeStepNumber);
+    return result;
+  }, [recordedSteps, activeStepNumber]);
 
   const repeatAllowedForActiveStep =
     activeStepNumber >= 2 &&
@@ -112,6 +123,7 @@ export default function AutoTeach({
       setRepeatCount(1);
       setRepeatKeypadOpen(false);
       setEnabledAxis(null); // Reset axis selection on open
+      setAxesEnabled(false);
     }
     previousIsOpenRef.current = isOpen;
   }, [isOpen]); // Only depend on isOpen, not programName or side
@@ -122,7 +134,7 @@ export default function AutoTeach({
 
     const pollJogMode = async () => {
       try {
-        const jogModeVar = side === 'right' ? 'GRIGHTHEAD.HmiRightJogMode' : 'GLEFTHEAD.HmiLeftJogMode';
+        const jogModeVar = side === 'right' ? 'GRIGHTHEAD.bHmiRightJogMode' : 'GLEFTHEAD.bHmiLeftJogMode';
         const response = await fetch(`http://localhost:3001/read?tag=${jogModeVar}`);
         if (response.ok) {
           const data = await response.json();
@@ -151,7 +163,7 @@ export default function AutoTeach({
   useEffect(() => {
     const enableJogMode = async () => {
       try {
-        const jogModeVar = side === 'right' ? 'GRIGHTHEAD.HmiRightJogMode' : 'GLEFTHEAD.HmiLeftJogMode';
+        const jogModeVar = side === 'right' ? 'GRIGHTHEAD.bHmiRightJogMode' : 'GLEFTHEAD.bHmiLeftJogMode';
         const response = await fetch('http://localhost:3001/write', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -171,7 +183,7 @@ export default function AutoTeach({
 
     const disableJogMode = async () => {
       try {
-        const jogModeVar = side === 'right' ? 'GRIGHTHEAD.HmiRightJogMode' : 'GLEFTHEAD.HmiLeftJogMode';
+        const jogModeVar = side === 'right' ? 'GRIGHTHEAD.bHmiRightJogMode' : 'GLEFTHEAD.bHmiLeftJogMode';
         const response = await fetch('http://localhost:3001/write', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -203,6 +215,39 @@ export default function AutoTeach({
     };
   }, [isOpen, side]);
 
+  // Handle enabling ID/OD axes - MUST be called manually by user
+  const handleEnableAxes = async (axis = 'both') => {
+    setEnablingAxes(true);
+    try {
+      const idTag = side === 'left' ? 'GLEFTHEAD.bHmiLeftExpPb' : 'GRIGHTHEAD.bHmiRightExpPb';
+      const odTag = side === 'left' ? 'GLEFTHEAD.bHmiLeftRedPb' : 'GRIGHTHEAD.bHmiRightRedPb';
+
+      const tagsToPulse = [];
+      if (axis === 'id' || axis === 'both') tagsToPulse.push(idTag);
+      if (axis === 'od' || axis === 'both') tagsToPulse.push(odTag);
+
+      for (const tag of tagsToPulse) {
+        const response = await fetch('http://localhost:3001/pulse-bool', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tag, durationMs: 200 })
+        });
+        if (!response.ok) throw new Error(`Failed to pulse ${tag}`);
+        const result = await response.json();
+        if (!result.success) throw new Error(result.message || `PLC pulse failed for ${tag}`);
+      }
+
+      setAxesEnabled(true);
+      setEnabledAxis(axis === 'both' ? null : axis);
+      console.log('[AutoTeach] Axes enabled for', side, 'axis:', axis, 'tags:', tagsToPulse);
+    } catch (error) {
+      console.error('[AutoTeach] Error enabling axes:', error);
+      setAxesEnabled(false);
+    } finally {
+      setEnablingAxes(false);
+    }
+  };
+
   const patternAxisMeta = useMemo(
     () => ({
       0: { axes: 'od' }, // Red Ext -> OD
@@ -212,7 +257,6 @@ export default function AutoTeach({
       4: { axes: 'both' }, // RedRet + ExpRet -> both
       5: { axes: 'repeat' }, // Repeat (show note only)
       6: { axes: 'both' }, // RedExt + ExpExt -> both
-      8: { axes: 'none' }, // All off -> none
     }),
     []
   );
@@ -293,7 +337,7 @@ export default function AutoTeach({
     }
   };
 
-  const handleRecordPosition = () => {
+  const handleRecordPosition = async () => {
     if (isRecording) return;
     if (recordedSteps.length >= 10) {
       setDialog({
@@ -307,6 +351,26 @@ export default function AutoTeach({
     }
 
     setIsRecording(true);
+
+    // Disable jog head so the next step starts fresh
+    try {
+      const disableTag = side === 'left'
+        ? 'GLEFTHEAD.bLeftJogHeadEnabledOff'
+        : 'GRIGHTHEAD.bRightJogHeadEnabledOff';
+      const response = await fetch('http://localhost:3001/pulse-bool', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tag: disableTag, durationMs: 150 })
+      });
+      if (!response.ok) throw new Error(`Failed to pulse ${disableTag}`);
+      const result = await response.json();
+      if (!result.success) throw new Error(result.message || `PLC pulse failed for ${disableTag}`);
+      setAxesEnabled(false);
+      setEnabledAxis(null);
+      console.log('[AutoTeach] Jog head disable pulse sent:', disableTag);
+    } catch (err) {
+      console.error('[AutoTeach] Failed to disable jog head before record:', err);
+    }
 
     const stepNumberToRecord = Math.min(recordedSteps.length + 1, 10);
     const patternToRecord = stepNumberToRecord === 1 ? 6 : pattern;
@@ -383,6 +447,16 @@ export default function AutoTeach({
     setPendingPattern(patternCode);
     setPattern(patternCode);
 
+    const meta = patternAxisMeta[patternCode] || { axes: 'both' };
+
+    // Check if this is pattern 5 (Repeat)
+    if (patternCode === 5) {
+      // Show repeat configuration dialog
+      setShowPatternModal(false);
+      setRepeatConfigOpen(true);
+      return;
+    }
+
     // Check if this is a return pattern (1=Red Ret, 3=Exp Ret, 4=RedRet+ExpRet)
     const returnPatterns = [1, 3, 4];
     if (returnPatterns.includes(patternCode) && recordedSteps.length > 0) {
@@ -413,15 +487,47 @@ export default function AutoTeach({
       setShowPatternModal(false);
       setPendingPattern(null);
       setPattern(0);
+      return;
     } else {
-      // Non-return pattern or first step - show axis selection modal
+      // Non-return pattern or first step
+      if (meta.axes === 'none') {
+        const stepNumberToRecord = Math.min(recordedSteps.length + 1, 10);
+        const defaultStepName = stepNumberToRecord === 1 ? 'Start Position' : `Step ${stepNumberToRecord}`;
+        const newStep = {
+          step: stepNumberToRecord,
+          stepName: defaultStepName,
+          pattern: patternCode,
+          needsReteach: false,
+          positions: {
+            axis1Cmd: Number(safeActualPositions.axis1) || 0,
+            axis2Cmd: Number(safeActualPositions.axis2) || 0,
+          },
+          dwell: 0,
+          enabledAxis: null,
+        };
+
+        setRecordedSteps((prev) => {
+          const next = [...prev, newStep];
+          pushProgramToPLC(next);
+          return next;
+        });
+
+        setShowPatternModal(false);
+        setPendingPattern(null);
+        setPattern(0);
+        return;
+      }
+
+      // Otherwise show axis selection modal (single or dual axis will be filtered there)
       setShowPatternModal(false);
       setShowAxisModal(true);
     }
   };
 
   // Handle axis selection from AxisSelectionModal
-  const handleAxisSelected = (axis) => {
+  const handleAxisSelected = async (axis) => {
+    console.log('[AutoTeach] handleAxisSelected called with axis:', axis);
+    await handleEnableAxes(axis);
     const stepNumberToRecord = Math.min(recordedSteps.length + 1, 10);
     const defaultStepName = stepNumberToRecord === 1 ? 'Start Position' : `Step ${stepNumberToRecord}`;
 
@@ -602,14 +708,34 @@ export default function AutoTeach({
                   className="step-name-input-compact"
                 />
                 {activeStepNumber === 1 ? (
-                  // Step 1 only shows Record button (pattern 6 is fixed)
-                  <button
-                    className={`record-btn-compact ${isRecording ? 'recording' : ''}`}
-                    onClick={handleRecordPosition}
-                    disabled={isRecording || recordedSteps.length >= 10}
-                  >
-                    {recordedSteps.length >= 10 ? 'Complete' : isRecording ? '⏺' : '⏺ Record'}
-                  </button>
+                  <>
+                    <div className="step1-axis-toggle">
+                      <button
+                        className={`enable-axes-btn ${enabledAxis === 'id' ? 'selected' : ''}`}
+                        onClick={() => handleEnableAxes('id')}
+                        disabled={enablingAxes}
+                        title="Enable ID axis"
+                      >
+                        {enablingAxes && enabledAxis === 'id' ? 'Enabling...' : '⚙️ Enable ID'}
+                      </button>
+                      <button
+                        className={`enable-axes-btn ${enabledAxis === 'od' ? 'selected' : ''}`}
+                        onClick={() => handleEnableAxes('od')}
+                        disabled={enablingAxes}
+                        title="Enable OD axis"
+                      >
+                        {enablingAxes && enabledAxis === 'od' ? 'Enabling...' : '⚙️ Enable OD'}
+                      </button>
+                    </div>
+                    <button
+                      className={`record-btn-compact ${isRecording ? 'recording' : ''}`}
+                      onClick={handleRecordPosition}
+                      disabled={!axesEnabled || isRecording || recordedSteps.length >= 10}
+                      title={!axesEnabled ? 'Enable ID or OD first' : 'Record start position'}
+                    >
+                      {recordedSteps.length >= 10 ? 'Complete' : isRecording ? '⏺' : '⏺ Record'}
+                    </button>
+                  </>
                 ) : (
                   // Steps 2+ show "Add Step" button
                   <button
@@ -736,7 +862,9 @@ export default function AutoTeach({
               cancelText="Cancel"
               onConfirm={() => {
                 const count = Math.max(1, Math.floor(Number(repeatCount) || 1));
+                console.log('[AutoTeach] Repeat confirmation - repeatTargetStep:', repeatTargetStep, 'eligibleRepeatTargets:', eligibleRepeatTargets, 'count:', count);
                 if (!repeatTargetStep || repeatTargetStep === 1 || repeatTargetStep === 10) {
+                  console.log('[AutoTeach] Failed first validation check');
                   setDialog({
                     open: true,
                     title: 'Invalid Repeat Step',
@@ -748,6 +876,7 @@ export default function AutoTeach({
                 }
 
                 if (!eligibleRepeatTargets.includes(repeatTargetStep)) {
+                  console.log('[AutoTeach] Failed second validation check - Step', repeatTargetStep, 'not in eligible:', eligibleRepeatTargets);
                   setDialog({
                     open: true,
                     title: 'Invalid Repeat Step',
@@ -758,8 +887,36 @@ export default function AutoTeach({
                   return;
                 }
 
-                setRepeatCount(count);
+                // Create the repeat step and add it to recordedSteps
+                const stepNumberToRecord = Math.min(recordedSteps.length + 1, 10);
+                const defaultStepName = `Repeat Step ${repeatTargetStep}`;
+
+                const newStep = {
+                  step: stepNumberToRecord,
+                  stepName: defaultStepName,
+                  pattern: 5, // Pattern 5 = Repeat
+                  needsReteach: false,
+                  positions: {
+                    axis1Cmd: 0,
+                    axis2Cmd: 0,
+                  },
+                  dwell: 0,
+                  enabledAxis: null,
+                  repeatTargetStep: repeatTargetStep,
+                  repeatCount: count,
+                };
+
+                setRecordedSteps((prev) => {
+                  const next = [...prev, newStep];
+                  pushProgramToPLC(next);
+                  return next;
+                });
+
+                setRepeatCount(1);
+                setRepeatTargetStep(null);
                 setRepeatConfigOpen(false);
+                setPendingPattern(null);
+                setPattern(0);
               }}
               onCancel={() => {
                 setRepeatConfigOpen(false);
@@ -847,10 +1004,12 @@ export default function AutoTeach({
               onClose={() => {
                 setShowAxisModal(false);
                 setEnabledAxis(null);
+                setPendingPattern(null);
               }}
               onSelectAxis={handleAxisSelected}
               side={side}
               patternCode={pendingPattern ?? pattern}
+              stepNumber={Math.min(recordedSteps.length + 1, 10)}
             />
 
             <ModernDialog

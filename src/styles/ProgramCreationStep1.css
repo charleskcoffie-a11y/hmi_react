@@ -82,6 +82,54 @@
   animation: pulse 1.5s infinite;
 }
 
+.axes-enable-status {
+  display: flex;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 102, 204, 0.1);
+  border: 2px solid #0066cc;
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+
+.axes-enabled {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #28a745 0%, #1d6e2d 100%);
+  border: 2px solid #32c857;
+  border-radius: 6px;
+  color: white;
+  font-weight: 700;
+  font-size: 14px;
+  box-shadow: 0 0 15px rgba(40, 167, 69, 0.5);
+}
+
+.enable-axes-btn {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+  border: 2px solid #ff9800;
+  border-radius: 6px;
+  color: #1f1f1f;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
+}
+
+.enable-axes-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #ffb300 0%, #ff8a00 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(255, 152, 0, 0.6);
+}
+
+.enable-axes-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 @keyframes pulse {
   0%, 100% {
     opacity: 1;

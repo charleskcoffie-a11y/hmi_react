@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import ModernDialog from './ModernDialog';
-import { pulseBoolTag } from '../services/plcApiService';
 import '../styles/AxisSelectionModal.css';
 
 export default function AxisSelectionModal({
@@ -9,25 +8,40 @@ export default function AxisSelectionModal({
   onSelectAxis,
   side,
   patternCode,
+  stepNumber,
 }) {
   const [enabledAxis, setEnabledAxis] = useState(null); // 'id' or 'od'
 
-  const isLeftSide = side === 'left';
-  const idTag = isLeftSide ? 'GLEFTHEAD.bHmiLeftExpPb' : 'GRIGHTHEAD.bHmiRightExpPb';
-  const odTag = isLeftSide ? 'GLEFTHEAD.bHmiLeftRedPb' : 'GRIGHTHEAD.bHmiRightRedPb';
-
-  const handleAxisEnable = async (axis) => {
-    const axisTag = axis === 'id' ? idTag : odTag;
-    try {
-      await pulseBoolTag(axisTag, 200);
-      setEnabledAxis(axis);
-    } catch (error) {
-      console.error(`[AxisSelectionModal] Error enabling ${axis}:`, error);
+  const axes = useMemo(() => {
+    const code = Number(patternCode);
+    switch (code) {
+      case 0:
+      case 1:
+        return 'od';
+      case 2:
+      case 3:
+        return 'id';
+      case 4:
+      case 6:
+        return 'both';
+      default:
+        return 'both';
     }
+  }, [patternCode]);
+
+  const showID = axes === 'id' || axes === 'both';
+  const showOD = axes === 'od' || axes === 'both';
+
+  const handleAxisEnable = (axis) => {
+    console.log('[AxisSelectionModal] handleAxisEnable called with axis:', axis);
+    setEnabledAxis(axis);
+    console.log('[AxisSelectionModal] enabledAxis updated to:', axis);
   };
 
   const handleConfirm = () => {
+    console.log('[AxisSelectionModal] handleConfirm called with enabledAxis:', enabledAxis);
     if (enabledAxis) {
+      console.log('[AxisSelectionModal] Calling onSelectAxis with:', enabledAxis);
       onSelectAxis(enabledAxis);
       setEnabledAxis(null);
       onClose();
@@ -42,25 +56,37 @@ export default function AxisSelectionModal({
   return (
     <ModernDialog
       isOpen={isOpen}
-      title={`Select Axis for Step ${patternCode}`}
-      onClose={handleCancel}
+      title={`Select Axis for Step ${stepNumber ?? ''}`}
       onConfirm={handleConfirm}
+      onCancel={handleCancel}
+      confirmText="Record"
+      cancelText="Cancel"
       confirmDisabled={!enabledAxis}
     >
       <div className="axis-selection-modal-content">
         <div className="axis-buttons-container">
-          <button
-            className={`axis-button id-button ${enabledAxis === 'id' ? 'active' : ''}`}
-            onClick={() => handleAxisEnable('id')}
-          >
-            <div className="axis-label">{enabledAxis === 'id' ? '✓ ID' : '📍 ID'}</div>
-          </button>
-          <button
-            className={`axis-button od-button ${enabledAxis === 'od' ? 'active' : ''}`}
-            onClick={() => handleAxisEnable('od')}
-          >
-            <div className="axis-label">{enabledAxis === 'od' ? '✓ OD' : '📍 OD'}</div>
-          </button>
+          {showID && (
+            <button
+              className={`axis-button id-button ${enabledAxis === 'id' ? 'active' : ''}`}
+              onClick={() => {
+                console.log('[AxisSelectionModal] ID button clicked');
+                handleAxisEnable('id');
+              }}
+            >
+              <div className="axis-label">{enabledAxis === 'id' ? '✓ ID' : '📍 ID'}</div>
+            </button>
+          )}
+          {showOD && (
+            <button
+              className={`axis-button od-button ${enabledAxis === 'od' ? 'active' : ''}`}
+              onClick={() => {
+                console.log('[AxisSelectionModal] OD button clicked');
+                handleAxisEnable('od');
+              }}
+            >
+              <div className="axis-label">{enabledAxis === 'od' ? '✓ OD' : '📍 OD'}</div>
+            </button>
+          )}
         </div>
         <div className="axis-instructions">Move axis using jog controls, then click Confirm</div>
       </div>

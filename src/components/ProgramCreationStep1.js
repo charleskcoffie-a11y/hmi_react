@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ModernDialog from './ModernDialog';
 import NumericKeypad from './NumericKeypad';
+import { pulseBoolTag } from '../services/plcApiService';
 import '../styles/ProgramCreationStep1.css';
 
 export default function ProgramCreationStep1({ programName, side, onPositionRecorded, onCancel }) {
@@ -16,11 +17,36 @@ export default function ProgramCreationStep1({ programName, side, onPositionReco
   const [keypadOpen, setKeypadOpen] = useState(false);
   const [keypadTarget, setKeypadTarget] = useState(null);
   const [keypadVal, setKeypadVal] = useState(0);
+  const [axesEnabled, setAxesEnabled] = useState(false); // MUST BE FALSE - requires manual enable
+  const [enablingAxes, setEnablingAxes] = useState(false);
+
+  const isLeftSide = side === 'left';
+  const idTag = isLeftSide ? 'GLEFTHEAD.bHmiLeftExpPb' : 'GRIGHTHEAD.bHmiRightExpPb';
+  const odTag = isLeftSide ? 'GLEFTHEAD.bHmiLeftRedPb' : 'GRIGHTHEAD.bHmiRightRedPb';
 
   useEffect(() => {
-    // Automatically enable jog mode
     setJogMode(true);
+    // IMPORTANT: Do NOT set axesEnabled = true. User must click yellow button to enable.
+    console.log('[Step1] Component mounted. axesEnabled:', false);
   }, []);
+
+  const handleEnableAxes = async () => {
+    setEnablingAxes(true);
+    try {
+      await pulseBoolTag(idTag, 200);
+      await pulseBoolTag(odTag, 200);
+      setAxesEnabled(true);
+      setStepMessage('✓ ID and OD axes enabled');
+      setTimeout(() => setStepMessage(''), 3000);
+      console.log('[Step1] ID and OD manually enabled');
+    } catch (error) {
+      console.error('[Step1] Error enabling axes:', error);
+      setStepMessage('✗ Failed to enable axes');
+      setTimeout(() => setStepMessage(''), 3000);
+    } finally {
+      setEnablingAxes(false);
+    }
+  };
 
   const sideLabel = side === 'right' ? 'Right Side' : 'Left Side';
   const axis1Name = side === 'right' ? 'Axis 1 (ID)' : 'Axis 3 (ID)';
@@ -57,6 +83,10 @@ export default function ProgramCreationStep1({ programName, side, onPositionReco
   };
 
   const handleComplete = () => {
+    if (!axesEnabled) {
+      setDialog({ open: true, title: 'Axes Not Enabled', message: 'Please enable ID and OD axes before continuing.' });
+      return;
+    }
     if (!axis1Recorded || !axis2Recorded) {
       setDialog({ open: true, title: 'Positions Required', message: 'Please record positions for both axes before continuing.' });
       return;
@@ -72,7 +102,10 @@ export default function ProgramCreationStep1({ programName, side, onPositionReco
     });
   };
 
-  const canComplete = axis1Recorded && axis2Recorded;
+  const canComplete = axesEnabled && axis1Recorded && axis2Recorded;
+
+  // Debug logging
+  console.log('[Step1] Rendering - axesEnabled:', axesEnabled, 'axis1Recorded:', axis1Recorded, 'axis2Recorded:', axis2Recorded);
 
   return (
     <div className="program-creation-step1">
@@ -87,6 +120,23 @@ export default function ProgramCreationStep1({ programName, side, onPositionReco
       <div className="step1-content">
         <div className="mode-indicator">
           {jogMode && <div className="jog-active">🎮 JOG MODE ACTIVE</div>}
+        </div>
+
+        {/* Axes Enable Status - SHOW YELLOW BUTTON WHEN axesEnabled=false */}
+        <div className="axes-enable-status">
+          {axesEnabled === true ? (
+            // GREEN CHECKMARK - User has enabled axes
+            <div className="axes-enabled">✓ ID and OD Axes Enabled</div>
+          ) : (
+            // YELLOW BUTTON - Default state, awaiting user click
+            <button
+              className="enable-axes-btn"
+              onClick={handleEnableAxes}
+              disabled={enablingAxes}
+            >
+              {enablingAxes ? 'Enabling...' : '⚙️ Enable ID/OD Axes'}
+            </button>
+          )}
         </div>
 
         <div className="axes-container">

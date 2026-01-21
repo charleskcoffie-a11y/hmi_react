@@ -17,7 +17,6 @@ export default function PatternSelectionModal({
       { code: 4, name: 'RedRet + ExpRet' },
       { code: 5, name: 'Repeat' },
       { code: 6, name: 'RedExt + ExpExt' },
-      { code: 8, name: 'All off' },
     ],
     []
   );
@@ -27,9 +26,9 @@ export default function PatternSelectionModal({
     if (stepNumber === 1) {
       return patternOptions.filter((p) => p.code === 6);
     }
-    // Step 2 forbids patterns 1, 3, 4, 5, 8
+    // Step 2 forbids patterns 1, 3, 4, 5
     if (stepNumber === 2) {
-      return patternOptions.filter((p) => ![1, 3, 4, 5, 8].includes(p.code));
+      return patternOptions.filter((p) => ![1, 3, 4, 5].includes(p.code));
     }
     // Step 10 forbids patterns 0, 2, 6, 5
     if (stepNumber === 10) {

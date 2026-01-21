@@ -105,10 +105,7 @@ function createWindow() {
   try { win.setMinimumSize(1024, 768); } catch (e) {}
   try { win.center(); } catch (e) {}
 
-  // Load from dev server (allow override via env for preview)
-  const DEV_SERVER = process.env.DEV_SERVER_URL || 'http://localhost:3003';
-  
-  // Function to load from build files
+  // Load from build files - Electron app always loads from build folder
   const loadFromBuild = () => {
     const isPackaged = app.isPackaged;
     const buildPath = isPackaged
@@ -121,11 +118,8 @@ function createWindow() {
     });
   };
   
-  // Try dev server first, fallback to build
-  win.loadURL(DEV_SERVER).catch((err) => {
-    console.log('[electron] Dev server not available, loading from build folder');
-    loadFromBuild();
-  });
+  // Load from build folder
+  loadFromBuild();
 
   win.setMenuBarVisibility(false);
 

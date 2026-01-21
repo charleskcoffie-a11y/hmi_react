@@ -1008,6 +1008,42 @@
   cursor: not-allowed;
 }
 
+/* Enable Axes Button - Yellow warning style for Step 1 */
+.enable-axes-btn {
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+  color: #1f1f1f;
+  border: 2px solid #ff9800;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
+}
+
+.enable-axes-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #ffb300 0%, #ff8a00 100%);
+  box-shadow: 0 6px 16px rgba(255, 152, 0, 0.6);
+  transform: translateY(-2px);
+}
+
+.enable-axes-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.enable-axes-btn.selected {
+  outline: 2px solid #ffe082;
+  box-shadow: 0 0 0 2px rgba(255, 224, 130, 0.6), 0 6px 16px rgba(255, 152, 0, 0.6);
+}
+
+.step1-axis-toggle {
+  display: flex;
+  gap: 8px;
+}
+
 .add-step-btn {
   padding: 8px 16px;
   background: linear-gradient(135deg, #5a9aff 0%, #3a6ac0 100%);

@@ -10,6 +10,7 @@ export default function ModernDialog({
   cancelText = 'Cancel',
   onConfirm,
   onCancel,
+  confirmDisabled = false,
   children,
 }) {
   const resolvedOpen = typeof open === 'boolean' ? open : !!isOpen;
@@ -23,7 +24,19 @@ export default function ModernDialog({
           {onCancel && (
             <button className="modern-dialog-cancel" onClick={onCancel}>{cancelText}</button>
           )}
-          <button className="modern-dialog-confirm" onClick={onConfirm}>{confirmText}</button>
+          <button 
+            className="modern-dialog-confirm" 
+            onClick={() => {
+              console.log('[ModernDialog] Confirm button clicked, disabled=', confirmDisabled);
+              if (!confirmDisabled && onConfirm) {
+                console.log('[ModernDialog] Calling onConfirm');
+                onConfirm();
+              }
+            }} 
+            disabled={confirmDisabled}
+          >
+            {confirmText}
+          </button>
         </div>
       </div>
     </div>
