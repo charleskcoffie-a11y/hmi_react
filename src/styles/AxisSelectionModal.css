@@ -64,3 +64,36 @@
   border-radius: 6px;
   border-left: 3px solid #5a9aff;
 }
+.axis-feedback-status {
+  margin-top: 12px;
+  padding: 10px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid #3a6a9f;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
+.axis-feedback-status .feedback-label {
+  color: #88c0ff;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.axis-feedback-status .ok {
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(11, 107, 44, 0.3);
+  color: #5fd986;
+  border: 1px solid #3d8b5a;
+}
+
+.axis-feedback-status .bad {
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(163, 38, 0, 0.2);
+  color: #ff6b5b;
+  border: 1px solid #8b4038;
+}

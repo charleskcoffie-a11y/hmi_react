@@ -204,20 +204,25 @@ async function sendStartPositionCommand(payload) {
     throw new Error('Missing side for start position command');
   }
   
-  // Indices: 11=Left StartPosPb, 50=Right StartPosPb
-  const index = side === 'left' ? 11 : 50;
+  // Button indices: 11=Left StartPosPb, 50=Right StartPosPb
+  const pbIndex = side === 'left' ? 11 : 50;
   
+  console.log(`[plcApiService] Pulsing StartPos button - side: ${side}, index: ${pbIndex}`);
   const res = await fetch(`${API_BASE}/io/pulse`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ index, durationMs: 100 })
+    body: JSON.stringify({ index: pbIndex, durationMs: 100 })
   });
   
   const data = await res.json();
+  console.log(`[plcApiService] StartPos pulse response:`, data);
+  
   if (!data.success) {
     throw new Error(data.error || 'Failed to send start position command');
   }
-  return data;
+  
+  console.log(`[plcApiService] StartPos pulse sent successfully for ${side} side`);
+  return { success: true, message: `${side} side start position command sent` };
 }
 
 /**

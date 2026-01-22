@@ -947,6 +947,31 @@
   gap: 8px;
 }
 
+.axis-feedback-status {
+  margin-top: 6px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: #333;
+}
+
+.axis-feedback-status .ok {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #e6ffed;
+  color: #0b6b2c;
+  border: 1px solid #b7e7c3;
+}
+
+.axis-feedback-status .bad {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #fff3f0;
+  color: #a32600;
+  border: 1px solid #f2c8bc;
+}
+
 .step-name-input-compact {
   flex: 1;
   background: rgba(0, 0, 0, 0.4);

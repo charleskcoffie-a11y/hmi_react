@@ -9,8 +9,11 @@ export default function AxisSelectionModal({
   side,
   patternCode,
   stepNumber,
+  lastFeedback = [], // Receive feedback from parent
+  onAxisClick = null, // Callback when axis button clicked (for immediate pulse)
 }) {
   const [enabledAxis, setEnabledAxis] = useState(null); // 'id' or 'od'
+  const [enabling, setEnabling] = useState(false); // Track if currently enabling
 
   const axes = useMemo(() => {
     const code = Number(patternCode);
@@ -32,12 +35,6 @@ export default function AxisSelectionModal({
   const showID = axes === 'id' || axes === 'both';
   const showOD = axes === 'od' || axes === 'both';
 
-  const handleAxisEnable = (axis) => {
-    console.log('[AxisSelectionModal] handleAxisEnable called with axis:', axis);
-    setEnabledAxis(axis);
-    console.log('[AxisSelectionModal] enabledAxis updated to:', axis);
-  };
-
   const handleConfirm = () => {
     console.log('[AxisSelectionModal] handleConfirm called with enabledAxis:', enabledAxis);
     if (enabledAxis) {
@@ -51,6 +48,37 @@ export default function AxisSelectionModal({
   const handleCancel = () => {
     setEnabledAxis(null);
     onClose();
+  };
+
+  const renderFeedbackStatus = () => {
+    if (!lastFeedback?.length) return null;
+    return (
+      <div className="axis-feedback-status">
+        <div className="feedback-label">PLC Status:</div>
+        {lastFeedback.map((f) => (
+          <span key={f.tag} className={f.value ? 'ok' : 'bad'}>
+            {f.tag.split('.').slice(-1)[0]}: {f.value ? '✓ ON' : '◯ OFF'}
+          </span>
+        ))}
+      </div>
+    );
+  };
+
+  const handleAxisClick = async (axis) => {
+    console.log('[AxisSelectionModal] Axis button clicked, calling onAxisClick:', axis);
+    setEnabling(true);
+    try {
+      // Call parent to pulse and enable the axis (same as Step 1 Enable button)
+      if (onAxisClick) {
+        await onAxisClick(axis);
+      }
+      setEnabledAxis(axis);
+      console.log('[AxisSelectionModal] Axis enable completed for:', axis);
+    } catch (err) {
+      console.error('[AxisSelectionModal] Error enabling axis:', err);
+    } finally {
+      setEnabling(false);
+    }
   };
 
   return (
@@ -70,10 +98,11 @@ export default function AxisSelectionModal({
               className={`axis-button id-button ${enabledAxis === 'id' ? 'active' : ''}`}
               onClick={() => {
                 console.log('[AxisSelectionModal] ID button clicked');
-                handleAxisEnable('id');
+                handleAxisClick('id');
               }}
+              disabled={enabling}
             >
-              <div className="axis-label">{enabledAxis === 'id' ? '✓ ID' : '📍 ID'}</div>
+              <div className="axis-label">{enabling && enabledAxis === 'id' ? '⏳ Enabling...' : enabledAxis === 'id' ? '✓ ID' : '📍 ID'}</div>
             </button>
           )}
           {showOD && (
@@ -81,14 +110,20 @@ export default function AxisSelectionModal({
               className={`axis-button od-button ${enabledAxis === 'od' ? 'active' : ''}`}
               onClick={() => {
                 console.log('[AxisSelectionModal] OD button clicked');
-                handleAxisEnable('od');
+                handleAxisClick('od');
               }}
+              disabled={enabling}
             >
-              <div className="axis-label">{enabledAxis === 'od' ? '✓ OD' : '📍 OD'}</div>
+              <div className="axis-label">{enabling && enabledAxis === 'od' ? '⏳ Enabling...' : enabledAxis === 'od' ? '✓ OD' : '📍 OD'}</div>
             </button>
           )}
         </div>
+        {/* Clear axis condition label to mirror right/left head behavior */}
+        <div className="axis-condition-label">
+          {enabledAxis ? `Selected Axis: ${enabledAxis.toUpperCase()}` : 'Select an axis to enable'}
+        </div>
         <div className="axis-instructions">Move axis using jog controls, then click Confirm</div>
+        {renderFeedbackStatus()}
       </div>
     </ModernDialog>
   );

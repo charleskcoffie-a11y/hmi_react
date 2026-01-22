@@ -376,20 +376,30 @@ function createServer() {
   app.post('/pulse-bool', async (req, res) => {
     try {
       const { tag, durationMs = 150 } = req.body;
+      console.log('[plc-server] PULSE-BOOL REQUEST: tag=', tag, 'durationMs=', durationMs, 'connected=', connected);
+      
       if (!tag) {
+        console.error('[plc-server] PULSE-BOOL: Missing tag in request body');
         return res.status(400).json({ success: false, error: 'Missing tag' });
       }
       if (!connected) {
+        console.error('[plc-server] PULSE-BOOL: PLC NOT CONNECTED');
         return res.status(500).json({ success: false, error: 'PLC not connected' });
       }
 
+      console.log('[plc-server] PULSE-BOOL: Writing TRUE to', tag);
       await writeTagValue(tag, true);
+      
+      console.log('[plc-server] PULSE-BOOL: Sleeping for', durationMs, 'ms');
       await sleep(Number(durationMs) || 150);
+      
+      console.log('[plc-server] PULSE-BOOL: Writing FALSE to', tag);
       await writeTagValue(tag, false);
 
+      console.log('[plc-server] PULSE-BOOL: SUCCESS for tag', tag);
       res.json({ success: true });
     } catch (err) {
-      console.error('[plc-server] pulse-bool error:', err.message);
+      console.error('[plc-server] pulse-bool error:', err.message, 'stack:', err.stack);
       res.status(500).json({ success: false, error: err.message });
     }
   });

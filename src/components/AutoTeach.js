@@ -65,32 +65,27 @@ export default function AutoTeach({
   const [jogModeEnabled, setJogModeEnabled] = useState(false);
   const [axesEnabled, setAxesEnabled] = useState(false); // ID/OD axes must be manually enabled
   const [enablingAxes, setEnablingAxes] = useState(false);
+  const [lastAxisFeedback, setLastAxisFeedback] = useState([]); // Track last feedback read values for ID/OD
   const activeCardRef = useRef(null);
 
   const activeStepNumber = Math.min(recordedSteps.length + 1, 10);
 
   const eligibleRepeatTargets = useMemo(() => {
-    // Allow repeating previously-recorded steps (2-9) AND the current active step
-    // Never allow repeating step 1 or step 10
+    // Allow repeating ONLY previously-recorded steps (2-9)
+    // Never allow repeating step 1, step 10, or the current uncommitted active step
     const recordedTargets = recordedSteps
       .map((s) => s.step)
       .filter((n) => typeof n === 'number' && n >= 2 && n <= 9);
     
-    // Add the current active step to the list (if it's not step 1 or 10)
-    const allTargets = [...recordedTargets];
-    if (activeStepNumber >= 2 && activeStepNumber <= 9 && !allTargets.includes(activeStepNumber)) {
-      allTargets.push(activeStepNumber);
-    }
-    
-    // Unique + sorted
-    const result = Array.from(new Set(allTargets)).sort((a, b) => a - b);
+    // Unique + sorted (do NOT add activeStepNumber since it's not recorded yet)
+    const result = Array.from(new Set(recordedTargets)).sort((a, b) => a - b);
     console.log('[AutoTeach] eligibleRepeatTargets:', result, 'recordedSteps:', recordedSteps.map(s => ({ step: s.step, name: s.stepName })), 'activeStepNumber:', activeStepNumber);
     return result;
   }, [recordedSteps, activeStepNumber]);
 
   const repeatAllowedForActiveStep =
-    activeStepNumber >= 2 &&
-    activeStepNumber <= 9 &&
+    activeStepNumber >= 3 &&
+    activeStepNumber <= 10 &&
     eligibleRepeatTargets.length > 0;
 
   // Step 1 is fixed to PLC pattern code 6 (RedExt + ExpExt) and must not be editable.
@@ -124,6 +119,7 @@ export default function AutoTeach({
       setRepeatKeypadOpen(false);
       setEnabledAxis(null); // Reset axis selection on open
       setAxesEnabled(false);
+      setLastAxisFeedback([]);
     }
     previousIsOpenRef.current = isOpen;
   }, [isOpen]); // Only depend on isOpen, not programName or side
@@ -217,32 +213,97 @@ export default function AutoTeach({
 
   // Handle enabling ID/OD axes - MUST be called manually by user
   const handleEnableAxes = async (axis = 'both') => {
+    console.log('[AutoTeach] handleEnableAxes called for STEP 1 - axis:', axis, 'side:', side);
     setEnablingAxes(true);
     try {
       const idTag = side === 'left' ? 'GLEFTHEAD.bHmiLeftExpPb' : 'GRIGHTHEAD.bHmiRightExpPb';
       const odTag = side === 'left' ? 'GLEFTHEAD.bHmiLeftRedPb' : 'GRIGHTHEAD.bHmiRightRedPb';
+      const idReadyTag = side === 'left' ? 'GLEFTHEAD.bHmiLeftExpEna' : 'GRIGHTHEAD.bHmiRightExpEna';
+      const odReadyTag = side === 'left' ? 'GLEFTHEAD.bHmiLeftRedEna' : 'GRIGHTHEAD.bHmiRightRedEna';
 
       const tagsToPulse = [];
       if (axis === 'id' || axis === 'both') tagsToPulse.push(idTag);
       if (axis === 'od' || axis === 'both') tagsToPulse.push(odTag);
 
+      console.log('[AutoTeach] STEP 1 - Pulsing tags:', tagsToPulse);
+
       for (const tag of tagsToPulse) {
+        console.log('[AutoTeach] STEP 1 PULSE REQUEST: tag=', tag, 'durationMs=200');
+        
         const response = await fetch('http://localhost:3001/pulse-bool', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ tag, durationMs: 200 })
         });
-        if (!response.ok) throw new Error(`Failed to pulse ${tag}`);
+        
+        console.log('[AutoTeach] STEP 1 PULSE HTTP RESPONSE: status=', response.status, 'statusText=', response.statusText);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('[AutoTeach] STEP 1 PULSE HTTP ERROR:', errorText);
+          throw new Error(`HTTP error: ${response.status} ${response.statusText} for tag ${tag}`);
+        }
+        
         const result = await response.json();
-        if (!result.success) throw new Error(result.message || `PLC pulse failed for ${tag}`);
+        console.log('[AutoTeach] STEP 1 PULSE RESULT JSON:', result);
+        
+        if (!result.success) {
+          console.error('[AutoTeach] STEP 1 PULSE FAILED - PLC returned success=false:', result);
+          throw new Error(result.error || result.message || `PLC pulse failed for ${tag}`);
+        }
+        
+        console.log('[AutoTeach] STEP 1 PULSE SUCCESS for tag:', tag);
+      }
+
+      // After pulsing, wait for PLC feedback that axis is enabled/ready
+      const readyTags = [];
+      if (axis === 'id' || axis === 'both') readyTags.push(idReadyTag);
+      if (axis === 'od' || axis === 'both') readyTags.push(odReadyTag);
+
+      const waitForFeedback = async (tags, timeoutMs = 3000, intervalMs = 150) => {
+        const deadline = Date.now() + timeoutMs;
+        while (Date.now() < deadline) {
+          try {
+            const reads = await Promise.all(
+              tags.map(async (t) => {
+                const resp = await fetch(`http://localhost:3001/read?tag=${encodeURIComponent(t)}`);
+                if (!resp.ok) return { tag: t, ok: false };
+                const json = await resp.json();
+                const raw = json?.value;
+                const value = raw === true || raw === 1 || raw === 'true' || raw === 'TRUE';
+                return { tag: t, ok: true, value };
+              })
+            );
+            const allTrue = reads.every((r) => r.ok && r.value === true);
+            setLastAxisFeedback(reads);
+            console.log('[AutoTeach] STEP 1 Feedback poll:', reads, 'allTrue:', allTrue);
+            if (allTrue) return true;
+          } catch (e) {
+            console.warn('[AutoTeach] STEP 1 Feedback poll error:', e?.message);
+          }
+          await new Promise((res) => setTimeout(res, intervalMs));
+        }
+        return false;
+      };
+
+      const feedbackOk = await waitForFeedback(readyTags);
+      if (!feedbackOk) {
+        throw new Error(`Axis not ready. Feedback: ${readyTags.join(', ')}`);
       }
 
       setAxesEnabled(true);
       setEnabledAxis(axis === 'both' ? null : axis);
-      console.log('[AutoTeach] Axes enabled for', side, 'axis:', axis, 'tags:', tagsToPulse);
+      console.log('[AutoTeach] STEP 1 - Axes enabled and READY for', side, 'axis:', axis);
     } catch (error) {
-      console.error('[AutoTeach] Error enabling axes:', error);
+      console.error('[AutoTeach] STEP 1 - Error enabling axes:', error);
       setAxesEnabled(false);
+      setDialog({
+        open: true,
+        title: 'Axis Enable Failed',
+        message: `Failed to enable ${axis.toUpperCase()} axis: ${error.message}. Check PLC connection and try again.`,
+        confirm: closeDialog,
+        cancel: null,
+      });
     } finally {
       setEnablingAxes(false);
     }
@@ -282,6 +343,19 @@ export default function AutoTeach({
   const axis2Label = 'OD';
 
   const closeDialog = () => setDialog({ open: false, title: '', message: '', confirm: null, cancel: null });
+
+  const renderFeedbackStatus = () => {
+    if (!lastAxisFeedback?.length) return null;
+    return (
+      <div className="axis-feedback-status">
+        {lastAxisFeedback.map((f) => (
+          <span key={f.tag} className={f.value ? 'ok' : 'bad'}>
+            {f.tag.split('.').slice(-1)[0]}: {f.value ? 'ON' : 'OFF'}
+          </span>
+        ))}
+      </div>
+    );
+  };
 
   const buildProgramPayload = (stepsArray) => {
     const steps = {};
@@ -460,8 +534,22 @@ export default function AutoTeach({
     // Check if this is a return pattern (1=Red Ret, 3=Exp Ret, 4=RedRet+ExpRet)
     const returnPatterns = [1, 3, 4];
     if (returnPatterns.includes(patternCode) && recordedSteps.length > 0) {
-      // Auto-copy previous step's position
-      const previousStep = recordedSteps[recordedSteps.length - 1];
+      // Always return to Step 1 (start position)
+      const step1 = recordedSteps.find((s) => s.step === 1) || recordedSteps[0];
+      if (!step1) {
+        setDialog({
+          open: true,
+          title: 'Start Position Missing',
+          message: 'Cannot create a return step because Step 1 (start position) is missing.',
+          confirm: closeDialog,
+          cancel: null,
+        });
+        setShowPatternModal(false);
+        setPendingPattern(null);
+        setPattern(0);
+        return;
+      }
+
       const stepNumberToRecord = Math.min(recordedSteps.length + 1, 10);
       const defaultStepName = stepNumberToRecord === 1 ? 'Start Position' : `Step ${stepNumberToRecord}`;
 
@@ -471,8 +559,8 @@ export default function AutoTeach({
         pattern: patternCode,
         needsReteach: false,
         positions: {
-          axis1Cmd: previousStep.positions.axis1Cmd,
-          axis2Cmd: previousStep.positions.axis2Cmd,
+          axis1Cmd: step1.positions.axis1Cmd,
+          axis2Cmd: step1.positions.axis2Cmd,
         },
         dwell: 0,
         enabledAxis: null, // Auto-copy doesn't need axis selection
@@ -524,10 +612,108 @@ export default function AutoTeach({
     }
   };
 
-  // Handle axis selection from AxisSelectionModal
+  // Enable axis for STEP 2+ (called when user clicks ID/OD button in modal)
+  const handleEnableAxisStep2Plus = async (axis) => {
+    console.log('[AutoTeach] handleEnableAxisStep2Plus called - axis:', axis, 'side:', side);
+    
+    try {
+      setEnablingAxes(true);
+      const idTag = side === 'left' ? 'GLEFTHEAD.bHmiLeftExpPb' : 'GRIGHTHEAD.bHmiRightExpPb';
+      const odTag = side === 'left' ? 'GLEFTHEAD.bHmiLeftRedPb' : 'GRIGHTHEAD.bHmiRightRedPb';
+      const idReadyTag = side === 'left' ? 'GLEFTHEAD.bHmiLeftExpEna' : 'GRIGHTHEAD.bHmiRightExpEna';
+      const odReadyTag = side === 'left' ? 'GLEFTHEAD.bHmiLeftRedEna' : 'GRIGHTHEAD.bHmiRightRedEna';
+
+      const tagsToPulse = axis === 'id' ? [idTag] : axis === 'od' ? [odTag] : [idTag, odTag];
+      
+      console.log('[AutoTeach] Pulsing tags for axis:', axis, 'tags:', tagsToPulse);
+      
+      // Pulse each tag and wait for success
+      for (const tag of tagsToPulse) {
+        console.log('[AutoTeach] PULSE REQUEST: tag=', tag, 'durationMs=200');
+        
+        const response = await fetch('http://localhost:3001/pulse-bool', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tag, durationMs: 200 })
+        });
+        
+        console.log('[AutoTeach] PULSE HTTP RESPONSE: status=', response.status, 'statusText=', response.statusText);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('[AutoTeach] PULSE HTTP ERROR:', errorText);
+          throw new Error(`HTTP error: ${response.status} ${response.statusText} for tag ${tag}`);
+        }
+        
+        const result = await response.json();
+        console.log('[AutoTeach] PULSE RESULT JSON:', result);
+        
+        if (!result.success) {
+          console.error('[AutoTeach] PULSE FAILED - PLC returned success=false:', result);
+          throw new Error(result.error || result.message || `PLC pulse failed for ${tag}`);
+        }
+        
+        console.log('[AutoTeach] PULSE SUCCESS for tag:', tag);
+      }
+
+      // Poll PLC ready feedback for selected axis(es)
+      const readyTags = axis === 'id' ? [idReadyTag] : axis === 'od' ? [odReadyTag] : [idReadyTag, odReadyTag];
+      const waitForFeedback = async (tags, timeoutMs = 3000, intervalMs = 150) => {
+        const deadline = Date.now() + timeoutMs;
+        while (Date.now() < deadline) {
+          try {
+            const reads = await Promise.all(
+              tags.map(async (t) => {
+                const resp = await fetch(`http://localhost:3001/read?tag=${encodeURIComponent(t)}`);
+                if (!resp.ok) return { tag: t, ok: false };
+                const json = await resp.json();
+                const raw = json?.value;
+                const value = raw === true || raw === 1 || raw === 'true' || raw === 'TRUE';
+                return { tag: t, ok: true, value };
+              })
+            );
+            const allTrue = reads.every((r) => r.ok && r.value === true);
+            setLastAxisFeedback(reads);
+            console.log('[AutoTeach] STEP 2+ Enable Feedback poll:', reads, 'allTrue:', allTrue);
+            if (allTrue) return true;
+          } catch (e) {
+            console.warn('[AutoTeach] STEP 2+ Enable Feedback poll error:', e?.message);
+          }
+          await new Promise((res) => setTimeout(res, intervalMs));
+        }
+        return false;
+      };
+
+      const feedbackOk = await waitForFeedback(readyTags);
+      if (!feedbackOk) {
+        throw new Error(`Axis not ready. Feedback: ${readyTags.join(', ')}`);
+      }
+      
+      console.log('[AutoTeach] Successfully enabled axis for STEP 2+:', axis);
+      setEnablingAxes(false);
+      
+    } catch (err) {
+      console.error('[AutoTeach] Error enabling axis for STEP 2+:', err?.message);
+      setEnablingAxes(false);
+      setDialog({
+        open: true,
+        title: 'Axis Enable Failed',
+        message: `Failed to enable ${axis.toUpperCase()} axis: ${err?.message}. Check PLC connection and try again.`,
+        confirm: closeDialog,
+        cancel: null,
+      });
+      throw err; // Re-throw so modal button can catch it
+    }
+  };
+
+  // Handle axis record button click from AxisSelectionModal
   const handleAxisSelected = async (axis) => {
-    console.log('[AutoTeach] handleAxisSelected called with axis:', axis);
-    await handleEnableAxes(axis);
+    console.log('[AutoTeach] handleAxisSelected called for STEP 2+ - axis:', axis, 'side:', side, 'activeStepNumber:', activeStepNumber);
+    
+    // Small delay to ensure PLC has processed the enable pulse
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    // Now create and record the step
     const stepNumberToRecord = Math.min(recordedSteps.length + 1, 10);
     const defaultStepName = stepNumberToRecord === 1 ? 'Start Position' : `Step ${stepNumberToRecord}`;
 
@@ -554,6 +740,31 @@ export default function AutoTeach({
     setPendingPattern(null);
     setPattern(0);
     setEnabledAxis(null);
+    setLastAxisFeedback([]);
+
+    // Pulse JogHeadEnabledOff for a fresh start on next step
+    try {
+      const offTag = side === 'left' ? 'GLEFTHEAD.bLeftJogHeadEnabledOff' : 'GRIGHTHEAD.bRightJogHeadEnabledOff';
+      console.log('[AutoTeach] Pulsing JogHeadEnabledOff tag:', offTag);
+      const resp = await fetch('http://localhost:3001/pulse-bool', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tag: offTag, durationMs: 200 })
+      });
+      if (!resp.ok) {
+        const txt = await resp.text();
+        console.warn('[AutoTeach] JogHeadEnabledOff pulse HTTP error:', resp.status, resp.statusText, txt);
+      } else {
+        const json = await resp.json();
+        if (!json.success) {
+          console.warn('[AutoTeach] JogHeadEnabledOff pulse PLC returned success=false:', json);
+        } else {
+          console.log('[AutoTeach] JogHeadEnabledOff pulse success');
+        }
+      }
+    } catch (e) {
+      console.warn('[AutoTeach] Failed to pulse JogHeadEnabledOff:', e?.message);
+    }
   };
 
   const handleEditStep = (index) => {
@@ -575,7 +786,7 @@ export default function AutoTeach({
     const original = recordedSteps[editingStepIndex];
     if (original) {
       const forbidden = new Set(
-        original.step === 2 ? [1, 3, 4, 5, 8] : original.step === 10 ? [0, 2, 6, 5] : []
+        original.step === 2 ? [1, 3, 4, 5, 8] : original.step === 10 ? [0, 2, 6] : []
       );
       if (forbidden.has(editStepPattern)) {
         setDialog({
@@ -747,6 +958,8 @@ export default function AutoTeach({
                   </button>
                 )}
               </div>
+
+              {renderFeedbackStatus()}
 
               {/* Jog Mode Controls - Simple disable button only */}
               <div className="jog-controls-row">
@@ -967,8 +1180,9 @@ export default function AutoTeach({
                 <div className="repeat-info-box">
                   <div className="info-icon">ℹ️</div>
                   <div className="info-text">
-                    Step 1 (Start Position) and Step 10 (End Position) cannot be repeated.
-                    Only steps 2-9 are eligible.
+                    You can add Repeat on steps 3–10.
+                    Choose a previously recorded target step between 2–9 (Step 2 is allowed).
+                    Step 1 (Start) and Step 10 (End) cannot be targets.
                   </div>
                 </div>
               </div>
@@ -1007,9 +1221,11 @@ export default function AutoTeach({
                 setPendingPattern(null);
               }}
               onSelectAxis={handleAxisSelected}
+              onAxisClick={handleEnableAxisStep2Plus}
               side={side}
               patternCode={pendingPattern ?? pattern}
               stepNumber={Math.min(recordedSteps.length + 1, 10)}
+              lastFeedback={lastAxisFeedback}
             />
 
             <ModernDialog

@@ -30,9 +30,9 @@ export default function PatternSelectionModal({
     if (stepNumber === 2) {
       return patternOptions.filter((p) => ![1, 3, 4, 5].includes(p.code));
     }
-    // Step 10 forbids patterns 0, 2, 6, 5
+    // Step 10 forbids patterns 0, 2, 6 (Repeat allowed to target earlier steps)
     if (stepNumber === 10) {
-      return patternOptions.filter((p) => ![0, 2, 6, 5].includes(p.code));
+      return patternOptions.filter((p) => ![0, 2, 6].includes(p.code));
     }
     // All other steps allow all patterns
     return patternOptions;
