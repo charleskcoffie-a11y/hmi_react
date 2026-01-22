@@ -1,5 +1,4 @@
 import React from 'react';
-import { pulseButton } from '../services/ioService';
 import '../styles/ControlPanel.css';
 
 export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach, onMachineParameters, onStartPosition, userRole, pumpEnabled, startPosReadyStatus }) {
@@ -17,13 +16,9 @@ export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach,
         <div className="control-section center-section">
           <button 
             className="control-btn start-position-btn start-left-btn"
-            onClick={async () => {
-              try {
-                await pulseButton(11, 150); // Index 11: bHmiLeftStartPosPb
-                onStartPosition && onStartPosition('left');
-              } catch (err) {
-                console.error('Failed to pulse Start Left:', err);
-              }
+            onClick={() => {
+              console.log('[ControlPanel] Start Left clicked');
+              onStartPosition && onStartPosition('left');
             }}
             disabled={!canStartPosition}
             title={!pumpEnabled ? 'Pump must be running to enable start position' : !startPosReadyStatus.left || !startPosReadyStatus.right ? 'Machine is not ready to move to start position' : 'Set start position for left side'}
@@ -33,13 +28,9 @@ export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach,
           </button>
           <button 
             className="control-btn start-position-btn start-right-btn"
-            onClick={async () => {
-              try {
-                await pulseButton(50, 150); // Index 50: bHmiRightStartPosPb
-                onStartPosition && onStartPosition('right');
-              } catch (err) {
-                console.error('Failed to pulse Start Right:', err);
-              }
+            onClick={() => {
+              console.log('[ControlPanel] Start Right clicked');
+              onStartPosition && onStartPosition('right');
             }}
             disabled={!canStartPosition}
             title={!pumpEnabled ? 'Pump must be running to enable start position' : !startPosReadyStatus.left || !startPosReadyStatus.right ? 'Machine is not ready to move to start position' : 'Set start position for right side'}

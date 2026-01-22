@@ -1331,11 +1331,15 @@ export default function MainHMI() {
   };
 
   const handleStartPosition = async (side) => {
+    console.log(`[MainHMI] handleStartPosition called - side: ${side}`);
     try {
+      console.log(`[MainHMI] Calling writePLCVar with startPosition command`);
       await writePLCVar({ command: 'startPosition', side });
       const sideText = side === 'left' ? 'left side' : 'right side';
+      console.log(`[MainHMI] StartPosition command successful for ${side}`);
       showMessage('Start Position', `Moving ${sideText} to start position`, 'info');
     } catch (error) {
+      console.error(`[MainHMI] StartPosition error:`, error);
       showMessage('Error', `Failed to send start position command: ${error.message}`, 'error');
     }
   };
