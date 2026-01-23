@@ -1,32 +1,86 @@
-# Getting Started with Create React App
+# CNC Dual Head HMI - React + Electron + TwinCAT 3
+
+This project is a React-based HMI (Human-Machine Interface) for a 4-axis CNC machine with direct Beckhoff TwinCAT 3 PLC integration via ADS (Automation Device Specification). The system supports teaching 10-step machine programs and managing recipes on dual machine heads (left/right sides).
+
+## Key Features
+
+- **10-Step Program Creation**: Teach positions for each step with support for expand/retract movements
+- **Dual Machine Heads**: Independent program control for left and right sides
+- **Recipe Management**: Store and load machine parameters (speed, dwell, dimensions)
+- **Direct PLC Integration**: Real-time communication via ADS protocol with Beckhoff TwinCAT 3
+- **Electron Desktop App**: Packaged as standalone Windows application (32-bit NSIS installer)
+- **Auto Teach Mode**: Streamlined workflow for rapid program creation with jog mode integration
+
+## Architecture
+
+- **React Web App** (`src/`) - Frontend UI with axis controls, program creation, recipe management
+- **Electron Wrapper** (`electron/`) - Desktop app packaging with 1024x768 resolution support
+- **Node.js ADS Backend** (`electron/backend/plc-server.js`) - Express server bridging web app to PLC via ads-client library
+- **PLC Integration** - Direct communication with Beckhoff TwinCAT variables via NET ID
+
+## PLC Data Structure
+
+### Step 1 - Start Position
+```
+GLEFTHEAD.lLeftPosStep1[0]   = OD (Red) position
+GLEFTHEAD.lLeftPosStep1[2]   = ID (Exp) position
+GRIGHTHEAD.lRightPosStep1[0] = OD (Red) position
+GRIGHTHEAD.lRightPosStep1[2] = ID (Exp) position
+```
+
+### Steps 2-10 - 2D Arrays with Extend/Retract
+```
+GLEFTHEAD.aLeftRedPos[2..10, 0..1]  = Left OD [step, 0=retract/1=extend]
+GLEFTHEAD.aLeftExpPos[2..10, 0..1]  = Left ID [step, 0=retract/1=extend]
+GRIGHTHEAD.aRightRedPos[2..10, 0..1] = Right OD [step, 0=retract/1=extend]
+GRIGHTHEAD.aRightExpPos[2..10, 0..1] = Right ID [step, 0=retract/1=extend]
+```
+
+## Getting Started
+
+### Development Mode
+
+```bash
+npm install          # Install dependencies
+npm start            # Run React dev server on localhost:3000
+```
+
+### Production Build
+
+```bash
+npm run build        # Build React app to ./build/
+cd electron
+npm install          # Install Electron dependencies
+npm start            # Run Electron app (loads ./build)
+npm run dist32       # Build 32-bit Windows NSIS installer
+```
+
+The installer will be created at `electron/dist/CNC Dual head Setup [version].exe`
+
+## Documentation
+
+- [QUICKSTART.md](QUICKSTART.md) - Quick setup guide
+- [TEN_STEP_PROGRAM_GUIDE.md](TEN_STEP_PROGRAM_GUIDE.md) - Program structure and PLC integration details
+- [TWINCAT_RECIPE_STRUCTURE.md](TWINCAT_RECIPE_STRUCTURE.md) - Recipe parameter mapping
+- [HMI_DESIGN.md](HMI_DESIGN.md) - UI/UX design specifications
+- [JOG_MODE_IMPLEMENTATION.md](JOG_MODE_IMPLEMENTATION.md) - Jog mode feature details
+
+## Configuration
+
+### PLC NET ID
+Default: `169.254.109.230.1.1` (configurable via Settings modal in app)
+
+### Backend Server
+Port: `3001` (HTTP API for PLC operations)
+
+### Electron Window
+Resolution: `1024x768` (hardcoded in `electron/main.js`)
+
+## License
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
-## Available Scripts
-
-In the project directory, you can run:
-
-### `npm start`
-
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
-
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
-
-### `npm test`
-
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
-
-### `npm run build`
-
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
-
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
-### `Auto Edit` (Global Offset)
+### Auto Edit (Global Offset)
 
 The Edit Program page includes an Auto Edit feature to quickly offset taught positions based on measured and desired diameters.
 
@@ -40,45 +94,3 @@ Notes:
 - Right side updates `axis1Cmd` and/or `axis2Cmd` for active axes.
 - Left side updates `axis3Cmd`/`axis4Cmd` when present, otherwise `axis1Cmd`/`axis2Cmd`.
 - Repeat steps (pattern 5) are not altered.
-
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
-
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)

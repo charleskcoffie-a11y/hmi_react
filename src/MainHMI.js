@@ -1293,7 +1293,31 @@ export default function MainHMI() {
       setPlcDirty(prev => ({ ...prev, [updatedProgram.side]: false }));
     }
     
-    showMessage('Program Updated', `Program "${updatedProgram.name}" has been updated successfully`, 'success');
+    // Auto-download the updated program to PLC after saving
+    (async () => {
+      try {
+        // Sync recipe parameters first (if available for this session)
+        if (currentParameters && updatedProgram.side) {
+          const paramsSent = await sendRecipeParametersToPLC(currentParameters, updatedProgram.side);
+          if (!paramsSent) {
+            console.warn('[MainHMI] Auto-download: failed to send recipe parameters before program download');
+          }
+        }
+
+        // Push program to PLC
+        await writePLCVar({
+          command: 'downloadProgram',
+          program: updatedProgram,
+          parameters: currentParameters || undefined
+        });
+
+        showMessage('Program Saved & Downloaded', `Program "${updatedProgram.name}" saved and sent to ${updatedProgram.side} side`, 'success');
+      } catch (err) {
+        console.error('[MainHMI] Auto-download failed after save:', err.message);
+        showMessage('Program Saved (PLC sync failed)', `Program "${updatedProgram.name}" saved locally, but PLC sync failed: ${err.message}`, 'warning');
+      }
+    })();
+
     setShowProgramEditor(false);
     setProgramToEdit(null);
   };

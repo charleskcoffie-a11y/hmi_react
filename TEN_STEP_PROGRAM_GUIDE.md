@@ -8,38 +8,36 @@ Complete program creation system with 10 configurable steps that maps directly t
 
 ### Your PLC Definition
 ```structuredtext
-//Step 1
-	lLeftPosStep1		:ARRAY [0..3] OF LREAL;
-	lRightPosStep1		:ARRAY [0..3] OF LREAL;
-	
-//Step 2
-	lleftPosStep2		:ARRAY [0..3] OF LREAL;
-	lRightPosStep2		:ARRAY [0..3] OF LREAL;
-	
-//Step 3 (Special: index 0-id expand, index 1-id retract, index 2-od expand, index 3-od retract)
-	lleftPosStep3		:ARRAY [0..3] OF LREAL;
-	lRightPosStep3		:ARRAY [0..3] OF LREAL;
-	
-//Step 4-10 (Same structure)
-	lleftPosStep4		:ARRAY [0..3] OF LREAL;
-	lRightPosStep4		:ARRAY [0..3] OF LREAL;
-	...
-	lleftPosStep10		:ARRAY [0..3] OF LREAL;
-	lRightPosStep10		:ARRAY [0..3] OF LREAL;
+// Step 1 - Start position (uses GVL head-specific arrays)
+GLEFTHEAD.lLeftPosStep1   : ARRAY [0..3] OF LREAL;
+GRIGHTHEAD.lRightPosStep1 : ARRAY [0..3] OF LREAL;
+
+// Steps 2-10 - Per-step positions with extend/retract (2D arrays)
+GLEFTHEAD.aLeftRedPos  : ARRAY[2..10, 0..1] OF LREAL;  // Red (OD): [step,0]=retract, [step,1]=extend
+GLEFTHEAD.aLeftExpPos  : ARRAY[2..10, 0..1] OF LREAL;  // Exp (ID): [step,0]=retract, [step,1]=extend
+GRIGHTHEAD.aRightRedPos : ARRAY[2..10, 0..1] OF LREAL; // Red (OD): [step,0]=retract, [step,1]=extend
+GRIGHTHEAD.aRightExpPos : ARRAY[2..10, 0..1] OF LREAL; // Exp (ID): [step,0]=retract, [step,1]=extend
 ```
 **Position Arrays:**
 ```structuredtext
-// Left side - Steps 1-10
-lLeftPosStep1	: ARRAY [0..3] OF LREAL;
-lLeftPosStep2	: ARRAY [0..3] OF LREAL;
-lLeftPosStep3	: ARRAY [0..3] OF LREAL;  // Special: expand/retract
-// ... lLeftPosStep4 through lLeftPosStep10
+// Step 1 - Start position
+GLEFTHEAD.lLeftPosStep1[0]   = OD (Red) position
+GLEFTHEAD.lLeftPosStep1[2]   = ID (Exp) position
+GRIGHTHEAD.lRightPosStep1[0] = OD (Red) position
+GRIGHTHEAD.lRightPosStep1[2] = ID (Exp) position
 
-// Right side - Steps 1-10
-lRightPosStep1	: ARRAY [0..3] OF LREAL;
-lRightPosStep2	: ARRAY [0..3] OF LREAL;
-lRightPosStep3	: ARRAY [0..3] OF LREAL;  // Special: expand/retract
-// ... lRightPosStep4 through lRightPosStep10
+// Steps 2-10 - 2D arrays with extend/retract
+// Left side
+aLeftRedPos[step, 0]  = Red (OD) retract position
+aLeftRedPos[step, 1]  = Red (OD) extend position
+aLeftExpPos[step, 0]  = Exp (ID) retract position
+aLeftExpPos[step, 1]  = Exp (ID) extend position
+
+// Right side
+aRightRedPos[step, 0] = Red (OD) retract position
+aRightRedPos[step, 1] = Red (OD) extend position
+aRightExpPos[step, 0] = Exp (ID) retract position
+aRightExpPos[step, 1] = Exp (ID) extend position
 ```
 
 **Sequence Counters (NEW - INT tracking):**
@@ -122,31 +120,35 @@ programData = {
 
 ## Array Index Mapping
 
-### Right Side (Axis 1 & 2)
+### Step 1 - Start Position
 ```
-Index 0: Axis 1 (ID) - Inner Diameter
-Index 1: Axis 2 (OD) - Outer Diameter
-Index 2: (Unused/Reserved)
-Index 3: (Unused/Reserved)
-Sequence: iSeqRStepN (INT) for step N
+// Step 1 uses 1D arrays with fixed indices
+lLeftPosStep1[0]  = OD (Red) position
+lLeftPosStep1[2]  = ID (Exp) position
+lRightPosStep1[0] = OD (Red) position
+lRightPosStep1[2] = ID (Exp) position
+
+Sequence: iSeqLStep1 / iSeqRStep1 (INT)
 ```
 
-### Left Side (Axis 3 & 4)
+### Steps 2-10 - Per-Step Positions (2D Arrays)
 ```
-Index 0: Axis 3 (ID) - Inner Diameter
-Index 1: Axis 4 (OD) - Outer Diameter
-Index 2: (Unused/Reserved)
-Index 3: (Unused/Reserved)
-Sequence: iSeqLStepN (INT) for step N
-```
+// Second dimension: 0=retract, 1=extend
+// Pattern determines which index to write based on movement type
 
-### Special for Step 3 (Expand/Retract)
-```
-Index 0: ID Expand
-Index 1: ID Retract
-Index 2: OD Expand
-Index 3: OD Retract
-Sequence: iSeq{L|R}Step3 tracks execution/order for step 3
+Left Side:
+  aLeftRedPos[step, 0]  = Red (OD) retract
+  aLeftRedPos[step, 1]  = Red (OD) extend
+  aLeftExpPos[step, 0]  = Exp (ID) retract
+  aLeftExpPos[step, 1]  = Exp (ID) extend
+
+Right Side:
+  aRightRedPos[step, 0] = Red (OD) retract
+  aRightRedPos[step, 1] = Red (OD) extend
+  aRightExpPos[step, 0] = Exp (ID) retract
+  aRightExpPos[step, 1] = Exp (ID) extend
+
+Sequence: iSeqLStepN / iSeqRStepN (INT) for step N
 ```
 
 ## Sequence Counter Integration

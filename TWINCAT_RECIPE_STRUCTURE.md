@@ -11,9 +11,19 @@ This document defines the TwinCAT recipe parameter variable structure that the H
 
 ### Programs (Steps 1-10)
 Programs contain the **position arrays** for each step:
-- `lLeftPosStep1..10` - Left side axis positions (Axis 3 ID, Axis 4 OD)
-- `lRightPosStep1..10` - Right side axis positions (Axis 1 ID, Axis 2 OD)
-- `iSeqLStep1..10` / `iSeqRStep1..10` - Sequence counters
+
+**Step 1** (Start position):
+- `GLEFTHEAD.lLeftPosStep1[0]` - Left OD (Red), `[2]` - Left ID (Exp)
+- `GRIGHTHEAD.lRightPosStep1[0]` - Right OD (Red), `[2]` - Right ID (Exp)
+
+**Steps 2-10** (2D arrays with extend/retract):
+- `GLEFTHEAD.aLeftRedPos[2..10, 0..1]` - Left OD positions [step, 0=retract/1=extend]
+- `GLEFTHEAD.aLeftExpPos[2..10, 0..1]` - Left ID positions [step, 0=retract/1=extend]
+- `GRIGHTHEAD.aRightRedPos[2..10, 0..1]` - Right OD positions [step, 0=retract/1=extend]
+- `GRIGHTHEAD.aRightExpPos[2..10, 0..1]` - Right ID positions [step, 0=retract/1=extend]
+
+**Sequence counters**:
+- `iSeqLStep1..10` / `iSeqRStep1..10` - INT counters for step tracking
 
 See [TEN_STEP_PROGRAM_GUIDE.md](TEN_STEP_PROGRAM_GUIDE.md) for program structure details.
 

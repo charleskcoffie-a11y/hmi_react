@@ -284,70 +284,106 @@ function createServer() {
   app.post('/write-recipe-params', async (req, res) => {
     try {
       const { side, parameters } = req.body;
+
+      console.log('[plc-server] /write-recipe-params received', { side, parameters });
       
       if (!side || !parameters) {
+        console.error('[plc-server] Missing side or parameters:', { side, parameters });
         return res.status(400).json({ success: false, error: 'Missing side or parameters' });
       }
       
       if (!connected) {
+        console.error('[plc-server] PLC not connected when trying to write recipe params');
         return res.status(500).json({ success: false, error: 'PLC not connected' });
       }
 
       // Map recipe parameters to PLC variable names
-      // Example mapping - adjust these to match your actual PLC variable structure
       const paramPrefix = side === 'left' ? 'GLEFTHEAD' : 'GRIGHTHEAD';
       const headPrefix = side === 'left' ? 'Left' : 'Right';
+      
+      const writeResults = [];
       
       try {
         // Write speed/recipe speed
         if (parameters.speed !== undefined) {
-          await writeTagValue(`${paramPrefix}.iHmi${headPrefix}Speed`, Math.round(parameters.speed));
+          const tag = `${paramPrefix}.iHmi${headPrefix}Speed`;
+          const value = parseFloat(parameters.speed);
+          console.log(`[plc-server] Writing recipe param: ${tag} = ${value}`);
+          await writeTagValue(tag, value);
+          writeResults.push({ tag, value, success: true });
         }
         
         // Write step delay
         if (parameters.stepDelay !== undefined) {
-          await writeTagValue(`${paramPrefix}.tHmi${headPrefix}StepDelay`, Math.round(parameters.stepDelay));
+          const tag = `${paramPrefix}.tHmi${headPrefix}StepDelay`;
+          const value = Math.round(parameters.stepDelay);
+          console.log(`[plc-server] Writing recipe param: ${tag} = ${value}`);
+          await writeTagValue(tag, value);
+          writeResults.push({ tag, value, success: true });
         }
         
         // Write tube dimensions
         if (parameters.tubeID !== undefined) {
-          await writeTagValue(`${paramPrefix}.rHmi${headPrefix}TubeID`, parseFloat(parameters.tubeID));
+          const tag = `${paramPrefix}.rHmi${headPrefix}TubeID`;
+          const value = parseFloat(parameters.tubeID);
+          console.log(`[plc-server] Writing recipe param: ${tag} = ${value}`);
+          await writeTagValue(tag, value);
+          writeResults.push({ tag, value, success: true });
         }
         
         if (parameters.tubeOD !== undefined) {
-          await writeTagValue(`${paramPrefix}.rHmi${headPrefix}TubeOD`, parseFloat(parameters.tubeOD));
+          const tag = `${paramPrefix}.rHmi${headPrefix}TubeOD`;
+          const value = parseFloat(parameters.tubeOD);
+          console.log(`[plc-server] Writing recipe param: ${tag} = ${value}`);
+          await writeTagValue(tag, value);
+          writeResults.push({ tag, value, success: true });
         }
         
         if (parameters.finalSize !== undefined) {
-          await writeTagValue(`${paramPrefix}.rHmi${headPrefix}FinalSize`, parseFloat(parameters.finalSize));
+          const tag = `${paramPrefix}.rHmi${headPrefix}FinalSize`;
+          const value = parseFloat(parameters.finalSize);
+          console.log(`[plc-server] Writing recipe param: ${tag} = ${value}`);
+          await writeTagValue(tag, value);
+          writeResults.push({ tag, value, success: true });
         }
         
         if (parameters.tubeLength !== undefined) {
-          await writeTagValue(`${paramPrefix}.rHmi${headPrefix}TubeLength`, parseFloat(parameters.tubeLength));
+          const tag = `${paramPrefix}.rHmi${headPrefix}TubeLength`;
+          const value = parseFloat(parameters.tubeLength);
+          console.log(`[plc-server] Writing recipe param: ${tag} = ${value}`);
+          await writeTagValue(tag, value);
+          writeResults.push({ tag, value, success: true });
         }
         
         // Write expansion parameters
         if (parameters.idFingerRadius !== undefined) {
-          await writeTagValue(`${paramPrefix}.rHmi${headPrefix}IDFingerRadius`, parseFloat(parameters.idFingerRadius));
+          const tag = `${paramPrefix}.rHmi${headPrefix}IDFingerRadius`;
+          const value = parseFloat(parameters.idFingerRadius);
+          console.log(`[plc-server] Writing recipe param: ${tag} = ${value}`);
+          await writeTagValue(tag, value);
+          writeResults.push({ tag, value, success: true });
         }
         
         if (parameters.depth !== undefined) {
-          await writeTagValue(`${paramPrefix}.rHmi${headPrefix}Depth`, parseFloat(parameters.depth));
+          const tag = `${paramPrefix}.rHmi${headPrefix}Depth`;
+          const value = parseFloat(parameters.depth);
+          console.log(`[plc-server] Writing recipe param: ${tag} = ${value}`);
+          await writeTagValue(tag, value);
+          writeResults.push({ tag, value, success: true });
         }
         
-        console.log(`[plc-server] Recipe parameters written successfully for ${side} side`);
-        res.json({ success: true, message: `Recipe parameters written to ${side} side` });
+        console.log(`[plc-server] Recipe parameters write complete for ${side} side. Results:`, writeResults);
+        res.json({ success: true, message: `Recipe parameters written to ${side} side`, writeResults });
         
       } catch (writeErr) {
-        console.warn(`[plc-server] Some recipe parameters may not have written due to variable mismatch: ${writeErr.message}`);
-        res.json({ 
-          success: true, 
-          message: `Attempted to write recipe parameters for ${side} side (some variables may not exist in PLC)`,
-          warning: writeErr.message 
+        console.error(`[plc-server] Recipe parameter write error for ${side} side:`, writeErr.message, 'Stack:', writeErr.stack);
+        res.status(500).json({ 
+          success: false, 
+          error: `Failed to write recipe parameters: ${writeErr.message}`
         });
       }
     } catch (err) {
-      console.error('[plc-server] write-recipe-params error:', err.message);
+      console.error('[plc-server] write-recipe-params endpoint error:', err.message, 'Stack:', err.stack);
       res.status(500).json({ success: false, error: err.message });
     }
   });
@@ -571,12 +607,19 @@ function createServer() {
         if (!step) {
           // Write all enables to false for empty steps
           try {
-            await writeTagValue(`${gvlPrefix}.aHmi${headPrefix}StepEna[${stepNum}]`, false);
-            await writeTagValue(`${gvlPrefix}.a${headPrefix}RedExtEna[${stepNum}]`, false);
-            await writeTagValue(`${gvlPrefix}.a${headPrefix}RedRetEna[${stepNum}]`, false);
-            await writeTagValue(`${gvlPrefix}.a${headPrefix}ExpExtEna[${stepNum}]`, false);
-            await writeTagValue(`${gvlPrefix}.a${headPrefix}ExpRetEna[${stepNum}]`, false);
-            await writeTagValue(`${gvlPrefix}.a${headPrefix}RepeatEna[${stepNum}]`, false);
+            if (stepNum === 1) {
+              // Step 1 uses different enable variable names
+              await writeTagValue(`${gvlPrefix}.aHmi${headPrefix}StepEna[${stepNum}]`, false);
+              // Step 1 position structure is different, handled separately below
+            } else {
+              // Steps 2-10 use standard array enable variables
+              await writeTagValue(`${gvlPrefix}.aHmi${headPrefix}StepEna[${stepNum}]`, false);
+              await writeTagValue(`${gvlPrefix}.a${headPrefix}RedExtEna[${stepNum}]`, false);
+              await writeTagValue(`${gvlPrefix}.a${headPrefix}RedRetEna[${stepNum}]`, false);
+              await writeTagValue(`${gvlPrefix}.a${headPrefix}ExpExtEna[${stepNum}]`, false);
+              await writeTagValue(`${gvlPrefix}.a${headPrefix}ExpRetEna[${stepNum}]`, false);
+              await writeTagValue(`${gvlPrefix}.a${headPrefix}RepeatEna[${stepNum}]`, false);
+            }
           } catch (err) {
             errors.push(`Step ${stepNum} (empty): ${err.message}`);
           }
@@ -596,13 +639,40 @@ function createServer() {
           await writeTagValue(`${gvlPrefix}.a${headPrefix}ExpRetEna[${stepNum}]`, pattern.expRet);
           await writeTagValue(`${gvlPrefix}.a${headPrefix}RepeatEna[${stepNum}]`, pattern.repeat);
 
-          // Write positions (axis1 = Red/ID, axis2 = Exp/OD)
+          // Write positions (machine mapping: Red = OD, Exp = ID)
+          // NOTE: Step 1 uses different variable structure than steps 2-10
           if (step.positions) {
-            if (step.positions.axis1 !== undefined) {
-              await writeTagValue(`${gvlPrefix}.a${headPrefix}RedPos[${stepNum}]`, step.positions.axis1);
-            }
-            if (step.positions.axis2 !== undefined) {
-              await writeTagValue(`${gvlPrefix}.a${headPrefix}ExpPos[${stepNum}]`, step.positions.axis2);
+            if (stepNum === 1) {
+              // Step 1: uses lRightPosStep1 / lLeftPosStep1 with fixed indices
+              // [0] = OD (Red), [2] = ID (Exp)
+              if (step.positions.axis1Cmd !== undefined) {
+                const tag = `${gvlPrefix}.l${headPrefix}PosStep1[0]`;
+                console.log(`[plc-server] Step 1: Writing OD position = ${step.positions.axis1Cmd}`);
+                await writeTagValue(tag, step.positions.axis1Cmd);
+              }
+              if (step.positions.axis2Cmd !== undefined) {
+                const tag = `${gvlPrefix}.l${headPrefix}PosStep1[2]`;
+                console.log(`[plc-server] Step 1: Writing ID position = ${step.positions.axis2Cmd}`);
+                await writeTagValue(tag, step.positions.axis2Cmd);
+              }
+            } else {
+              // Steps 2-10: use 2D arrays ARRAY[2..10, 0..1] OF LREAL
+              // [step,0] = Retract pos, [step,1] = Extend pos
+              // axis1Cmd = ID (Exp), axis2Cmd = OD (Red)
+              if (step.positions.axis1Cmd !== undefined) {
+                // Determine Exp (ID) index: 0=retract, 1=extend
+                const expIdx = (pattern.expExt) ? 1 : 0;
+                const tag = `${gvlPrefix}.a${headPrefix}ExpPos[${stepNum},${expIdx}]`;
+                console.log(`[plc-server] Step ${stepNum}: Writing ID position (ExpPos[${stepNum},${expIdx}]) = ${step.positions.axis1Cmd}`);
+                await writeTagValue(tag, step.positions.axis1Cmd);
+              }
+              if (step.positions.axis2Cmd !== undefined) {
+                // Determine Red (OD) index: 0=retract, 1=extend
+                const redIdx = (pattern.redExt) ? 1 : 0;
+                const tag = `${gvlPrefix}.a${headPrefix}RedPos[${stepNum},${redIdx}]`;
+                console.log(`[plc-server] Step ${stepNum}: Writing OD position (RedPos[${stepNum},${redIdx}]) = ${step.positions.axis2Cmd}`);
+                await writeTagValue(tag, step.positions.axis2Cmd);
+              }
             }
           }
 

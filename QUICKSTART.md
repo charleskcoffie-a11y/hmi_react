@@ -78,6 +78,36 @@ npm install @beckhoff/ads
 
 Ensure your TwinCAT project has these variables:
 
+**Step 1 positions** (1D arrays in head-specific GVLs):
+```structuredtext
+GLEFTHEAD.lLeftPosStep1   : ARRAY [0..3] OF LREAL;   // [0]=OD, [2]=ID
+GRIGHTHEAD.lRightPosStep1 : ARRAY [0..3] OF LREAL;   // [0]=OD, [2]=ID
+```
+
+**Steps 2-10 positions** (2D arrays with retract/extend):
+```structuredtext
+GLEFTHEAD.aLeftRedPos  : ARRAY[2..10, 0..1] OF LREAL;  // [step,0]=retract, [step,1]=extend
+GLEFTHEAD.aLeftExpPos  : ARRAY[2..10, 0..1] OF LREAL;  // [step,0]=retract, [step,1]=extend
+GRIGHTHEAD.aRightRedPos : ARRAY[2..10, 0..1] OF LREAL; // [step,0]=retract, [step,1]=extend
+GRIGHTHEAD.aRightExpPos : ARRAY[2..10, 0..1] OF LREAL; // [step,0]=retract, [step,1]=extend
+```
+
+**Pattern enable flags** (per step):
+```structuredtext
+GLEFTHEAD.aLeftRedExtEna[2..10]   : ARRAY[2..10] OF BOOL;
+GLEFTHEAD.aLeftRedRetEna[2..10]   : ARRAY[2..10] OF BOOL;
+GLEFTHEAD.aLeftExpExtEna[2..10]   : ARRAY[2..10] OF BOOL;
+GLEFTHEAD.aLeftExpRetEna[2..10]   : ARRAY[2..10] OF BOOL;
+GLEFTHEAD.aLeftRepeatEna[2..10]   : ARRAY[2..10] OF BOOL;
+// Same for GRIGHTHEAD with aRight* prefix
+```
+
+**Sequence counters**:
+```structuredtext
+iSeqLStep1..10 : INT;  // Left side step counters
+iSeqRStep1..10 : INT;  // Right side step counters
+```
+
 ```structuredtext
 // Position variables (Right side)
 lRightPosStep1, lRightPosStep2, ... lRightPosStep10 : ARRAY[0..3] OF LREAL
