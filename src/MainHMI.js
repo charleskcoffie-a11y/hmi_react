@@ -241,6 +241,18 @@ export default function MainHMI() {
     right: false   // GRIGHTHEAD.bHmiRightStartPosEna
   });
 
+  // Start position PB feedback (momentary) for visual pulse
+  const [startPosFeedback, setStartPosFeedback] = useState({
+    left: false,   // GLEFTHEAD.bHmiLeftStartPosPb
+    right: false   // GRIGHTHEAD.bHmiRightStartPosPb
+  });
+
+  // Axis at start position status (when true, axis is already at start position)
+  const [atStartPos, setAtStartPos] = useState({
+    left: false,   // GLEFTHEAD.bLeftAtStartPos
+    right: false   // GRIGHTHEAD.bRightAtStartPos
+  });
+
   // Jog mode dialog states
   const [showJogDialog, setShowJogDialog] = useState(false);
   const [jogActiveSide, setJogActiveSide] = useState(null); // 'left' or 'right'
@@ -490,6 +502,60 @@ export default function MainHMI() {
           }
         } catch (startPosErr) {
           console.warn('[MainHMI] Start position ready status read error:', startPosErr.message || startPosErr);
+        }
+
+        // Read start position pushbutton feedback (momentary) to drive UI pulse color
+        try {
+          const leftPbRes = await fetch('http://localhost:3001/read?tag=GLEFTHEAD.bHmiLeftStartPosPb');
+          const rightPbRes = await fetch('http://localhost:3001/read?tag=GRIGHTHEAD.bHmiRightStartPosPb');
+
+          if (leftPbRes.ok && rightPbRes.ok) {
+            const [leftPbData, rightPbData] = await Promise.all([
+              leftPbRes.json(),
+              rightPbRes.json()
+            ]);
+
+            const newStartPosFeedback = {
+              left: leftPbData.success ? Boolean(leftPbData.value) : false,
+              right: rightPbData.success ? Boolean(rightPbData.value) : false
+            };
+
+            setStartPosFeedback(prev => {
+              if (JSON.stringify(prev) !== JSON.stringify(newStartPosFeedback)) {
+                return newStartPosFeedback;
+              }
+              return prev;
+            });
+          }
+        } catch (startPosFbErr) {
+          console.warn('[MainHMI] Start position PB feedback read error:', startPosFbErr.message || startPosFbErr);
+        }
+
+        // Read "at start position" status from PLC (indicates axis is already at start position)
+        try {
+          const leftAtStartRes = await fetch('http://localhost:3001/read?tag=GLEFTHEAD.bLeftAtStartPos');
+          const rightAtStartRes = await fetch('http://localhost:3001/read?tag=GRIGHTHEAD.bRightAtStartPos');
+
+          if (leftAtStartRes.ok && rightAtStartRes.ok) {
+            const [leftAtStartData, rightAtStartData] = await Promise.all([
+              leftAtStartRes.json(),
+              rightAtStartRes.json()
+            ]);
+
+            const newAtStartPos = {
+              left: leftAtStartData.success ? Boolean(leftAtStartData.value) : false,
+              right: rightAtStartData.success ? Boolean(rightAtStartData.value) : false
+            };
+
+            setAtStartPos(prev => {
+              if (JSON.stringify(prev) !== JSON.stringify(newAtStartPos)) {
+                return newAtStartPos;
+              }
+              return prev;
+            });
+          }
+        } catch (atStartErr) {
+          console.warn('[MainHMI] At start position read error:', atStartErr.message || atStartErr);
         }
 
         // Read jog ready status from PLC (ID and OD ready flags)
@@ -992,8 +1058,46 @@ export default function MainHMI() {
     setShowProgramNameModal(true);
   };
 
-  const handleProgramNameConfirm = (name) => {
+  const handleProgramNameConfirm = async (name) => {
     const programName = name?.trim() ? name.trim() : 'New Program';
+    
+    // Reset all PLC recipe variables to zero/defaults when starting new program
+    try {
+      console.log('[MainHMI] Resetting PLC recipe variables for new program');
+      const sidePrefix = selectedSide === 'left' ? 'GLEFTHEAD' : 'GRIGHTHEAD';
+      const headSuffix = selectedSide === 'left' ? 'Left' : 'Right';
+      
+      const resetVariables = [
+        { tag: `${sidePrefix}.iHmi${headSuffix}Speed`, value: 100 },
+        { tag: `${sidePrefix}.tHmi${headSuffix}StepDelay`, value: 500 },
+        { tag: `${sidePrefix}.rHmi${headSuffix}TubeID`, value: 0.0 },
+        { tag: `${sidePrefix}.rHmi${headSuffix}TubeOD`, value: 0.0 },
+        { tag: `${sidePrefix}.rHmi${headSuffix}FinalSize`, value: 0.0 },
+        { tag: `${sidePrefix}.rHmi${headSuffix}TubeLength`, value: 0.0 },
+        { tag: `${sidePrefix}.rHmi${headSuffix}IDFingerRadius`, value: 0.0 },
+        { tag: `${sidePrefix}.rHmi${headSuffix}Depth`, value: 0.0 }
+      ];
+      
+      // Write each variable to reset them
+      for (const variable of resetVariables) {
+        try {
+          await fetch('http://localhost:3001/write', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tag: variable.tag, value: variable.value })
+          });
+          console.log(`[MainHMI] Reset ${variable.tag} to ${variable.value}`);
+        } catch (err) {
+          console.warn(`[MainHMI] Failed to reset ${variable.tag}:`, err.message);
+        }
+      }
+      
+      console.log('[MainHMI] PLC recipe variables reset complete');
+    } catch (err) {
+      console.error('[MainHMI] Error resetting PLC variables:', err.message);
+      // Don't fail the program creation, just warn
+    }
+    
     setCurrentProgram({ name: programName, side: selectedSide, steps: {} });
     setProgramSteps({});
     setCurrentStep(1);
@@ -1024,13 +1128,16 @@ export default function MainHMI() {
     setCurrentStep((prev) => Math.max(1, prev - 1));
   };
 
-  const handleCancelProgram = () => {
+  const handleCancelProgram = async () => {
     setShowSideSelector(false);
     setShowProgramNameModal(false);
     setSelectedSide(null);
     setCurrentProgram(null);
     setProgramSteps({});
     setCurrentStep(1);
+    setCurrentScreen(SCREEN_INDEX.MAIN_CONTROL);
+    // Explicitly write screen index to PLC
+    await writeScreenIndex(SCREEN_INDEX.MAIN_CONTROL);
   };
 
   const handleSelectRecipeSide = (side) => {
@@ -1100,8 +1207,46 @@ export default function MainHMI() {
     setShowAutoTeachNameModal(true);
   };
 
-  const handleAutoTeachProgramNameConfirm = (name) => {
+  const handleAutoTeachProgramNameConfirm = async (name) => {
     const programName = name?.trim() ? name.trim() : 'AutoTeach Program';
+    
+    // Reset all PLC recipe variables to zero/defaults when starting new AutoTeach program
+    try {
+      console.log('[MainHMI] Resetting PLC recipe variables for AutoTeach');
+      const sidePrefix = autoTeachSide === 'left' ? 'GLEFTHEAD' : 'GRIGHTHEAD';
+      const headSuffix = autoTeachSide === 'left' ? 'Left' : 'Right';
+      
+      const resetVariables = [
+        { tag: `${sidePrefix}.iHmi${headSuffix}Speed`, value: 100 },
+        { tag: `${sidePrefix}.tHmi${headSuffix}StepDelay`, value: 500 },
+        { tag: `${sidePrefix}.rHmi${headSuffix}TubeID`, value: 0.0 },
+        { tag: `${sidePrefix}.rHmi${headSuffix}TubeOD`, value: 0.0 },
+        { tag: `${sidePrefix}.rHmi${headSuffix}FinalSize`, value: 0.0 },
+        { tag: `${sidePrefix}.rHmi${headSuffix}TubeLength`, value: 0.0 },
+        { tag: `${sidePrefix}.rHmi${headSuffix}IDFingerRadius`, value: 0.0 },
+        { tag: `${sidePrefix}.rHmi${headSuffix}Depth`, value: 0.0 }
+      ];
+      
+      // Write each variable to reset them
+      for (const variable of resetVariables) {
+        try {
+          await fetch('http://localhost:3001/write', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tag: variable.tag, value: variable.value })
+          });
+          console.log(`[MainHMI] Reset ${variable.tag} to ${variable.value}`);
+        } catch (err) {
+          console.warn(`[MainHMI] Failed to reset ${variable.tag}:`, err.message);
+        }
+      }
+      
+      console.log('[MainHMI] PLC recipe variables reset complete');
+    } catch (err) {
+      console.error('[MainHMI] Error resetting PLC variables:', err.message);
+      // Don't fail the AutoTeach, just warn
+    }
+    
     setAutoTeachProgramName(programName);
     setShowAutoTeachNameModal(false);
     setAutoTeachOpen(true);
@@ -1399,6 +1544,11 @@ export default function MainHMI() {
       await writePLCVar({ command: 'startPosition', side });
       const sideText = side === 'left' ? 'left side' : 'right side';
       console.log(`[MainHMI] StartPosition command successful for ${side}`);
+      // Latch UI pulse so momentary write is visible even if PLC poll misses the 200ms window
+      setStartPosFeedback(prev => ({ ...prev, [side]: true }));
+      setTimeout(() => {
+        setStartPosFeedback(prev => ({ ...prev, [side]: false }));
+      }, 600);
       showMessage('Start Position', `Moving ${sideText} to start position`, 'info');
     } catch (error) {
       console.error(`[MainHMI] StartPosition error:`, error);
@@ -1737,15 +1887,19 @@ export default function MainHMI() {
           userRole={currentUser}
           pumpEnabled={pumpEnabled}
           startPosReadyStatus={startPosReadyStatus}
+          startPosFeedback={startPosFeedback}
+          homedSides={homedSides}
+          atStartPos={atStartPos}
         />
       </div>
  
       <RecipeManager
         isOpen={recipeOpen}
-        onClose={() => { 
+        onClose={async () => { 
           setRecipeOpen(false); 
           setRecipeSide(null);
           setCurrentScreen(SCREEN_INDEX.MAIN_CONTROL);
+          await writeScreenIndex(SCREEN_INDEX.MAIN_CONTROL);
         }}
         recipes={recipeSide === 'right' ? recipesRight : recipesLeft}
         side={recipeSide}
@@ -1758,7 +1912,11 @@ export default function MainHMI() {
 
       <MachineParameters
         isOpen={machineParametersOpen}
-        onClose={() => setMachineParametersOpen(false)}
+        onClose={async () => {
+          setMachineParametersOpen(false);
+          setCurrentScreen(SCREEN_INDEX.MAIN_CONTROL);
+          await writeScreenIndex(SCREEN_INDEX.MAIN_CONTROL);
+        }}
         plcStatus={plcStatus}
         unitSystem={unitSystem}
         onUnitChange={setUnitSystem}
@@ -1775,7 +1933,11 @@ export default function MainHMI() {
 
       <DigitalIOPage
         isOpen={ioPageOpen}
-        onClose={() => setIoPageOpen(false)}
+        onClose={async () => {
+          setIoPageOpen(false);
+          setCurrentScreen(SCREEN_INDEX.MAIN_CONTROL);
+          await writeScreenIndex(SCREEN_INDEX.MAIN_CONTROL);
+        }}
       />
 
       {showSideSelector && (
@@ -1863,7 +2025,11 @@ export default function MainHMI() {
 
       <RecipeParameters
         isOpen={parametersOpen}
-        onClose={() => setParametersOpen(false)}
+        onClose={async () => {
+          setParametersOpen(false);
+          setCurrentScreen(SCREEN_INDEX.MAIN_CONTROL);
+          await writeScreenIndex(SCREEN_INDEX.MAIN_CONTROL);
+        }}
         side={parametersSide}
         parameters={currentParameters}
         onSave={handleSaveParameters}
@@ -1913,9 +2079,11 @@ export default function MainHMI() {
 
       <ProgramEditor
         isOpen={showProgramEditor}
-        onClose={() => {
+        onClose={async () => {
           setShowProgramEditor(false);
           setProgramToEdit(null);
+          setCurrentScreen(SCREEN_INDEX.MAIN_CONTROL);
+          await writeScreenIndex(SCREEN_INDEX.MAIN_CONTROL);
         }}
         program={{ ...programToEdit, recipeName: programToEdit?.side ? currentRecipe[programToEdit.side] : undefined }}
         onSaveProgram={handleSaveProgramChanges}
@@ -1924,7 +2092,11 @@ export default function MainHMI() {
 
       <AutoAdjustProgram
         isOpen={showAutoAdjust}
-        onClose={() => setShowAutoAdjust(false)}
+        onClose={async () => {
+          setShowAutoAdjust(false);
+          setCurrentScreen(SCREEN_INDEX.MAIN_CONTROL);
+          await writeScreenIndex(SCREEN_INDEX.MAIN_CONTROL);
+        }}
         side={programToEdit?.side || ''}
         stepCount={programToEdit ? Object.keys(programToEdit.steps).length : 10}
         stroke={programToEdit?.side === 'right' ? parametersOpen ? undefined : undefined : undefined}

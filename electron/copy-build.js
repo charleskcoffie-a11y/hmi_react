@@ -8,11 +8,12 @@ function copyRecursiveSync(src, dest) {
   const exists = fs.existsSync(src);
   const stats = exists && fs.statSync(src);
   const isDirectory = exists && stats.isDirectory();
+  
   if (!exists) {
-    console.error(`[copy-build] Source build folder not found: ${src}`);
-    process.exitCode = 1;
+    console.error(`[copy-build] Source not found: ${src}`);
     return;
   }
+  
   if (isDirectory) {
     if (!fs.existsSync(dest)) {
       fs.mkdirSync(dest, { recursive: true });
@@ -52,19 +53,33 @@ if (fs.existsSync(srcDir)) {
   process.exit(1);
 }
 
+// Verify index.html exists in source
+const indexPath = path.join(srcDir, 'index.html');
+if (!fs.existsSync(indexPath)) {
+  console.error(`[copy-build] ERROR: index.html not found in source: ${indexPath}`);
+  process.exit(1);
+}
+console.log(`[copy-build] Source index.html verified: ${indexPath}`);
+
 console.log('[copy-build] Cleaning destination...');
 cleanDir(destDir);
 
 console.log('[copy-build] Copying React build to electron/build...');
+// Create destination dir first
+if (!fs.existsSync(destDir)) {
+  fs.mkdirSync(destDir, { recursive: true });
+}
 copyRecursiveSync(srcDir, destDir);
 
 // Verify copy was successful
-if (fs.existsSync(path.join(destDir, 'index.html'))) {
+const destIndexPath = path.join(destDir, 'index.html');
+if (fs.existsSync(destIndexPath)) {
   console.log('[copy-build] ✓ Success! index.html found in destination');
   const destFiles = fs.readdirSync(destDir);
   console.log(`[copy-build] Destination now contains ${destFiles.length} items`);
 } else {
-  console.error('[copy-build] ✗ ERROR: index.html NOT found in destination!');
+  console.error(`[copy-build] ✗ ERROR: index.html NOT found in destination: ${destIndexPath}`);
+  console.error(`[copy-build] Destination contents:`, fs.readdirSync(destDir));
   process.exit(1);
 }
 

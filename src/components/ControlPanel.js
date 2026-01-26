@@ -1,13 +1,17 @@
 import React from 'react';
 import '../styles/ControlPanel.css';
 
-export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach, onMachineParameters, onStartPosition, userRole, pumpEnabled, startPosReadyStatus }) {
+export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach, onMachineParameters, onStartPosition, userRole, pumpEnabled, startPosReadyStatus, startPosFeedback, homedSides, atStartPos }) {
   // Role-based access control
   const isAdmin = userRole === 'admin';
   const canAutoTeach = isAdmin || ((userRole !== 'operator') && pumpEnabled); // Admin always can access, others need pump enabled
   const canEditProgram = userRole !== 'operator' || isAdmin;
   const canMachineParams = userRole === 'engineering' || isAdmin;
-  const canStartPosition = pumpEnabled && startPosReadyStatus.left && startPosReadyStatus.right; // Both start position enables must be true
+  // Start position enable condition: pump running AND axis homed AND axis NOT at start position
+  const leftStartReady = pumpEnabled && homedSides?.left && !atStartPos?.left;
+  const rightStartReady = pumpEnabled && homedSides?.right && !atStartPos?.right;
+  const leftStartActive = Boolean(startPosFeedback?.left);
+  const rightStartActive = Boolean(startPosFeedback?.right);
   const canPartParameters = true; // All can access part parameters
 
   return (
@@ -15,25 +19,25 @@ export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach,
       <div className="control-panel">
         <div className="control-section center-section">
           <button 
-            className="control-btn start-position-btn start-left-btn"
+            className={`control-btn start-position-btn start-left-btn ${leftStartReady ? 'enabled' : ''} ${leftStartActive ? 'active' : ''}`}
             onClick={() => {
               console.log('[ControlPanel] Start Left clicked');
               onStartPosition && onStartPosition('left');
             }}
-            disabled={!canStartPosition}
-            title={!pumpEnabled ? 'Pump must be running to enable start position' : !startPosReadyStatus.left || !startPosReadyStatus.right ? 'Machine is not ready to move to start position' : 'Set start position for left side'}
+            disabled={!leftStartReady}
+            title={!pumpEnabled ? 'Pump must be running' : !homedSides?.left ? 'Axis must be homed first' : atStartPos?.left ? 'Axis is already at start position' : 'Move to start position for left side'}
           >
             <span className="btn-icon">↓</span>
             Start Left
           </button>
           <button 
-            className="control-btn start-position-btn start-right-btn"
+            className={`control-btn start-position-btn start-right-btn ${rightStartReady ? 'enabled' : ''} ${rightStartActive ? 'active' : ''}`}
             onClick={() => {
               console.log('[ControlPanel] Start Right clicked');
               onStartPosition && onStartPosition('right');
             }}
-            disabled={!canStartPosition}
-            title={!pumpEnabled ? 'Pump must be running to enable start position' : !startPosReadyStatus.left || !startPosReadyStatus.right ? 'Machine is not ready to move to start position' : 'Set start position for right side'}
+            disabled={!rightStartReady}
+            title={!pumpEnabled ? 'Pump must be running' : !homedSides?.right ? 'Axis must be homed first' : atStartPos?.right ? 'Axis is already at start position' : 'Move to start position for right side'}
           >
             <span className="btn-icon">↓</span>
             Start Right

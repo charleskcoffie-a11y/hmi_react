@@ -65,11 +65,42 @@
   border-color: #17a2b8;
   font-size: 11px;
   padding: 8px 12px;
+  transition: all 0.3s ease;
+  color: #666; /* Default disabled color */
 }
 
 .start-position-btn:hover {
   background: linear-gradient(135deg, #1fc8e3 0%, #17a2b8 100%);
   box-shadow: 0 0 15px rgba(23, 162, 184, 0.5);
+}
+
+/* Enabled state - bright green text ONLY when enabled */
+.start-position-btn.enabled {
+  color: #00ff00;
+  text-shadow: 0 0 10px rgba(0, 255, 0, 0.7);
+  border-color: #00ff00;
+  font-weight: bold;
+}
+
+/* Active pulse when PLC feedback or latched UI pulse is present */
+.start-position-btn.active {
+  background: linear-gradient(135deg, #ffd54f 0%, #ff9800 100%);
+  color: #1a1a1a;
+  border-color: #ffb300;
+  box-shadow: 0 0 18px rgba(255, 152, 0, 0.8);
+}
+
+.start-position-btn.enabled:hover {
+  box-shadow: 0 0 20px rgba(0, 255, 0, 0.8);
+  background: linear-gradient(135deg, #1fc8e3 0%, #17a2b8 100%);
+}
+
+.start-position-btn.enabled:disabled,
+.start-position-btn:disabled {
+  color: #666;
+  text-shadow: none;
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .start-left-btn {

@@ -204,25 +204,47 @@ async function sendStartPositionCommand(payload) {
     throw new Error('Missing side for start position command');
   }
   
-  // Button indices: 11=Left StartPosPb, 50=Right StartPosPb
-  const pbIndex = side === 'left' ? 11 : 50;
+  // Map side to PLC variable
+  const pbTag = side === 'left' ? 'GLEFTHEAD.bHmiLeftStartPosPb' : 'GRIGHTHEAD.bHmiRightStartPosPb';
+  const durationMs = 200;
+  const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
   
-  console.log(`[plcApiService] Pulsing StartPos button - side: ${side}, index: ${pbIndex}`);
-  const res = await fetch(`${API_BASE}/io/pulse`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ index: pbIndex, durationMs: 100 })
-  });
-  
-  const data = await res.json();
-  console.log(`[plcApiService] StartPos pulse response:`, data);
-  
-  if (!data.success) {
-    throw new Error(data.error || 'Failed to send start position command');
+  console.log(`[plcApiService] Sending StartPos command - side: ${side}, tag: ${pbTag}`);
+  try {
+    // Prefer precise PLC-side pulse to guarantee a clean bool write
+    const pulseRes = await fetch(`${API_BASE}/pulse-bool`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tag: pbTag, durationMs })
+    });
+
+    const pulseData = await pulseRes.json();
+    console.log(`[plcApiService] StartPos pulse response:`, pulseData);
+
+    if (pulseRes.ok && pulseData.success) {
+      console.log(`[plcApiService] StartPos command sent successfully for ${side} via pulse-bool`);
+      return { success: true, message: `${side} side start position command sent` };
+    }
+
+    // Fallback: explicit write true/false with bool endpoint
+    console.warn(`[plcApiService] pulse-bool failed for ${side} (${pulseData.error || 'unknown error'}). Falling back to write-bool sequence.`);
+    await fetch(`${API_BASE}/write-bool`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tag: pbTag, value: true })
+    });
+    await delay(durationMs);
+    await fetch(`${API_BASE}/write-bool`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tag: pbTag, value: false })
+    });
+    console.log(`[plcApiService] StartPos fallback write-bool sequence completed for ${side}`);
+    return { success: true, message: `${side} side start position command sent (fallback)` };
+  } catch (err) {
+    console.error(`[plcApiService] Failed to send StartPos command for ${side}:`, err.message);
+    throw err;
   }
-  
-  console.log(`[plcApiService] StartPos pulse sent successfully for ${side} side`);
-  return { success: true, message: `${side} side start position command sent` };
 }
 
 /**
@@ -235,20 +257,50 @@ async function sendRunCommand(payload) {
     throw new Error('Missing side for run command');
   }
   
-  // Indices: 12=Left RunPb, 51=Right RunPb
-  const index = side === 'left' ? 12 : 51;
-  
-  const res = await fetch(`${API_BASE}/io/pulse`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ index, durationMs: 100 })
-  });
-  
-  const data = await res.json();
-  if (!data.success) {
-    throw new Error(data.error || 'Failed to send run command');
+  // Support left, right, or both
+  const targets = side === 'both'
+    ? ['GLEFTHEAD.bHmiLeftRunPb', 'GRIGHTHEAD.bHmiRightRunPb']
+    : [side === 'left' ? 'GLEFTHEAD.bHmiLeftRunPb' : 'GRIGHTHEAD.bHmiRightRunPb'];
+
+  const durationMs = 200;
+  const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+  for (const tag of targets) {
+    console.log(`[plcApiService] Sending Run command via pulse-bool: tag=${tag}, duration=${durationMs}`);
+    try {
+      const res = await fetch(`${API_BASE}/pulse-bool`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tag, durationMs })
+      });
+      const data = await res.json();
+      console.log(`[plcApiService] Run pulse response for ${tag}:`, data);
+
+      if (res.ok && data.success) {
+        continue; // success for this tag
+      }
+
+      // Fallback: explicit true/false writes
+      console.warn(`[plcApiService] pulse-bool failed for ${tag} (${data.error || 'unknown error'}). Falling back to write-bool sequence.`);
+      await fetch(`${API_BASE}/write-bool`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tag, value: true })
+      });
+      await delay(durationMs);
+      await fetch(`${API_BASE}/write-bool`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tag, value: false })
+      });
+      console.log(`[plcApiService] Run fallback write-bool sequence completed for ${tag}`);
+    } catch (err) {
+      console.error(`[plcApiService] Failed to send Run command for tag ${tag}:`, err.message);
+      throw err;
+    }
   }
-  return data;
+
+  return { success: true, message: `Run command sent to ${side}` };
 }
 
 // Write a specific boolean tag

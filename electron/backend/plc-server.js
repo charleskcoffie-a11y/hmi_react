@@ -519,14 +519,21 @@ function createServer() {
       }
 
       console.log(`[plc-server] Pulsing tag ${tag} (index ${index})`);
+      console.log(`[plc-server] Writing TRUE to ${tag}...`);
       await writeTagValue(tag, true);
+      console.log(`[plc-server] Wrote TRUE to ${tag}`);
+      
       await sleep(Number(durationMs) || 150);
+      
+      console.log(`[plc-server] Writing FALSE to ${tag}...`);
       await writeTagValue(tag, false);
+      console.log(`[plc-server] Wrote FALSE to ${tag}`);
       console.log(`[plc-server] IO pulse complete for ${tag}`);
 
       res.json({ success: true, tag });
     } catch (err) {
       console.error('[plc-server] io/pulse error:', err.message);
+      console.error('[plc-server] io/pulse stack:', err.stack);
       res.status(500).json({ success: false, error: err.message });
     }
   });
