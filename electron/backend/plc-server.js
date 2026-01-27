@@ -652,14 +652,15 @@ function createServer() {
             if (stepNum === 1) {
               // Step 1: uses lRightPosStep1 / lLeftPosStep1 with fixed indices
               // [0] = OD (Red), [2] = ID (Exp)
+              // axis1Cmd = ID (Exp), axis2Cmd = OD (Red)
               if (step.positions.axis1Cmd !== undefined) {
-                const tag = `${gvlPrefix}.l${headPrefix}PosStep1[0]`;
-                console.log(`[plc-server] Step 1: Writing OD position = ${step.positions.axis1Cmd}`);
+                const tag = `${gvlPrefix}.l${headPrefix}PosStep1[2]`;
+                console.log(`[plc-server] Step 1: Writing ID position (ExpPos) = ${step.positions.axis1Cmd}`);
                 await writeTagValue(tag, step.positions.axis1Cmd);
               }
               if (step.positions.axis2Cmd !== undefined) {
-                const tag = `${gvlPrefix}.l${headPrefix}PosStep1[2]`;
-                console.log(`[plc-server] Step 1: Writing ID position = ${step.positions.axis2Cmd}`);
+                const tag = `${gvlPrefix}.l${headPrefix}PosStep1[0]`;
+                console.log(`[plc-server] Step 1: Writing OD position (RedPos) = ${step.positions.axis2Cmd}`);
                 await writeTagValue(tag, step.positions.axis2Cmd);
               }
             } else {

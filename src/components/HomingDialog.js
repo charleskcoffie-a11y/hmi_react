@@ -5,6 +5,9 @@ export default function HomingDialog({ isOpen, onClose, side, timeout = 60 }) {
   const [status, setStatus] = useState('waiting'); // waiting, ready, homing_id, homing_od, homing_both, complete, failed
   const [message, setMessage] = useState('Initializing homing sequence...');
   const [showOkButton, setShowOkButton] = useState(false);
+  // Track dialog-session state to avoid repeated "complete" popups
+  const sessionStartedRef = React.useRef(false);
+  const hasCompletedRef = React.useRef(false);
 
   useEffect(() => {
     if (!isOpen) {
@@ -13,6 +16,8 @@ export default function HomingDialog({ isOpen, onClose, side, timeout = 60 }) {
       setStatus('waiting');
       setMessage('Initializing homing sequence...');
       setShowOkButton(false);
+      sessionStartedRef.current = false;
+      hasCompletedRef.current = false;
       return;
     }
 
@@ -49,12 +54,18 @@ export default function HomingDialog({ isOpen, onClose, side, timeout = 60 }) {
         const isOdHoming = odHoming.success && Boolean(odHoming.value);
         const isHomed = homed.success && Boolean(homed.value);
 
+        // Mark session as started when enable or any homing motion is active
+        if (isHomeEnaActive || isIdHoming || isOdHoming) {
+          sessionStartedRef.current = true;
+        }
+
         // Update status based on PLC feedback
-        if (isHomed) {
+        if (isHomed && sessionStartedRef.current && !hasCompletedRef.current) {
           console.log(`[HomingDialog] ${sideName} homing complete!`);
           setStatus('complete');
           setMessage(`${sideName} Head Home Complete ✓`);
           setShowOkButton(true);
+          hasCompletedRef.current = true;
         } else if (isIdHoming && isOdHoming) {
           setStatus('homing_both');
           setMessage(`${sideName} Head is Homing...`);

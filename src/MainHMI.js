@@ -214,6 +214,12 @@ export default function MainHMI() {
   const [machineStatusBits, setMachineStatusBits] = useState(0);
   const [machineStatus, setMachineStatus] = useState([]);
   const [plcConnected, setPlcConnected] = useState(false);
+  const [statusBannerExpanded, setStatusBannerExpanded] = useState(false);
+
+  // Polling optimization: track activity for idle detection
+  const lastActivityRef = React.useRef(Date.now());
+  const pollingIntervalRef = React.useRef(500); // Start with 500ms
+  const isIdleRef = React.useRef(false);
 
   // Homing status states
   const [showHomingDialog, setShowHomingDialog] = useState(false);
@@ -308,6 +314,32 @@ export default function MainHMI() {
     let timer;
     const poll = async () => {
       try {
+        // Detect idle state: no jog/run/homing active AND positions haven't changed recently
+        const isJogOrRunActive = modeFeedback.left.jogMode || modeFeedback.left.runMode || modeFeedback.right.jogMode || modeFeedback.right.runMode ||
+                                 homingStatus.left.enabled || homingStatus.right.enabled;
+        
+        // Idle detection: if no operations for 3 seconds, slow down polling
+        const timeNow = Date.now();
+        const timeSinceActivity = timeNow - lastActivityRef.current;
+        const ACTIVITY_THRESHOLD = 3000; // 3 seconds of inactivity = idle
+        const ACTIVE_INTERVAL = 500;     // When active: poll every 500ms
+        const IDLE_INTERVAL = 2000;      // When idle: poll every 2 seconds
+        
+        if (isJogOrRunActive) {
+          lastActivityRef.current = timeNow;
+          pollingIntervalRef.current = ACTIVE_INTERVAL;
+          isIdleRef.current = false;
+        } else if (timeSinceActivity > ACTIVITY_THRESHOLD) {
+          pollingIntervalRef.current = IDLE_INTERVAL;
+          isIdleRef.current = true;
+          if (isIdleRef.current) {
+            console.log('[MainHMI] Machine idle - polling interval increased to 2000ms');
+          }
+        } else {
+          pollingIntervalRef.current = ACTIVE_INTERVAL;
+          isIdleRef.current = false;
+        }
+        
         // Read axis positions from PLC
         const data = await readAxisPositions();
         const newPositions = data.actualPositions || { right: { axis1: 0, axis2: 0 }, left: { axis1: 0, axis2: 0 } };
@@ -714,11 +746,14 @@ export default function MainHMI() {
         // Set positions to 0 on error
         setActualPositions({ right: { axis1: 0, axis2: 0 }, left: { axis1: 0, axis2: 0 } });
       }
+      
+      // Schedule next poll with adaptive interval
+      timer = setTimeout(poll, pollingIntervalRef.current);
     };
+    
     poll();
-    timer = setInterval(poll, 500); // Poll every 500ms to reduce UI churn and improve responsiveness
-    return () => clearInterval(timer);
-  }, []);
+    return () => clearTimeout(timer);
+  }, [modeFeedback, homingStatus]);
 
   // Program creation states
   const [showSideSelector, setShowSideSelector] = useState(false);
@@ -909,22 +944,44 @@ export default function MainHMI() {
     const parameters = recipeObj?.parameters ?? null;
     setCurrentParameters(parameters);
     
-    // Send recipe parameters to PLC
-    if (parameters) {
-      sendRecipeParametersToPLC(parameters, side)
-        .then((success) => {
-          if (success) {
-            showMessage('Recipe Loaded', `Recipe "${recipeName}" loaded and sent to ${side} side`, 'success');
-          } else {
-            showMessage('Recipe Loaded (PLC Sync Failed)', `Recipe "${recipeName}" loaded but PLC parameters may not have updated`, 'warning');
+    // Send recipe parameters and program steps to PLC
+    (async () => {
+      try {
+        // Send recipe parameters if available
+        if (parameters) {
+          const paramsSent = await sendRecipeParametersToPLC(parameters, side);
+          if (!paramsSent) {
+            console.warn('[MainHMI] Recipe load: failed to send recipe parameters');
           }
-        })
-        .catch((error) => {
-          showMessage('Recipe Loaded (PLC Error)', `Recipe loaded but failed to sync PLC: ${error.message}`, 'warning');
-        });
-    } else {
-      showMessage('Recipe Loaded', `Recipe "${recipeName}" loaded for ${side} side`, 'success');
-    }
+        }
+        
+        // Send program steps if available in recipe
+        if (recipeObj?.steps) {
+          const program = {
+            name: recipeName,
+            side: side,
+            steps: recipeObj.steps,
+            speed: recipeObj.speed,
+            dwell: recipeObj.dwell
+          };
+          
+          await writePLCVar({
+            command: 'downloadProgram',
+            program: program,
+            parameters: parameters || undefined
+          });
+          
+          showMessage('Recipe Loaded', `Recipe "${recipeName}" with program loaded and sent to ${side} side`, 'success');
+        } else if (parameters) {
+          showMessage('Recipe Loaded', `Recipe "${recipeName}" parameters sent to ${side} side`, 'success');
+        } else {
+          showMessage('Recipe Loaded', `Recipe "${recipeName}" loaded for ${side} side`, 'success');
+        }
+      } catch (error) {
+        console.error('[MainHMI] Recipe load error:', error.message);
+        showMessage('Recipe Loaded (PLC Error)', `Recipe loaded but failed to sync PLC: ${error.message}`, 'warning');
+      }
+    })();
     
     // Close the recipe manager after loading
     setRecipeOpen(false);
@@ -1075,24 +1132,49 @@ export default function MainHMI() {
         { tag: `${sidePrefix}.rHmi${headSuffix}FinalSize`, value: 0.0 },
         { tag: `${sidePrefix}.rHmi${headSuffix}TubeLength`, value: 0.0 },
         { tag: `${sidePrefix}.rHmi${headSuffix}IDFingerRadius`, value: 0.0 },
-        { tag: `${sidePrefix}.rHmi${headSuffix}Depth`, value: 0.0 }
+        { tag: `${sidePrefix}.rHmi${headSuffix}Depth`, value: 0.0 },
+        // Reset Step 1 positions (index 0=OD, 2=ID)
+        { tag: `${sidePrefix}.l${headSuffix}PosStep1[0]`, value: 0.0 },
+        { tag: `${sidePrefix}.l${headSuffix}PosStep1[2]`, value: 0.0 }
       ];
-      
-      // Write each variable to reset them
-      for (const variable of resetVariables) {
-        try {
-          await fetch('http://localhost:3001/write', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tag: variable.tag, value: variable.value })
-          });
-          console.log(`[MainHMI] Reset ${variable.tag} to ${variable.value}`);
-        } catch (err) {
-          console.warn(`[MainHMI] Failed to reset ${variable.tag}:`, err.message);
-        }
+
+      // Add Steps 2-10 position arrays (2D arrays: [step, retract/extend])
+      for (let step = 2; step <= 10; step++) {
+        // Red (OD) positions: retract and extend
+        resetVariables.push({ tag: `${sidePrefix}.a${headSuffix}RedPos[${step},0]`, value: 0.0 });
+        resetVariables.push({ tag: `${sidePrefix}.a${headSuffix}RedPos[${step},1]`, value: 0.0 });
+        // Exp (ID) positions: retract and extend
+        resetVariables.push({ tag: `${sidePrefix}.a${headSuffix}ExpPos[${step},0]`, value: 0.0 });
+        resetVariables.push({ tag: `${sidePrefix}.a${headSuffix}ExpPos[${step},1]`, value: 0.0 });
+      }
+
+      // Add step enable variables for all 10 steps
+      for (let step = 1; step <= 10; step++) {
+        resetVariables.push({ tag: `${sidePrefix}.aHmi${headSuffix}StepEna[${step}]`, value: false });
+        resetVariables.push({ tag: `${sidePrefix}.a${headSuffix}RedExtEna[${step}]`, value: false });
+        resetVariables.push({ tag: `${sidePrefix}.a${headSuffix}RedRetEna[${step}]`, value: false });
+        resetVariables.push({ tag: `${sidePrefix}.a${headSuffix}ExpExtEna[${step}]`, value: false });
+        resetVariables.push({ tag: `${sidePrefix}.a${headSuffix}ExpRetEna[${step}]`, value: false });
+        resetVariables.push({ tag: `${sidePrefix}.a${headSuffix}RepeatEna[${step}]`, value: false });
       }
       
-      console.log('[MainHMI] PLC recipe variables reset complete');
+      // Fire all writes in parallel (don't await) for faster UI response
+      const writePromises = resetVariables.map(variable =>
+        fetch('http://localhost:3001/write', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tag: variable.tag, value: variable.value })
+        }).catch(err => console.warn(`[MainHMI] Failed to reset ${variable.tag}:`, err.message))
+      );
+
+      // Log start and continue without waiting
+      console.log(`[MainHMI] Started reset of ${resetVariables.length} PLC variables (non-blocking)`);
+      
+      // Background completion logging
+      Promise.all(writePromises).then(() => {
+        console.log(`[MainHMI] PLC recipe variables reset complete - ${resetVariables.length} variables`);
+      });
+      
     } catch (err) {
       console.error('[MainHMI] Error resetting PLC variables:', err.message);
       // Don't fail the program creation, just warn
@@ -1201,6 +1283,33 @@ export default function MainHMI() {
     showMessage('Recipe Deleted', `Recipe "${recipeName}" deleted`, 'success');
   };
 
+  const handleCopyRecipeToOtherSide = (recipe, sourceSide) => {
+    if (currentUser === 'operator') {
+      showMessage('Access Denied', 'Operators cannot copy recipes.', 'warning');
+      return;
+    }
+    const recipeName = typeof recipe === 'string' ? recipe : recipe?.name;
+    const sourceRecipe = typeof recipe === 'string' ? (sourceSide === 'right' ? recipesRight : recipesLeft).find(r => r.name === recipeName) : recipe;
+    const targetSide = sourceSide === 'right' ? 'left' : 'right';
+
+    if (!sourceRecipe || !recipeName) return;
+
+    // Create copy with same data
+    const copiedRecipe = { ...sourceRecipe };
+    
+    // Save to target side
+    saveRecipeToFile(copiedRecipe, targetSide);
+
+    // Update state
+    if (targetSide === 'right') {
+      setRecipesRight((prev) => [...prev, copiedRecipe]);
+    } else {
+      setRecipesLeft((prev) => [...prev, copiedRecipe]);
+    }
+    
+    showMessage('Recipe Copied', `Recipe "${recipeName}" copied to ${targetSide === 'right' ? 'Right' : 'Left'} side`, 'success');
+  };
+
   const handleAutoTeachSelectSide = (side) => {
     setAutoTeachSide(side);
     setShowAutoTeachSelector(false);
@@ -1224,24 +1333,48 @@ export default function MainHMI() {
         { tag: `${sidePrefix}.rHmi${headSuffix}FinalSize`, value: 0.0 },
         { tag: `${sidePrefix}.rHmi${headSuffix}TubeLength`, value: 0.0 },
         { tag: `${sidePrefix}.rHmi${headSuffix}IDFingerRadius`, value: 0.0 },
-        { tag: `${sidePrefix}.rHmi${headSuffix}Depth`, value: 0.0 }
+        { tag: `${sidePrefix}.rHmi${headSuffix}Depth`, value: 0.0 },
+        // Reset Step 1 positions (index 0=OD, 2=ID)
+        { tag: `${sidePrefix}.l${headSuffix}PosStep1[0]`, value: 0.0 },
+        { tag: `${sidePrefix}.l${headSuffix}PosStep1[2]`, value: 0.0 }
       ];
-      
-      // Write each variable to reset them
-      for (const variable of resetVariables) {
-        try {
-          await fetch('http://localhost:3001/write', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tag: variable.tag, value: variable.value })
-          });
-          console.log(`[MainHMI] Reset ${variable.tag} to ${variable.value}`);
-        } catch (err) {
-          console.warn(`[MainHMI] Failed to reset ${variable.tag}:`, err.message);
-        }
+
+      // Add Steps 2-10 position arrays (2D arrays: [step, retract/extend])
+      for (let step = 2; step <= 10; step++) {
+        // Red (OD) positions: retract and extend
+        resetVariables.push({ tag: `${sidePrefix}.a${headSuffix}RedPos[${step},0]`, value: 0.0 });
+        resetVariables.push({ tag: `${sidePrefix}.a${headSuffix}RedPos[${step},1]`, value: 0.0 });
+        // Exp (ID) positions: retract and extend
+        resetVariables.push({ tag: `${sidePrefix}.a${headSuffix}ExpPos[${step},0]`, value: 0.0 });
+        resetVariables.push({ tag: `${sidePrefix}.a${headSuffix}ExpPos[${step},1]`, value: 0.0 });
+      }
+
+      // Add step enable variables for all 10 steps
+      for (let step = 1; step <= 10; step++) {
+        resetVariables.push({ tag: `${sidePrefix}.aHmi${headSuffix}StepEna[${step}]`, value: false });
+        resetVariables.push({ tag: `${sidePrefix}.a${headSuffix}RedExtEna[${step}]`, value: false });
+        resetVariables.push({ tag: `${sidePrefix}.a${headSuffix}RedRetEna[${step}]`, value: false });
+        resetVariables.push({ tag: `${sidePrefix}.a${headSuffix}ExpExtEna[${step}]`, value: false });
+        resetVariables.push({ tag: `${sidePrefix}.a${headSuffix}ExpRetEna[${step}]`, value: false });
+        resetVariables.push({ tag: `${sidePrefix}.a${headSuffix}RepeatEna[${step}]`, value: false });
       }
       
-      console.log('[MainHMI] PLC recipe variables reset complete');
+      // Fire all writes in parallel (don't await) for faster UI response
+      const writePromises = resetVariables.map(variable =>
+        fetch('http://localhost:3001/write', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tag: variable.tag, value: variable.value })
+        }).catch(err => console.warn(`[MainHMI] Failed to reset ${variable.tag}:`, err.message))
+      );
+
+      // Log start and continue without waiting
+      console.log(`[MainHMI] Started reset of ${resetVariables.length} PLC variables (non-blocking)`);
+      
+      // Background completion logging
+      Promise.all(writePromises).then(() => {
+        console.log(`[MainHMI] PLC recipe variables reset complete - ${resetVariables.length} variables`);
+      });
     } catch (err) {
       console.error('[MainHMI] Error resetting PLC variables:', err.message);
       // Don't fail the AutoTeach, just warn
@@ -1763,31 +1896,61 @@ export default function MainHMI() {
         </div>
       </div>
 
-      {/* Machine Status Banner - spans both panels at bottom */}
-      <div className="machine-status-banner">
+      {/* Machine Status Banner - compact with toggle expand */}
+      <div className={`machine-status-banner ${statusBannerExpanded ? 'expanded' : 'compact'}`}>
         <div className="machine-status-content">
-          <span className="machine-status-header">Machine Status:</span>
-          <div className="machine-status-list">
-            {plcConnected ? (
-              machineStatus.length > 0 ? (
-                machineStatus.map(status => (
-                  <div 
-                    key={status.bit} 
-                    className="status-list-item"
-                    style={{ borderColor: status.color, color: status.color }}
-                    title={`Bit ${status.bit}`}
-                  >
-                    <span className="status-dot" style={{ backgroundColor: status.color }} />
-                    <span className="status-label">{status.label}</span>
-                  </div>
-                ))
+          <button 
+            className="status-toggle-btn"
+            onClick={() => setStatusBannerExpanded(!statusBannerExpanded)}
+            title={statusBannerExpanded ? 'Collapse status' : 'Expand status'}
+          >
+            <span className="toggle-icon">{statusBannerExpanded ? '▼' : '▶'}</span>
+            <span className="status-header-compact">
+              {plcConnected ? (
+                machineStatus.length > 0 ? (
+                  <>
+                    <span className="status-count">{machineStatus.length}</span>
+                    <span className="status-compact-text">Active</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="status-dot-inline" style={{ backgroundColor: '#FFC107' }} />
+                    <span className="status-compact-text">Idle</span>
+                  </>
+                )
               ) : (
-                <span style={{ color: '#FFC107', fontSize: '14px', fontWeight: '700', letterSpacing: '0.3px', textShadow: '0 1px 2px rgba(0, 0, 0, 0.4)', gridColumn: '1 / -1' }}>⚠ Pump Not Running</span>
-              )
-            ) : (
-              <span style={{ color: '#90CAF9', fontSize: '14px', fontWeight: '700', letterSpacing: '0.3px', textShadow: '0 1px 2px rgba(0, 0, 0, 0.4)', gridColumn: '1 / -1' }}>• PLC not connected</span>
-            )}
-          </div>
+                <>
+                  <span className="status-dot-inline" style={{ backgroundColor: '#90CAF9' }} />
+                  <span className="status-compact-text">Offline</span>
+                </>
+              )}
+            </span>
+          </button>
+
+          {/* Expanded view */}
+          {statusBannerExpanded && (
+            <div className="machine-status-list expanded">
+              {plcConnected ? (
+                machineStatus.length > 0 ? (
+                  machineStatus.map(status => (
+                    <div 
+                      key={status.bit} 
+                      className="status-list-item"
+                      style={{ borderColor: status.color, color: status.color }}
+                      title={`Bit ${status.bit}`}
+                    >
+                      <span className="status-dot" style={{ backgroundColor: status.color }} />
+                      <span className="status-label">{status.label}</span>
+                    </div>
+                  ))
+                ) : (
+                  <span style={{ color: '#FFC107', fontSize: '13px', fontWeight: '700', letterSpacing: '0.3px', textShadow: '0 1px 2px rgba(0, 0, 0, 0.4)' }}>⚠ Pump Not Running</span>
+                )
+              ) : (
+                <span style={{ color: '#90CAF9', fontSize: '13px', fontWeight: '700', letterSpacing: '0.3px', textShadow: '0 1px 2px rgba(0, 0, 0, 0.4)' }}>• PLC not connected</span>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -1907,6 +2070,7 @@ export default function MainHMI() {
         onCreateRecipe={handleCreateRecipe}
         onEditRecipe={handleEditRecipe}
         onDeleteRecipe={handleDeleteRecipe}
+        onCopyToOtherSide={handleCopyRecipeToOtherSide}
         userRole={currentUser}
       />
 

@@ -10,10 +10,10 @@ export default function PatternSelectionModal({
 }) {
   const patternOptions = useMemo(
     () => [
-      { code: 0, name: 'Red Ext' },
-      { code: 1, name: 'Red Ret' },
       { code: 2, name: 'Exp Ext' },
       { code: 3, name: 'Exp Ret' },
+      { code: 0, name: 'Red Ext' },
+      { code: 1, name: 'Red Ret' },
       { code: 4, name: 'RedRet + ExpRet' },
       { code: 5, name: 'Repeat' },
       { code: 6, name: 'RedExt + ExpExt' },

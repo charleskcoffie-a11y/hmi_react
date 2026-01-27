@@ -27,8 +27,8 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
 
   const getPatternAxes = (patternCode) => {
     const code = Number(patternCode ?? 0);
-    const axis1Only = new Set([0, 1]); // Red Ext / Red Ret
-    const axis2Only = new Set([2, 3]); // Exp Ext / Exp Ret
+    const axis1Only = new Set([2, 3]); // Exp Ext / Exp Ret
+    const axis2Only = new Set([0, 1]); // Red Ext / Red Ret
     const both = new Set([4, 6]); // RedRet+ExpRet, RedExt+ExpExt
     if (both.has(code)) return ['axis1', 'axis2'];
     if (axis1Only.has(code)) return ['axis1'];
@@ -298,10 +298,10 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
   };
 
   const patternOptions = [
-    { code: 0, name: 'Red Ext' },
-    { code: 1, name: 'Red Ret' },
     { code: 2, name: 'Exp Ext' },
     { code: 3, name: 'Exp Ret' },
+    { code: 0, name: 'Red Ext' },
+    { code: 1, name: 'Red Ret' },
     { code: 4, name: 'RedRet + ExpRet' },
     { code: 5, name: 'Repeat' },
     { code: 6, name: 'RedExt + ExpExt' },

@@ -4,7 +4,7 @@ import '../styles/RecipeManager.css';
 import '../styles/RecipeManagerSide.css';
 import '../styles/RecipeTextarea.css';
 
-export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRecipe, onCreateRecipe, onEditRecipe, onDeleteRecipe, userRole }) {
+export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRecipe, onCreateRecipe, onEditRecipe, onDeleteRecipe, onCopyToOtherSide, userRole }) {
   const isOperator = userRole === 'operator';
     // Auto-close modal if isOpen becomes false (e.g., navigation)
     useEffect(() => {
@@ -308,6 +308,19 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
                 title={isOperator ? 'Operators cannot delete recipes' : 'Delete recipe'}
               >
                 🗑 Delete
+              </button>
+              <button 
+                className="recipe-action-btn cross-copy-btn"
+                onClick={() => {
+                  if (selectedRecipe && onCopyToOtherSide) {
+                    const otherSide = side === 'right' ? 'left' : 'right';
+                    onCopyToOtherSide(selectedRecipe, side);
+                  }
+                }}
+                disabled={!selectedRecipe || isOperator}
+                title={isOperator ? 'Operators cannot copy recipes' : `Copy to ${side === 'right' ? 'Left' : 'Right'} side`}
+              >
+                {side === 'right' ? '← Copy to Left' : 'Copy to Right →'}
               </button>
               <button 
                 className="recipe-action-btn create-btn"

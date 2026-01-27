@@ -1179,6 +1179,29 @@
   box-shadow: 0 2px 10px rgba(220, 53, 69, 0.5);
 }
 
+.jog-teach-quick-btn {
+  padding: 8px 14px;
+  background: linear-gradient(135deg, #00bcd4 0%, #00838f 100%);
+  color: white;
+  border: 2px solid #00bcd4;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s;
+  white-space: nowrap;
+}
+
+.jog-teach-quick-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #00e5ff 0%, #00bcd4 100%);
+  box-shadow: 0 2px 10px rgba(0, 188, 212, 0.5);
+}
+
+.jog-teach-quick-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* 2-Column Steps Grid */
 .steps-grid {
   display: grid;

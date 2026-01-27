@@ -20,10 +20,10 @@ export default function AutoTeach({
 
   const patternOptions = useMemo(
     () => [
-      { code: 0, name: 'Red Ext' },
-      { code: 1, name: 'Red Ret' },
       { code: 2, name: 'Exp Ext' },
       { code: 3, name: 'Exp Ret' },
+      { code: 0, name: 'Red Ext' },
+      { code: 1, name: 'Red Ret' },
       { code: 4, name: 'RedRet + ExpRet' },
       { code: 5, name: 'Repeat' },
       { code: 6, name: 'RedExt + ExpExt' },
@@ -961,8 +961,22 @@ export default function AutoTeach({
 
               {renderFeedbackStatus()}
 
-              {/* Jog Mode Controls - Simple disable button only */}
+              {/* Jog Mode Controls - Quick Teach + Disable */}
               <div className="jog-controls-row">
+                <button
+                  className="jog-teach-quick-btn"
+                  onClick={() => {
+                    // Quick teach: save current position without keypad
+                    recordStepWithAxis(
+                      Math.min(recordedSteps.length + 1, 10),
+                      recordedSteps.length === 0 ? 6 : pattern
+                    );
+                  }}
+                  disabled={isRecording || recordedSteps.length >= 10}
+                  title="Save current jog position immediately (quick teach)"
+                >
+                  📍 Quick Teach
+                </button>
                 <button
                   className="jog-disable-btn"
                   onClick={async () => {

@@ -262,6 +262,18 @@
   border-color: #ff4d5f;
 }
 
+.cross-copy-btn {
+  background: linear-gradient(135deg, #00bcd4 0%, #00838f 100%);
+  border-color: #00bcd4;
+  font-size: 11px;
+}
+
+.cross-copy-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #00e5ff 0%, #00bcd4 100%);
+  box-shadow: 0 0 12px rgba(0, 188, 212, 0.5);
+  border-color: #00e5ff;
+}
+
 .create-btn {
   background: linear-gradient(135deg, #28a745 0%, #1d6e2d 100%);
   border-color: #28a745;
