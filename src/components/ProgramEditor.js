@@ -61,7 +61,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
       setProgramSpeed(program.speed || 100);
       setProgramDwell(program.dwell || 500);
     }
-  }, [program]);
+  }, [program?.name, program?.side]); // Only reload when program name/side changes, not the steps object itself
 
   const confirmDownload = async () => {
     setDownloadDialog({ open: false });
