@@ -826,6 +826,22 @@ export default function MainHMI() {
     type: 'info'
   });
 
+  const [copyRecipeConfirm, setCopyRecipeConfirm] = useState({
+    isOpen: false,
+    sourceRecipe: null,
+    sourceSide: null,
+    targetSide: null,
+    recipeExists: false
+  });
+
+  const [copyRecipeRename, setCopyRecipeRename] = useState({
+    isOpen: false,
+    sourceRecipe: null,
+    sourceSide: null,
+    targetSide: null,
+    newName: ''
+  });
+
   const [parametersOpen, setParametersOpen] = useState(false);
   const [parametersSide, setParametersSide] = useState(null);
   const [currentParameters, setCurrentParameters] = useState(null);
@@ -1294,20 +1310,93 @@ export default function MainHMI() {
 
     if (!sourceRecipe || !recipeName) return;
 
-    // Create copy with same data
-    const copiedRecipe = { ...sourceRecipe };
+    // Check if recipe already exists on target side
+    const targetRecipes = targetSide === 'right' ? recipesRight : recipesLeft;
+    const recipeExists = targetRecipes.some(r => r.name === recipeName);
+
+    if (recipeExists) {
+      // Show override confirmation dialog
+      setCopyRecipeConfirm({
+        isOpen: true,
+        sourceRecipe,
+        sourceSide,
+        targetSide,
+        recipeExists: true
+      });
+    } else {
+      // Show rename dialog (with option to keep same name)
+      setCopyRecipeRename({
+        isOpen: true,
+        sourceRecipe,
+        sourceSide,
+        targetSide,
+        newName: recipeName
+      });
+    }
+  };
+
+  const performRecipeCopy = (sourceRecipe, sourceSide, targetSide, newName, isOverride = false) => {
+    // Create copy with transformed axis data
+    const copiedRecipe = { ...sourceRecipe, name: newName, side: targetSide };
+    
+    // Transform program steps if they exist (swap axis assignments between sides)
+    if (sourceRecipe.program?.steps) {
+      const transformedSteps = {};
+      Object.keys(sourceRecipe.program.steps).forEach(stepKey => {
+        const sourceStep = sourceRecipe.program.steps[stepKey];
+        const transformedStep = { ...sourceStep };
+        
+        // Transform axis positions based on side
+        if (sourceStep.positions) {
+          if (sourceSide === 'right' && targetSide === 'left') {
+            // Right to Left: axis1->axis3, axis2->axis4
+            transformedStep.positions = {
+              axis3Cmd: sourceStep.positions.axis1Cmd || 0,
+              axis4Cmd: sourceStep.positions.axis2Cmd || 0,
+              axis1Cmd: 0,
+              axis2Cmd: 0
+            };
+          } else if (sourceSide === 'left' && targetSide === 'right') {
+            // Left to Right: axis3->axis1, axis4->axis2
+            transformedStep.positions = {
+              axis1Cmd: sourceStep.positions.axis3Cmd || 0,
+              axis2Cmd: sourceStep.positions.axis4Cmd || 0,
+              axis3Cmd: 0,
+              axis4Cmd: 0
+            };
+          }
+        }
+        
+        transformedSteps[stepKey] = transformedStep;
+      });
+      
+      copiedRecipe.program = {
+        ...sourceRecipe.program,
+        name: newName,
+        side: targetSide,
+        steps: transformedSteps
+      };
+    }
     
     // Save to target side
     saveRecipeToFile(copiedRecipe, targetSide);
 
     // Update state
     if (targetSide === 'right') {
-      setRecipesRight((prev) => [...prev, copiedRecipe]);
+      if (isOverride) {
+        setRecipesRight((prev) => prev.map(r => r.name === newName ? copiedRecipe : r));
+      } else {
+        setRecipesRight((prev) => [...prev, copiedRecipe]);
+      }
     } else {
-      setRecipesLeft((prev) => [...prev, copiedRecipe]);
+      if (isOverride) {
+        setRecipesLeft((prev) => prev.map(r => r.name === newName ? copiedRecipe : r));
+      } else {
+        setRecipesLeft((prev) => [...prev, copiedRecipe]);
+      }
     }
     
-    showMessage('Recipe Copied', `Recipe "${recipeName}" copied to ${targetSide === 'right' ? 'Right' : 'Left'} side`, 'success');
+    showMessage('Recipe Copied', `Recipe "${sourceRecipe.name}" copied to ${targetSide === 'right' ? 'Right' : 'Left'} side as "${newName}"`, 'success');
   };
 
   const handleAutoTeachSelectSide = (side) => {
@@ -2186,6 +2275,85 @@ export default function MainHMI() {
         type={messageModal.type}
         onClose={closeMessage}
       />
+
+      {/* Copy Recipe Override Confirmation Dialog */}
+      {copyRecipeConfirm.isOpen && (
+        <div className="modal-overlay">
+          <div className="modal-dialog confirm-dialog">
+            <div className="modal-header">
+              <h3>⚠ Recipe Already Exists</h3>
+            </div>
+            <div className="modal-body">
+              <p>Recipe "{copyRecipeConfirm.sourceRecipe?.name}" already exists on the {copyRecipeConfirm.targetSide} side.</p>
+              <p>Do you want to override it?</p>
+            </div>
+            <div className="modal-footer">
+              <button 
+                className="btn-secondary"
+                onClick={() => {
+                  setCopyRecipeConfirm({ isOpen: false, sourceRecipe: null, sourceSide: null, targetSide: null, recipeExists: false });
+                }}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn-primary"
+                onClick={() => {
+                  const { sourceRecipe, sourceSide, targetSide } = copyRecipeConfirm;
+                  performRecipeCopy(sourceRecipe, sourceSide, targetSide, sourceRecipe.name, true);
+                  setCopyRecipeConfirm({ isOpen: false, sourceRecipe: null, sourceSide: null, targetSide: null, recipeExists: false });
+                }}
+              >
+                Override
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Copy Recipe Rename Dialog */}
+      {copyRecipeRename.isOpen && (
+        <div className="modal-overlay">
+          <div className="modal-dialog rename-dialog">
+            <div className="modal-header">
+              <h3>Copy Recipe to {copyRecipeRename.targetSide === 'right' ? 'Right' : 'Left'} Side</h3>
+            </div>
+            <div className="modal-body">
+              <p>Enter a name for the copied recipe:</p>
+              <input
+                type="text"
+                className="recipe-name-input"
+                value={copyRecipeRename.newName}
+                onChange={(e) => setCopyRecipeRename(prev => ({ ...prev, newName: e.target.value }))}
+                placeholder="Recipe name"
+              />
+            </div>
+            <div className="modal-footer">
+              <button 
+                className="btn-secondary"
+                onClick={() => {
+                  setCopyRecipeRename({ isOpen: false, sourceRecipe: null, sourceSide: null, targetSide: null, newName: '' });
+                }}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn-primary"
+                onClick={() => {
+                  const { sourceRecipe, sourceSide, targetSide, newName } = copyRecipeRename;
+                  if (newName.trim()) {
+                    performRecipeCopy(sourceRecipe, sourceSide, targetSide, newName.trim(), false);
+                    setCopyRecipeRename({ isOpen: false, sourceRecipe: null, sourceSide: null, targetSide: null, newName: '' });
+                  }
+                }}
+                disabled={!copyRecipeRename.newName.trim()}
+              >
+                Copy
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <RecipeParameters
         isOpen={parametersOpen}
