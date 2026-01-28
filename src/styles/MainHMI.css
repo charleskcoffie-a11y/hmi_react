@@ -279,7 +279,7 @@
   grid-template-columns: 1fr 1fr; /* always side-by-side */
   gap: 12px;
   height: auto; /* shrink to fit content, not full height */
-  max-width: 1024px;
+  max-width: calc(100% - 24px);
   width: 100%;
   margin: 0 auto;
 }
@@ -735,7 +735,7 @@
 }
 
 .hmi-bottom .control-panel {
-  max-width: 1024px;
+  max-width: calc(100% - 20px);
   width: 100%;
 }
 

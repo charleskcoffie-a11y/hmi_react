@@ -400,19 +400,52 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
             {dialog.mode === 'confirm' && (
               <button
+                className="delete-confirm-btn"
                 onClick={() => {
+                  console.log('[RecipeManager] Confirming delete for:', pendingDelete, 'side:', side);
                   if (pendingDelete) {
+                    const recipeName = typeof pendingDelete === 'string' ? pendingDelete : pendingDelete?.name;
+                    console.log('[RecipeManager] Deleting recipe name:', recipeName);
                     onDeleteRecipe && onDeleteRecipe(pendingDelete, side);
-                    setSelectedRecipe((prev) => (prev === pendingDelete ? null : prev));
+                    setSelectedRecipe((prev) => {
+                      const prevName = typeof prev === 'string' ? prev : prev?.name;
+                      const pendingName = typeof pendingDelete === 'string' ? pendingDelete : pendingDelete?.name;
+                      return prevName === pendingName ? null : prev;
+                    });
                     setPendingDelete(null);
                   }
                   setDialog({ open: false, title: '', message: '', mode: 'info' });
+                }}
+                style={{
+                  backgroundColor: '#ff6b35',
+                  color: 'white',
+                  border: 'none',
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: '600',
+                  fontSize: '14px'
                 }}
               >
                 Delete
               </button>
             )}
-            <button onClick={() => setDialog({ open: false, title: '', message: '', mode: 'info' })}>
+            <button 
+              onClick={() => {
+                setPendingDelete(null);
+                setDialog({ open: false, title: '', message: '', mode: 'info' });
+              }}
+              style={{
+                backgroundColor: '#0066cc',
+                color: 'white',
+                border: 'none',
+                padding: '8px 16px',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: '600',
+                fontSize: '14px'
+              }}
+            >
               {dialog.mode === 'confirm' ? 'Cancel' : 'Close'}
             </button>
           </div>
