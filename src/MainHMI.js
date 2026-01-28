@@ -812,12 +812,35 @@ export default function MainHMI() {
         
         if (lastRightRecipeName && rightRecipes.length > 0) {
           const lastRightRecipe = rightRecipes.find(r => r.name === lastRightRecipeName);
-          if (lastRightRecipe && lastRightRecipe.parameters) {
+          if (lastRightRecipe) {
             console.log(`[MainHMI] Auto-loading last right recipe to PLC: ${lastRightRecipeName}`);
             try {
-              await sendRecipeParametersToPLC(lastRightRecipe.parameters, 'right');
+              // Send recipe parameters if available
+              if (lastRightRecipe.parameters) {
+                await sendRecipeParametersToPLC(lastRightRecipe.parameters, 'right');
+                console.log(`[MainHMI] Successfully auto-loaded right recipe parameters to PLC`);
+              }
+              
+              // Send program steps if available
+              if (lastRightRecipe.steps) {
+                const program = {
+                  name: lastRightRecipeName,
+                  side: 'right',
+                  steps: lastRightRecipe.steps,
+                  speed: lastRightRecipe.speed,
+                  dwell: lastRightRecipe.dwell
+                };
+                
+                await writePLCVar({
+                  command: 'downloadProgram',
+                  program: program,
+                  parameters: lastRightRecipe.parameters || undefined
+                });
+                
+                console.log(`[MainHMI] Successfully auto-loaded right recipe program steps to PLC`);
+              }
+              
               setCurrentRecipe(prev => ({ ...prev, right: lastRightRecipeName }));
-              console.log(`[MainHMI] Successfully auto-loaded right recipe parameters to PLC`);
             } catch (err) {
               console.warn(`[MainHMI] Failed to auto-load right recipe to PLC:`, err);
             }
@@ -826,12 +849,35 @@ export default function MainHMI() {
         
         if (lastLeftRecipeName && leftRecipes.length > 0) {
           const lastLeftRecipe = leftRecipes.find(r => r.name === lastLeftRecipeName);
-          if (lastLeftRecipe && lastLeftRecipe.parameters) {
+          if (lastLeftRecipe) {
             console.log(`[MainHMI] Auto-loading last left recipe to PLC: ${lastLeftRecipeName}`);
             try {
-              await sendRecipeParametersToPLC(lastLeftRecipe.parameters, 'left');
+              // Send recipe parameters if available
+              if (lastLeftRecipe.parameters) {
+                await sendRecipeParametersToPLC(lastLeftRecipe.parameters, 'left');
+                console.log(`[MainHMI] Successfully auto-loaded left recipe parameters to PLC`);
+              }
+              
+              // Send program steps if available
+              if (lastLeftRecipe.steps) {
+                const program = {
+                  name: lastLeftRecipeName,
+                  side: 'left',
+                  steps: lastLeftRecipe.steps,
+                  speed: lastLeftRecipe.speed,
+                  dwell: lastLeftRecipe.dwell
+                };
+                
+                await writePLCVar({
+                  command: 'downloadProgram',
+                  program: program,
+                  parameters: lastLeftRecipe.parameters || undefined
+                });
+                
+                console.log(`[MainHMI] Successfully auto-loaded left recipe program steps to PLC`);
+              }
+              
               setCurrentRecipe(prev => ({ ...prev, left: lastLeftRecipeName }));
-              console.log(`[MainHMI] Successfully auto-loaded left recipe parameters to PLC`);
             } catch (err) {
               console.warn(`[MainHMI] Failed to auto-load left recipe to PLC:`, err);
             }
