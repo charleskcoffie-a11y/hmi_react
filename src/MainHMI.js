@@ -2142,6 +2142,7 @@ export default function MainHMI() {
           startPosFeedback={startPosFeedback}
           homedSides={homedSides}
           atStartPos={atStartPos}
+          modeFeedback={modeFeedback}
         />
       </div>
  

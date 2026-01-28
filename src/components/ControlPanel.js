@@ -1,10 +1,11 @@
 import React from 'react';
 import '../styles/ControlPanel.css';
 
-export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach, onMachineParameters, onStartPosition, userRole, pumpEnabled, startPosReadyStatus, startPosFeedback, homedSides, atStartPos }) {
+export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach, onMachineParameters, onStartPosition, userRole, pumpEnabled, startPosReadyStatus, startPosFeedback, homedSides, atStartPos, modeFeedback }) {
   // Role-based access control
   const isAdmin = userRole === 'admin';
-  const canAutoTeach = isAdmin || ((userRole !== 'operator') && pumpEnabled); // Admin always can access, others need pump enabled
+  const isInRunMode = modeFeedback?.left?.runMode || modeFeedback?.right?.runMode;
+  const canAutoTeach = !isInRunMode && (isAdmin || ((userRole !== 'operator') && pumpEnabled)); // Disable Auto Teach when in run mode
   const canEditProgram = userRole !== 'operator' || isAdmin;
   const canMachineParams = userRole === 'engineering' || isAdmin;
   // Start position enable condition: pump running AND axis homed AND axis NOT at start position
@@ -46,7 +47,7 @@ export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach,
             className="control-btn auto-teach-btn"
             onClick={onAutoTeach}
             disabled={!canAutoTeach}
-            title={!pumpEnabled ? 'Pump must be running for Auto Teach' : canAutoTeach ? 'Create auto-teach program' : 'Operators cannot access Auto Teach'}
+            title={isInRunMode ? 'Auto Teach disabled during run mode' : !pumpEnabled ? 'Pump must be running for Auto Teach' : canAutoTeach ? 'Create auto-teach program' : 'Operators cannot access Auto Teach'}
           >
             <span className="btn-icon">🎯</span>
             Auto Teach
