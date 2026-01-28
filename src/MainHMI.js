@@ -2252,6 +2252,7 @@ export default function MainHMI() {
         program={{ ...programToEdit, recipeName: programToEdit?.side ? currentRecipe[programToEdit.side] : undefined }}
         onSaveProgram={handleSaveProgramChanges}
         onWriteToPLC={handlePLCWrite}
+        unitSystem={unitSystem}
       />
 
       <AutoAdjustProgram

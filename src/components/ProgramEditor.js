@@ -4,7 +4,7 @@ import '../styles/ProgramEditor.css';
 import NumericKeypad from './NumericKeypad';
 import { readAxisPositions } from '../services/plcApiService';
 
-export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram, onWriteToPLC }) {
+export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram, onWriteToPLC, unitSystem }) {
   const [dialog, setDialog] = useState({ open: false, title: '', message: '' });
   const [editedSteps, setEditedSteps] = useState([]);
   // Removed unused editingStepId and setEditingStepId
@@ -416,7 +416,8 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                           return axes.map((axis) => {
                             const cfg = axisMap[axis];
                             const valuePresent = cfg.value !== undefined && cfg.value !== null;
-                            const displayValue = valuePresent ? `${parseFloat(cfg.value).toFixed(3)} mm` : '--';
+                            const unitLabel = unitSystem === 'inch' ? 'in' : 'mm';
+                            const displayValue = valuePresent ? `${parseFloat(cfg.value).toFixed(3)} ${unitLabel}` : '--';
                             const className = 'position-value editable';
                             const onClick = () => handleEditPosition(step.stepNumber, cfg.field);
                             return (
@@ -496,7 +497,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
             keypadTarget?.type === 'repeatCount' ? '' :
             keypadTarget?.type === 'autoCurrentDiameter' ? 'mm' :
             keypadTarget?.type === 'autoDesiredDiameter' ? 'mm' :
-            keypadTarget?.type === 'position' ? 'mm' :
+            keypadTarget?.type === 'position' ? (unitSystem === 'inch' ? 'in' : 'mm') :
             keypadTarget?.type === 'speed' || keypadTarget?.type === 'globalSpeed' ? '%' :
             'ms'
           }

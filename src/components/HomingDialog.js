@@ -54,8 +54,8 @@ export default function HomingDialog({ isOpen, onClose, side, timeout = 60 }) {
         const isOdHoming = odHoming.success && Boolean(odHoming.value);
         const isHomed = homed.success && Boolean(homed.value);
 
-        // Mark session as started when enable or any homing motion is active
-        if (isHomeEnaActive || isIdHoming || isOdHoming) {
+        // Mark session as started when enable or any homing motion is active, or when homing completes
+        if (isHomeEnaActive || isIdHoming || isOdHoming || isHomed) {
           sessionStartedRef.current = true;
         }
 
