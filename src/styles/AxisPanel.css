@@ -69,6 +69,12 @@
   border: 2px solid #ffb74d;
 }
 
+.seq-badge {
+  background: linear-gradient(135deg, #2196f3 0%, #03a9f4 100%);
+  color: #fff;
+  border: 2px solid #4fc3f7;
+}
+
 @keyframes pulse {
   0%, 100% {
     opacity: 1;

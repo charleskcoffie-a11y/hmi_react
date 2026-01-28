@@ -1,7 +1,7 @@
 import React from 'react';
 import '../styles/AxisPanel.css';
 
-function AxisPanel({ side, axis1Name, axis2Name, onAxisChange, axis1State, axis2State, actualPositions, step, stepDescription, recipe, recipes, onRecipeChange, onOpenRecipeSelector, unitSystem = 'mm', userRole, runMode = false, jogMode = false }) {
+function AxisPanel({ side, axis1Name, axis2Name, onAxisChange, axis1State, axis2State, actualPositions, step, stepDescription, recipe, recipes, onRecipeChange, onOpenRecipeSelector, unitSystem = 'mm', userRole, runMode = false, jogMode = false, sequenceActive = false }) {
   const canChangeRecipe = userRole !== 'operator';
   
   const selectedRecipe = recipes?.find(r => r.name === recipe);
@@ -15,10 +15,11 @@ function AxisPanel({ side, axis1Name, axis2Name, onAxisChange, axis1State, axis2
     <div className={`axis-panel axis-panel-${side.toLowerCase()}`}>
       <div className="panel-header">
         <h2>{side} Side</h2>
-        {(runMode || jogMode) && (
+        {(runMode || jogMode || sequenceActive) && (
           <div className="mode-status">
             {runMode && <span className="mode-badge run-badge">RUN</span>}
             {jogMode && <span className="mode-badge jog-badge">JOG</span>}
+            {sequenceActive && <span className="mode-badge seq-badge">SEQUENCE ACTIVE</span>}
           </div>
         )}
       </div>

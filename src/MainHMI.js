@@ -203,6 +203,12 @@ export default function MainHMI() {
     }
   });
 
+  // Sequence active status from PLC
+  const [sequenceActive, setSequenceActive] = useState({
+    right: false,
+    left: false
+  });
+
   // Alarm system (bitfield from PLC)
   const [alarmBits, setAlarmBits] = useState(0);
   const [alarms, setAlarms] = useState([]);
@@ -506,6 +512,34 @@ export default function MainHMI() {
           }
         } catch (modeErr) {
           console.warn('[MainHMI] Mode feedback read error:', modeErr.message || modeErr);
+        }
+
+        // Read sequence active status from PLC
+        try {
+          const rightSeqRes = await fetch('http://localhost:3001/read?tag=GRIGHTHEAD.bRightSeqAct');
+          const leftSeqRes = await fetch('http://localhost:3001/read?tag=GLEFTHEAD.bLeftSeqAct');
+          
+          if (rightSeqRes.ok && leftSeqRes.ok) {
+            const [rightSeqData, leftSeqData] = await Promise.all([
+              rightSeqRes.json(),
+              leftSeqRes.json()
+            ]);
+            
+            const newSequenceActive = {
+              right: rightSeqData.success ? Boolean(rightSeqData.value) : false,
+              left: leftSeqData.success ? Boolean(leftSeqData.value) : false
+            };
+            
+            // Only update if changed
+            setSequenceActive(prev => {
+              if (JSON.stringify(prev) !== JSON.stringify(newSequenceActive)) {
+                return newSequenceActive;
+              }
+              return prev;
+            });
+          }
+        } catch (seqErr) {
+          console.warn('[MainHMI] Sequence active read error:', seqErr.message || seqErr);
         }
 
         // Read start position enable status from PLC (ready to move to start position)
@@ -1962,6 +1996,7 @@ export default function MainHMI() {
             userRole={currentUser}
             runMode={modeFeedback.right.runMode}
             jogMode={modeFeedback.right.jogMode}
+            sequenceActive={sequenceActive.right}
           />
           <AxisPanel
             side="Left"
@@ -1981,6 +2016,7 @@ export default function MainHMI() {
             userRole={currentUser}
             runMode={modeFeedback.left.runMode}
             jogMode={modeFeedback.left.jogMode}
+            sequenceActive={sequenceActive.left}
           />
         </div>
       </div>
