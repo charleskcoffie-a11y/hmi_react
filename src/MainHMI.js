@@ -1096,12 +1096,14 @@ export default function MainHMI() {
 
   // ...existing code...
 
-  const handleCreateRecipe = (recipeName, recipeDescription, side) => {
+  const handleCreateRecipe = (recipeName, recipeDescription, side, fullRecipe = null) => {
     if (currentUser === 'operator') {
       showMessage('Access Denied', 'Operators cannot create recipes.', 'warning');
       return;
     }
-    const newRecipe = {
+    
+    // If fullRecipe is provided (import case), use it directly
+    const newRecipe = fullRecipe || {
       name: recipeName,
       description: recipeDescription,
       parameters: {
@@ -1117,28 +1119,36 @@ export default function MainHMI() {
       }
     };
     
+    // Ensure side is set correctly
+    newRecipe.side = side;
+    
     // Save to filesystem
     saveRecipeToFile(newRecipe, side);
     
     // Track as last used recipe
-    localStorage.setItem(`lastRecipe_${side}`, recipeName);
+    localStorage.setItem(`lastRecipe_${side}`, newRecipe.name);
     
     if (side === 'right') {
       setRecipesRight(prev => {
         const updated = [...prev, newRecipe];
-        setCurrentRecipe(cr => ({ ...cr, right: recipeName }));
+        setCurrentRecipe(cr => ({ ...cr, right: newRecipe.name }));
         setTimeout(() => handleLoadRecipe(newRecipe, 'right'), 0);
         return updated;
       });
     } else {
       setRecipesLeft(prev => {
         const updated = [...prev, newRecipe];
-        setCurrentRecipe(cr => ({ ...cr, left: recipeName }));
+        setCurrentRecipe(cr => ({ ...cr, left: newRecipe.name }));
         setTimeout(() => handleLoadRecipe(newRecipe, 'left'), 0);
         return updated;
       });
     }
-    showMessage('Recipe Created', `Recipe "${recipeName}" created and loaded`, 'success');
+    
+    const stepCount = newRecipe.steps ? Object.keys(newRecipe.steps).length : 0;
+    const message = fullRecipe 
+      ? `Recipe "${newRecipe.name}" imported successfully with ${stepCount} steps` 
+      : `Recipe "${newRecipe.name}" created and loaded`;
+    showMessage(fullRecipe ? 'Recipe Imported' : 'Recipe Created', message, 'success');
   };
 
   const handleEditRecipe = (oldRecipe, newName, newDescription, side) => {

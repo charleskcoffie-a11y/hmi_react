@@ -140,10 +140,45 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
     reader.onload = (event) => {
       try {
         const importedRecipe = JSON.parse(event.target.result);
-        // Optionally validate structure here
-        onCreateRecipe && onCreateRecipe(importedRecipe.name, importedRecipe.description, side, importedRecipe.parameters);
-        setSelectedRecipe(importedRecipe);
+        
+        // Validate basic structure
+        if (!importedRecipe.name) {
+          setDialog({ open: true, title: 'Invalid Recipe', message: 'Recipe file is missing a name.', mode: 'info' });
+          return;
+        }
+        
+        // Create complete recipe object with all properties
+        const completeRecipe = {
+          name: importedRecipe.name,
+          description: importedRecipe.description || '',
+          side: side, // Use current side
+          parameters: importedRecipe.parameters || {
+            tubeID: 0,
+            tubeOD: 0,
+            finalSize: 0,
+            sizeType: 'OD',
+            tubeLength: 0,
+            idFingerRadius: 0,
+            depth: 0,
+            recipeSpeed: 100,
+            stepDelay: 500
+          },
+          steps: importedRecipe.steps || {},
+          speed: importedRecipe.speed,
+          dwell: importedRecipe.dwell,
+          createdAt: importedRecipe.createdAt || new Date().toISOString()
+        };
+        
+        // Call onCreateRecipe with the complete recipe object
+        // This will require the parent to handle full recipe import
+        if (onCreateRecipe) {
+          // Pass complete recipe as 4th parameter for import
+          onCreateRecipe(completeRecipe.name, completeRecipe.description, side, completeRecipe);
+        }
+        
+        setSelectedRecipe(completeRecipe);
         setAction(null);
+        setDialog({ open: true, title: 'Recipe Imported', message: `Recipe "${completeRecipe.name}" imported successfully with ${Object.keys(completeRecipe.steps || {}).length} steps.`, mode: 'info' });
       } catch (err) {
         setDialog({ open: true, title: 'Invalid Recipe', message: 'The selected file is not a valid recipe file.', mode: 'info' });
       }
