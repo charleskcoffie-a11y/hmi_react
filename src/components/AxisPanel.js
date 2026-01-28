@@ -54,11 +54,17 @@ function AxisPanel({ side, axis1Name, axis2Name, onAxisChange, axis1State, axis2
       <div className="positions-row">
         <div className="pos-item">
           <div className="pos-name">{axis1Name}</div>
-          <div className="pos-value">{displayAxis1.toFixed(3)} {unitLabel}</div>
+          <div className="pos-reading">
+            <div className="pos-value">{displayAxis1.toFixed(3)}</div>
+            <div className="pos-unit">{unitLabel}</div>
+          </div>
         </div>
         <div className="pos-item">
           <div className="pos-name">{axis2Name}</div>
-          <div className="pos-value">{displayAxis2.toFixed(3)} {unitLabel}</div>
+          <div className="pos-reading">
+            <div className="pos-value">{displayAxis2.toFixed(3)}</div>
+            <div className="pos-unit">{unitLabel}</div>
+          </div>
         </div>
       </div>
 

@@ -1420,10 +1420,10 @@ export default function MainHMI() {
     const copiedRecipe = { ...sourceRecipe, name: newName, side: targetSide };
     
     // Transform program steps if they exist (swap axis assignments between sides)
-    if (sourceRecipe.program?.steps) {
+    if (sourceRecipe.steps) {
       const transformedSteps = {};
-      Object.keys(sourceRecipe.program.steps).forEach(stepKey => {
-        const sourceStep = sourceRecipe.program.steps[stepKey];
+      Object.keys(sourceRecipe.steps).forEach(stepKey => {
+        const sourceStep = sourceRecipe.steps[stepKey];
         const transformedStep = { ...sourceStep };
         
         // Transform axis positions based on side
@@ -1450,12 +1450,7 @@ export default function MainHMI() {
         transformedSteps[stepKey] = transformedStep;
       });
       
-      copiedRecipe.program = {
-        ...sourceRecipe.program,
-        name: newName,
-        side: targetSide,
-        steps: transformedSteps
-      };
+      copiedRecipe.steps = transformedSteps;
     }
     
     // Save to target side
