@@ -269,6 +269,19 @@
   flex: 1;
   padding: 10px 12px 8px;
   overflow: hidden; /* no scrolling; ensure compact layout fits */
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.panels-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* always side-by-side */
+  gap: 12px;
+  height: auto; /* shrink to fit content, not full height */
+  max-width: 1024px;
+  width: 100%;
+  margin: 0 auto;
 }
 
 .alarm-banner {
@@ -583,13 +596,6 @@
   display: none;
 }
 
-.panels-container {
-  display: grid;
-  grid-template-columns: 1fr 1fr; /* always side-by-side */
-  gap: 12px;
-  height: auto; /* shrink to fit content, not full height */
-}
-
 .hmi-mode-controls {
   display: flex;
   justify-content: center;
@@ -603,6 +609,9 @@
   display: flex;
   gap: 20px;
   align-items: center;
+  max-width: 1024px;
+  width: 100%;
+  justify-content: center;
 }
 
 .mode-control-btn {
@@ -721,6 +730,13 @@
   background: linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
   border-top: 3px solid #0066cc;
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+}
+
+.hmi-bottom .control-panel {
+  max-width: 1024px;
+  width: 100%;
 }
 
 /* Responsive Design */
