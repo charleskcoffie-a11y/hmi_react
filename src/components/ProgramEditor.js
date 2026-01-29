@@ -402,10 +402,12 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
               <div className="no-steps">No steps in this program</div>
             ) : (
               <div className="steps-grid">
-                {editedSteps.map((step) => (
+                {editedSteps.map((step) => {
+                  const patternName = patternOptions.find((p) => p.code === step.pattern)?.name || `Pattern ${step.pattern}`;
+                  return (
                   <div key={step.stepNumber} className="step-editor-card">
                     <div className="step-card-header">
-                      <span className="step-number">Step {step.stepNumber}</span>
+                      <span className="step-number">Step {step.stepNumber} - {patternName}</span>
                       <span className="step-name">{step.stepName}</span>
                     </div>
 
@@ -474,7 +476,8 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

@@ -57,18 +57,18 @@
 }
 
 .keyboard-key {
-  padding: 12px 8px;
+  padding: 14px 10px;
   background: linear-gradient(135deg, #1a5f9e 0%, #0d3a5c 100%);
   border: 2px solid #0066cc;
   border-radius: 6px;
   color: #0088ff;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
   text-transform: uppercase;
   letter-spacing: 0.6px;
-  min-height: 40px;
+  min-height: 48px;
   flex: 1;
   min-width: 0;
 }
@@ -95,10 +95,10 @@
   background: linear-gradient(135deg, #28a745 0%, #1d6e2d 100%);
   border-color: #28a745;
   color: white;
-  font-size: 14px;
-  padding: 12px;
+  font-size: 15px;
+  padding: 14px;
   font-weight: 700;
-  min-height: 50px;
+  min-height: 60px;
 }
 
 .enter-key:hover {

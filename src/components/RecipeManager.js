@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import ModernDialog from './ModernDialog';
+import NumericKeypad from './NumericKeypad';
 import '../styles/RecipeManager.css';
 import '../styles/RecipeManagerSide.css';
 import '../styles/RecipeTextarea.css';
@@ -11,6 +12,10 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
       if (!isOpen) {
         setAction(null);
         setSelectedRecipe(null);
+        setPendingDelete(null);
+        setDialog({ open: false, title: '', message: '', mode: 'info' });
+        setKeypadOpen(false);
+        setKeypadField(null);
       }
     }, [isOpen]);
 
@@ -48,6 +53,7 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
   const [selectedRecipe, setSelectedRecipe] = useState(recipes && recipes.length > 5 ? recipes[5] : recipes?.[0] || null);
   const [searchInput, setSearchInput] = useState('');
   const [keypadOpen, setKeypadOpen] = useState(false);
+  const [keypadField, setKeypadField] = useState(null); // 'name' or 'description'
   const [action, setAction] = useState(null);
   const [newRecipeName, setNewRecipeName] = useState('');
   const [newRecipeDescription, setNewRecipeDescription] = useState('');
@@ -105,6 +111,8 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
     setAction('create');
     setNewRecipeName('');
     setNewRecipeDescription('');
+    setKeypadField('name');
+    setKeypadOpen(true);
   };
 
   // Export selected recipe as JSON file
@@ -198,6 +206,35 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
       setAction(null);
       setNewRecipeName('');
       setNewRecipeDescription('');
+      setKeypadOpen(false);
+      setKeypadField(null);
+    }
+  };
+
+  const handleKeypadInput = (value) => {
+    if (keypadField === 'name') {
+      if (value.length <= 32) {
+        setNewRecipeName(value);
+      }
+    } else if (keypadField === 'description') {
+      setNewRecipeDescription(value);
+    }
+  };
+
+  const handleKeypadBackspace = (value) => {
+    if (keypadField === 'name') {
+      setNewRecipeName(value);
+    } else if (keypadField === 'description') {
+      setNewRecipeDescription(value);
+    }
+  };
+
+  const handleKeypadEnter = () => {
+    if (keypadField === 'name' && newRecipeName.trim().length >= 3) {
+      setKeypadField('description');
+      // Keep keypad open for description input
+    } else if (keypadField === 'description') {
+      handleSave();
     }
   };
 
@@ -400,19 +437,47 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
               type="text"
               value={newRecipeName}
               onChange={(e) => setNewRecipeName(e.target.value)}
+              onClick={() => {
+                setKeypadField('name');
+                setKeypadOpen(true);
+              }}
+              onFocus={() => {
+                setKeypadField('name');
+                setKeypadOpen(true);
+              }}
               placeholder="Recipe name"
               className="recipe-input"
             />
             <textarea
               value={newRecipeDescription}
               onChange={(e) => setNewRecipeDescription(e.target.value)}
+              onClick={() => {
+                setKeypadField('description');
+                setKeypadOpen(true);
+              }}
+              onFocus={() => {
+                setKeypadField('description');
+                setKeypadOpen(true);
+              }}
               placeholder="Recipe description / notes"
               className="recipe-textarea"
               rows="3"
             />
+            {keypadOpen && (
+              <NumericKeypad
+                value={keypadField === 'name' ? newRecipeName : newRecipeDescription}
+                onInput={handleKeypadInput}
+                onBackspace={handleKeypadBackspace}
+                onEnter={handleKeypadEnter}
+              />
+            )}
             <div className="editor-buttons">
               <button className="save-btn" onClick={handleSave}>Save</button>
-              <button className="cancel-btn" onClick={() => setAction(null)}>Cancel</button>
+              <button className="cancel-btn" onClick={() => {
+                setAction(null);
+                setKeypadOpen(false);
+                setKeypadField(null);
+              }}>Cancel</button>
             </div>
           </div>
         ) : null}
