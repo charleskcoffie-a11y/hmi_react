@@ -55,7 +55,7 @@
       "installerIcon": null,
       "uninstallerIcon": null,
       "installerHeaderIcon": null,
-      "include": "installer-custom.nsh"
+      "include": "installer.nsh"
     },
     "directories": {
       "buildResources": "build",
