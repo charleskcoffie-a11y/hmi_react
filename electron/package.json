@@ -46,6 +46,7 @@
     },
     "nsis": {
       "oneClick": false,
+      "perMachine": false,
       "allowToChangeInstallationDirectory": false,
       "deleteAppDataOnUninstall": true,
       "createDesktopShortcut": true,
@@ -53,7 +54,12 @@
       "shortcutName": "CNC Dual head",
       "installerIcon": null,
       "uninstallerIcon": null,
-      "installerHeaderIcon": null
+      "installerHeaderIcon": null,
+      "include": "installer-custom.nsh"
+    },
+    "directories": {
+      "buildResources": "build",
+      "output": "dist"
     }
   }
 }

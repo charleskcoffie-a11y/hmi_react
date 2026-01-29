@@ -66,6 +66,11 @@ export default function HomingDialog({ isOpen, onClose, side, timeout = 60 }) {
           setMessage(`${sideName} Head Home Complete ✓`);
           setShowOkButton(true);
           hasCompletedRef.current = true;
+                  // Auto-close dialog after 1.5 seconds when homing completes
+                  setTimeout(() => {
+                    console.log('[HomingDialog] Auto-closing after homing completion');
+                    onClose();
+                  }, 1500);
         } else if (isIdHoming && isOdHoming) {
           setStatus('homing_both');
           setMessage(`${sideName} Head is Homing...`);

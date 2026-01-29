@@ -126,11 +126,8 @@ function createWindow() {
     try {
       win.show();
       win.focus();
-      // Open DevTools after window is shown
-      win.webContents.openDevTools({ mode: 'detach' });
-      console.log('[electron] DevTools opened');
     } catch (e) {
-      console.error('[electron] Failed to open DevTools:', e);
+      console.error('[electron] Failed to show window:', e);
     }
   });
 

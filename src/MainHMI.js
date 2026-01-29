@@ -226,6 +226,7 @@ export default function MainHMI() {
   const lastActivityRef = React.useRef(Date.now());
   const pollingIntervalRef = React.useRef(500); // Start with 500ms
   const isIdleRef = React.useRef(false);
+  const isDeepIdleRef = React.useRef(false);
 
   // Homing status states
   const [showHomingDialog, setShowHomingDialog] = useState(false);
@@ -328,22 +329,34 @@ export default function MainHMI() {
         const timeNow = Date.now();
         const timeSinceActivity = timeNow - lastActivityRef.current;
         const ACTIVITY_THRESHOLD = 3000; // 3 seconds of inactivity = idle
+        const DEEP_IDLE_THRESHOLD = 15000; // 15 seconds of inactivity = deep idle
         const ACTIVE_INTERVAL = 500;     // When active: poll every 500ms
         const IDLE_INTERVAL = 2000;      // When idle: poll every 2 seconds
+        const DEEP_IDLE_INTERVAL = 5000; // When deep idle: poll every 5 seconds
         
         if (isJogOrRunActive) {
           lastActivityRef.current = timeNow;
           pollingIntervalRef.current = ACTIVE_INTERVAL;
           isIdleRef.current = false;
+          isDeepIdleRef.current = false;
+        } else if (timeSinceActivity > DEEP_IDLE_THRESHOLD) {
+          pollingIntervalRef.current = DEEP_IDLE_INTERVAL;
+          if (!isDeepIdleRef.current) {
+            console.log('[MainHMI] Machine deep idle - polling interval increased to 5000ms');
+          }
+          isDeepIdleRef.current = true;
+          isIdleRef.current = true;
         } else if (timeSinceActivity > ACTIVITY_THRESHOLD) {
           pollingIntervalRef.current = IDLE_INTERVAL;
-          isIdleRef.current = true;
-          if (isIdleRef.current) {
+          if (!isIdleRef.current) {
             console.log('[MainHMI] Machine idle - polling interval increased to 2000ms');
           }
+          isIdleRef.current = true;
+          isDeepIdleRef.current = false;
         } else {
           pollingIntervalRef.current = ACTIVE_INTERVAL;
           isIdleRef.current = false;
+          isDeepIdleRef.current = false;
         }
         
         // Read axis positions from PLC
@@ -1427,14 +1440,36 @@ export default function MainHMI() {
 
   const performRecipeCopy = (sourceRecipe, sourceSide, targetSide, newName, isOverride = false) => {
     // Create copy with transformed axis data
-    const copiedRecipe = { ...sourceRecipe, name: newName, side: targetSide };
+    const copiedRecipe = { 
+      ...sourceRecipe, 
+      name: newName, 
+      side: targetSide,
+      // Ensure parameters (including stepDelay, speed, etc.) are preserved
+      parameters: {
+        ...sourceRecipe.parameters,
+        recipeSpeed: sourceRecipe.parameters?.recipeSpeed || 100,
+        stepDelay: sourceRecipe.parameters?.stepDelay || 500,
+        tubeID: sourceRecipe.parameters?.tubeID || 0,
+        tubeOD: sourceRecipe.parameters?.tubeOD || 0,
+        finalSize: sourceRecipe.parameters?.finalSize || 0,
+        sizeType: sourceRecipe.parameters?.sizeType || 'OD',
+        tubeLength: sourceRecipe.parameters?.tubeLength || 0,
+        idFingerRadius: sourceRecipe.parameters?.idFingerRadius || 0,
+        depth: sourceRecipe.parameters?.depth || 0
+      }
+    };
     
     // Transform program steps if they exist (swap axis assignments between sides)
     if (sourceRecipe.steps) {
       const transformedSteps = {};
       Object.keys(sourceRecipe.steps).forEach(stepKey => {
         const sourceStep = sourceRecipe.steps[stepKey];
-        const transformedStep = { ...sourceStep };
+        const transformedStep = { 
+          ...sourceStep,
+          // Explicitly preserve step-level dwell time
+          dwell: sourceStep.dwell || 0
+        };
+        const stepNumber = parseInt(stepKey);
         
         // Transform axis positions based on side
         if (sourceStep.positions) {
@@ -1454,7 +1489,20 @@ export default function MainHMI() {
               axis3Cmd: 0,
               axis4Cmd: 0
             };
+          } else {
+            // Same side - keep positions as is
+            transformedStep.positions = { ...sourceStep.positions };
           }
+        }
+        
+        // For Step 1, ensure all 4 axes are included in the copy
+        if (stepNumber === 1 && transformedStep.positions) {
+          transformedStep.positions = {
+            axis1Cmd: transformedStep.positions.axis1Cmd || 0,
+            axis2Cmd: transformedStep.positions.axis2Cmd || 0,
+            axis3Cmd: transformedStep.positions.axis3Cmd || 0,
+            axis4Cmd: transformedStep.positions.axis4Cmd || 0
+          };
         }
         
         transformedSteps[stepKey] = transformedStep;

@@ -689,12 +689,20 @@ function createServer() {
             await writeTagValue(`${gvlPrefix}.tHmi${headPrefix}StepDwell[${stepNum}]`, step.dwell);
           }
 
-          // Write repeat settings
-          if (step.repeatTarget !== undefined) {
-            await writeTagValue(`${gvlPrefix}.d${headPrefix}RepeatTarget[${stepNum}]`, step.repeatTarget);
+          // Write repeat settings (pattern 5 = repeat)
+          if (pattern.repeat && step.repeatTargetStep !== undefined) {
+            const repeatTarget = Number(step.repeatTargetStep);
+            if (Number.isFinite(repeatTarget)) {
+              await writeTagValue(`${gvlPrefix}.dHmi${headPrefix}RepeatTarget[${stepNum}]`, Math.round(repeatTarget), true);
+              console.log(`[plc-server] Step ${stepNum}: Writing repeat target = ${Math.round(repeatTarget)}`);
+            }
           }
-          if (step.repeatCount !== undefined) {
-            await writeTagValue(`${gvlPrefix}.dHmi${headPrefix}RepeatTimes[${stepNum}]`, step.repeatCount);
+          if (pattern.repeat && step.repeatCount !== undefined) {
+            const repeatTimes = Number(step.repeatCount);
+            if (Number.isFinite(repeatTimes)) {
+              await writeTagValue(`${gvlPrefix}.dHmi${headPrefix}RepeatTimes[${stepNum}]`, Math.max(1, Math.round(repeatTimes)), true);
+              console.log(`[plc-server] Step ${stepNum}: Writing repeat times = ${Math.max(1, Math.round(repeatTimes))}`);
+            }
           }
 
         } catch (err) {
