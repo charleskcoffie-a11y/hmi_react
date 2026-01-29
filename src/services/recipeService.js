@@ -92,9 +92,20 @@ export const saveRecipeToFile = async (recipe, side) => {
 
 export const deleteRecipeFile = async (recipeName, side) => {
   if (!recipeName || !side) return;
+  
+  // Delete from Electron filesystem if available
+  if (isElectron() && window.electron && window.electron.deleteRecipe) {
+    try {
+      const result = await window.electron.deleteRecipe(recipeName, side);
+      if (result.success) {
+        console.log(`[recipeService] Deleted recipe "${recipeName}" for ${side} from file system`);
+      }
+    } catch (err) {
+      console.warn('[recipeService] Failed to delete recipe from file system:', err);
+    }
+  }
+  
+  // Also remove from localStorage cache
   const recipes = readStore(side).filter((r) => r.name !== recipeName);
   writeStore(side, recipes);
-  
-  // Note: File deletion from frontend is not exposed via IPC in current implementation
-  // Files will be cleaned up when recipes are overwritten or app is reinstalled
 };

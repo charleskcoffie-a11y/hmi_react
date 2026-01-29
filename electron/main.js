@@ -43,21 +43,19 @@ function saveConfig(config) {
 function clearOldAppData() {
   const toDelete = new Set();
   try {
+    // DO NOT delete 'CNC Dual head' folder - it contains recipe data that should persist
+    // Only clear userData (session/cache data) and old app names
     toDelete.add(app.getPath('userData'));
-    toDelete.add(path.join(app.getPath('appData'), 'CNC Dual head'));
     toDelete.add(path.join(app.getPath('appData'), 'hmi-electron'));
     // LOCALAPPDATA mirrors appData on Windows; guard env presence
     const localAppData = process.env.LOCALAPPDATA;
     if (localAppData) {
-      toDelete.add(path.join(localAppData, 'CNC Dual head'));
       toDelete.add(path.join(localAppData, 'hmi-electron'));
       toDelete.add(path.join(localAppData, 'Programs', 'CNC Dual head'));
     }
-    // Also clear browser cache and session data
+    // Also clear browser cache and session data from old locations
     toDelete.add(path.join(app.getPath('appData'), 'hmi-electron', 'Cache'));
     toDelete.add(path.join(app.getPath('appData'), 'hmi-electron', 'Code Cache'));
-    toDelete.add(path.join(app.getPath('appData'), 'CNC Dual head', 'Cache'));
-    toDelete.add(path.join(app.getPath('appData'), 'CNC Dual head', 'Code Cache'));
   } catch (e) {
     console.warn('[electron] Unable to build cache delete list:', e.message || e);
   }
@@ -182,32 +180,56 @@ app.on('activate', () => {
 });
 
 // IPC handlers for recipe save/load
-// Store recipes under the per-user data directory to ensure write access in production
-const recipesDir = path.join(app.getPath('userData'), 'recipes');
+// Store recipes under appData 'CNC Dual head' to persist across app updates
+const recipesDir = path.join(app.getPath('appData'), 'CNC Dual head', 'recipes');
 
 ipcMain.handle('save-recipe', async (event, recipe, side) => {
   try {
     if (!fs.existsSync(recipesDir)) {
-      fs.mkdirSync(recipesDir);
+      fs.mkdirSync(recipesDir, { recursive: true });
     }
     const fileName = `${side}_${recipe.name.replace(/[^a-zA-Z0-9_-]/g, '_')}.json`;
     const filePath = path.join(recipesDir, fileName);
     fs.writeFileSync(filePath, JSON.stringify(recipe, null, 2));
+    console.log(`[electron] Recipe saved: ${filePath}`);
     return { success: true };
   } catch (err) {
+    console.error(`[electron] Failed to save recipe:`, err);
     return { success: false, error: err.message };
   }
 });
 
 ipcMain.handle('load-recipes', async (event, side) => {
   try {
-    if (!fs.existsSync(recipesDir)) return [];
+    if (!fs.existsSync(recipesDir)) {
+      console.log(`[electron] Recipes directory not found, creating: ${recipesDir}`);
+      fs.mkdirSync(recipesDir, { recursive: true });
+      return [];
+    }
     const files = fs.readdirSync(recipesDir).filter(f => f.startsWith(side));
+    console.log(`[electron] Loading ${files.length} recipes for ${side} side from: ${recipesDir}`);
     return files.map(f => {
       const content = fs.readFileSync(path.join(recipesDir, f));
       return JSON.parse(content);
     });
   } catch (err) {
+    console.error(`[electron] Failed to load recipes:`, err);
     return [];
+  }
+});
+
+ipcMain.handle('delete-recipe', async (event, recipeName, side) => {
+  try {
+    const fileName = `${side}_${recipeName.replace(/[^a-zA-Z0-9_-]/g, '_')}.json`;
+    const filePath = path.join(recipesDir, fileName);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      console.log(`[electron] Recipe deleted: ${filePath}`);
+      return { success: true };
+    }
+    return { success: false, error: 'File not found' };
+  } catch (err) {
+    console.error(`[electron] Failed to delete recipe:`, err);
+    return { success: false, error: err.message };
   }
 });
