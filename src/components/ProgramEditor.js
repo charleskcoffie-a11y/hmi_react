@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import ModernDialog from './ModernDialog';
+import AxisSelectionModal from './AxisSelectionModal';
 import '../styles/ProgramEditor.css';
 import NumericKeypad from './NumericKeypad';
-import { readAxisPositions } from '../services/plcApiService';
+import { readAxisPositions, writePLCVar } from '../services/plcApiService';
 
 export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram, onWriteToPLC, unitSystem }) {
   const [dialog, setDialog] = useState({ open: false, title: '', message: '' });
@@ -24,6 +25,10 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
   const [downloadDialog, setDownloadDialog] = useState({ open: false });
   const [loading, setLoading] = useState(false);
   const [plcStatus, setPlcStatus] = useState('unknown');
+  const [showAxisModal, setShowAxisModal] = useState(false);
+  const [pendingStep, setPendingStep] = useState(null); // Store step data while waiting for axis selection
+  const [jogMode, setJogMode] = useState(false); // Jog mode for recipe editing
+  const [selectedJogAxis, setSelectedJogAxis] = useState(null); // Selected axis for jog
 
   const getPatternAxes = (patternCode) => {
     const code = Number(patternCode ?? 0);
@@ -352,6 +357,13 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
               >
                 + Add Step
               </button>
+              <button 
+                className={`step-action-btn jog ${jogMode ? 'active' : ''}`}
+                onClick={() => setJogMode(!jogMode)}
+                title={jogMode ? 'Jog Mode: ON (Ready to record positions)' : 'Jog Mode: OFF (Click to enable)'}
+              >
+                {jogMode ? '✓ Jog' : '◉ Jog'}
+              </button>
               <button className="step-action-btn delete" onClick={() => setStepDialog({ open: true, mode: 'delete', stepNumber: '', pattern: 0, repeatTargetStep: 1, repeatCount: 1 })}>
                 🗑 Delete Step
               </button>
@@ -390,10 +402,12 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
               <div className="no-steps">No steps in this program</div>
             ) : (
               <div className="steps-grid">
-                {editedSteps.map((step) => (
+                {editedSteps.map((step) => {
+                  const patternName = patternOptions.find((p) => p.code === step.pattern)?.name || `Pattern ${step.pattern}`;
+                  return (
                   <div key={step.stepNumber} className="step-editor-card">
                     <div className="step-card-header">
-                      <span className="step-number">Step {step.stepNumber}</span>
+                      <span className="step-number">Step {step.stepNumber} - {patternName}</span>
                       <span className="step-name">{step.stepName}</span>
                     </div>
 
@@ -462,7 +476,8 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -579,6 +594,8 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
               }
               const insertAtRaw = isNaN(target) ? editedSteps.length + 1 : target;
               const insertAt = Math.min(Math.max(insertAtRaw, 1), editedSteps.length + 1);
+              
+              // Store pending step and show axis selection modal instead of directly adding
               const newStep = {
                 stepNumber: insertAt,
                 stepName: `Step ${insertAt}`,
@@ -586,24 +603,19 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                 pattern: stepDialog.pattern ?? 0,
                 dwell: [1, 3, 4].includes(Number(stepDialog.pattern)) ? 0 : programDwell,
                 speed: programSpeed,
-                enabled: true, // Explicitly set enabled flag for new steps
+                enabled: true,
                 timestamp: new Date().toISOString(),
                 ...(stepDialog.pattern === 5 ? {
                   repeatTargetStep: stepDialog.repeatTargetStep || 1,
                   repeatCount: stepDialog.repeatCount || 1
                 } : {})
               };
-              const merged = [...editedSteps];
-              merged.splice(insertAt - 1, 0, newStep);
-              const renumbered = merged.slice(0, 10).map((s, idx) => ({
-                ...s,
-                stepNumber: idx + 1,
-                stepName: s.stepName?.replace(/Step\s+\d+/, `Step ${idx + 1}`) || `Step ${idx + 1}`
-              }));
-              setEditedSteps(renumbered);
-              setJogHint(true);
+              
+              setPendingStep(newStep);
+              setStepDialog({ open: false, mode: 'add', stepNumber: '', pattern: 0, repeatTargetStep: 1, repeatCount: 1 });
+              // Show axis modal for pattern selection (similar to AutoTeach)
+              setShowAxisModal(true);
             }
-            setStepDialog({ open: false, mode: 'add', stepNumber: '', pattern: 0, repeatTargetStep: 1, repeatCount: 1 });
           }}
           confirmText="Confirm"
         >
@@ -752,8 +764,8 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                 <label className="dialog-label">Repeat Step (Target)</label>
                 <input
                   type="number"
-                  min="1"
-                  max={Math.max(1, (editedSteps.find(s => s.stepNumber === repeatDialog.stepNumber)?.stepNumber || 2) - 1)}
+                  min="2"
+                  max={Math.max(2, repeatDialog.stepNumber - 1)}
                   value={repeatDialog.repeatTargetStep}
                   onClick={() => {
                     setKeypadTarget({ type: 'repeatTargetStep', stepNumber: repeatDialog.stepNumber });
@@ -764,7 +776,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                   className="step-dialog-input modern"
                   style={{ cursor: 'pointer' }}
                 />
-                <div className="dialog-hint">Must be before current step</div>
+                <div className="dialog-hint">Must be between 2 and {Math.max(2, repeatDialog.stepNumber - 1)}</div>
               </div>
               <div>
                 <label className="dialog-label">Repeat Count</label>
@@ -1062,6 +1074,32 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
             </div>
           </div>
         </ModernDialog>
+
+        <AxisSelectionModal
+          isOpen={showAxisModal}
+          onClose={() => {
+            setShowAxisModal(false);
+            setPendingStep(null);
+          }}
+          onSelectAxis={(axis) => {
+            if (pendingStep) {
+              const merged = [...editedSteps];
+              merged.splice(pendingStep.stepNumber - 1, 0, pendingStep);
+              const renumbered = merged.slice(0, 10).map((s, idx) => ({
+                ...s,
+                stepNumber: idx + 1,
+                stepName: s.stepName?.replace(/Step\s+\d+/, `Step ${idx + 1}`) || `Step ${idx + 1}`
+              }));
+              setEditedSteps(renumbered);
+              setJogHint(true);
+              setPendingStep(null);
+              setShowAxisModal(false);
+            }
+          }}
+          side={program.side}
+          patternCode={pendingStep?.pattern ?? 0}
+          stepNumber={pendingStep?.stepNumber ?? 0}
+        />
       </div>
     </div>
   );
