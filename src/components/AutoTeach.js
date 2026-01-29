@@ -1018,7 +1018,7 @@ export default function AutoTeach({
                   >
                     <div className="card-header">
                       <span className="card-step-num">
-                        ✓ Step {stepNum}
+                        ✓ Step {stepNum} - {patternOptions.find((p) => p.code === recordedStep.pattern)?.name || `Pattern ${recordedStep.pattern}`}
                       </span>
                       <div className="card-actions">
                         <button 
@@ -1160,18 +1160,18 @@ export default function AutoTeach({
                 <div className="repeat-config-section">
                   <div className="config-label">
                     <span className="config-icon">📍</span>
-                    <span>Step to Repeat</span>
+                    <span>Select Step to Repeat</span>
                   </div>
                   <select
                     className="repeat-config-select"
                     value={repeatTargetStep ?? ''}
                     onChange={(e) => setRepeatTargetStep(parseInt(e.target.value, 10))}
                   >
-                    {eligibleRepeatTargets.length === 0 ? (
-                      <option value="" disabled>
-                        No eligible steps (2-9) recorded yet
-                      </option>
-                    ) : null}
+                    <option value="" disabled>
+                      {eligibleRepeatTargets.length === 0 
+                        ? 'No eligible steps (2-9) recorded yet' 
+                        : 'Choose a step...'}
+                    </option>
                     {eligibleRepeatTargets.map((n) => (
                       <option key={n} value={n}>
                         Step {n}
@@ -1183,24 +1183,24 @@ export default function AutoTeach({
                 <div className="repeat-config-section">
                   <div className="config-label">
                     <span className="config-icon">🔢</span>
-                    <span>Repeat Count</span>
+                    <span>How Many Times?</span>
                   </div>
                   <button
                     type="button"
                     className="repeat-config-input keypad-button"
                     onClick={() => setRepeatKeypadOpen(true)}
+                    title="Tap to open numeric keypad"
                   >
-                    {repeatCount} ×
+                    {repeatCount} times
                   </button>
-                  <div className="repeat-config-hint">Tap to set repeat count with keypad</div>
+                  <div className="repeat-config-hint">Tap the field above to enter repeat count</div>
                 </div>
 
                 <div className="repeat-info-box">
                   <div className="info-icon">ℹ️</div>
                   <div className="info-text">
-                    You can add Repeat on steps 3–10.
-                    Choose a previously recorded target step between 2–9 (Step 2 is allowed).
-                    Step 1 (Start) and Step 10 (End) cannot be targets.
+                    Repeat can be added on steps 3–10. Select a previously recorded target step (2–9). 
+                    Step 1 (Start) and Step 10 (End) cannot be repeated.
                   </div>
                 </div>
               </div>
