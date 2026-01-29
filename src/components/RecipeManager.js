@@ -178,7 +178,8 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
         
         setSelectedRecipe(completeRecipe);
         setAction(null);
-        setDialog({ open: true, title: 'Recipe Imported', message: `Recipe "${completeRecipe.name}" imported successfully with ${Object.keys(completeRecipe.steps || {}).length} steps.`, mode: 'info' });
+        // Don't show dialog here - MainHMI will show the success message
+        // This prevents the dialog from staying open after import
       } catch (err) {
         setDialog({ open: true, title: 'Invalid Recipe', message: 'The selected file is not a valid recipe file.', mode: 'info' });
       }

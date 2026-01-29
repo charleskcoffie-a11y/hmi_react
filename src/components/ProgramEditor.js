@@ -27,6 +27,8 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
   const [plcStatus, setPlcStatus] = useState('unknown');
   const [showAxisModal, setShowAxisModal] = useState(false);
   const [pendingStep, setPendingStep] = useState(null); // Store step data while waiting for axis selection
+  const [jogMode, setJogMode] = useState(false); // Jog mode for recipe editing
+  const [selectedJogAxis, setSelectedJogAxis] = useState(null); // Selected axis for jog
 
   const getPatternAxes = (patternCode) => {
     const code = Number(patternCode ?? 0);
@@ -354,6 +356,13 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                 disabled={editedSteps.length >= 10}
               >
                 + Add Step
+              </button>
+              <button 
+                className={`step-action-btn jog ${jogMode ? 'active' : ''}`}
+                onClick={() => setJogMode(!jogMode)}
+                title={jogMode ? 'Jog Mode: ON (Ready to record positions)' : 'Jog Mode: OFF (Click to enable)'}
+              >
+                {jogMode ? '✓ Jog' : '◉ Jog'}
               </button>
               <button className="step-action-btn delete" onClick={() => setStepDialog({ open: true, mode: 'delete', stepNumber: '', pattern: 0, repeatTargetStep: 1, repeatCount: 1 })}>
                 🗑 Delete Step

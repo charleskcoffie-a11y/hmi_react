@@ -345,6 +345,46 @@
   background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%);
 }
 
+.step-action-btn.jog {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(79, 172, 254, 0.4);
+  position: relative;
+  overflow: hidden;
+}
+
+.step-action-btn.jog::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transition: left 0.5s;
+}
+
+.step-action-btn.jog:hover::before {
+  left: 100%;
+}
+
+.step-action-btn.jog:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(79, 172, 254, 0.6);
+  background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+}
+
+.step-action-btn.jog.active {
+  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+  box-shadow: 0 8px 20px rgba(67, 233, 123, 0.5), 0 0 20px rgba(67, 233, 123, 0.3);
+  animation: jogPulse 2s ease-in-out infinite;
+}
+
+@keyframes jogPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
 .close-btn {
   background: transparent;
   border: 1px solid rgba(156, 195, 255, 0.5);
