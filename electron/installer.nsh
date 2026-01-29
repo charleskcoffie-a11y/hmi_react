@@ -1,32 +1,29 @@
-; NSIS Installer Script - Clear cache on install and set installation directory
-; This script is included by electron-builder to add custom installation logic
+; NSIS Installer Script - Force installation to C:\CNC\
+; This script is included by electron-builder to customize the installation
+
+!define INSTALL_PATH "C:\CNC"
+!define APPDATA_CACHE "$APPDATA\CNC Dual head"
+!define LOCALAPPDATA_CACHE "$LOCALAPPDATA\CNC Dual head"
 
 !macro customHeader
-  ; Variables for cache cleanup
-  !define APPDATA_CACHE "$APPDATA\CNC Dual head"
-  !define LOCALAPPDATA_CACHE "$LOCALAPPDATA\CNC Dual head"
+  ; Force the default installation directory immediately
+  InstallDir "${INSTALL_PATH}"
 !macroend
 
 !macro preInit
-  ; Set installation directory to C:\CNC\
-  StrCpy $INSTDIR "C:\CNC"
-  
-  ; Clear old app data directories before installation
-  ${IfNot} ${FileExists} "$INSTDIR"
-    RMDir /r "$APPDATA_CACHE"
-    RMDir /r "$LOCALAPPDATA_CACHE"
-  ${EndIf}
+  ; Override any previous $INSTDIR setting
+  StrCpy $INSTDIR "${INSTALL_PATH}"
 !macroend
 
 !macro customInstall
-  ; After installation, ensure cache is clean
-  RMDir /r "$APPDATA_CACHE"
-  RMDir /r "$LOCALAPPDATA_CACHE"
+  ; Clean app cache after installation
+  RMDir /r "${APPDATA_CACHE}"
+  RMDir /r "${LOCALAPPDATA_CACHE}"
 !macroend
 
 !macro customUnInstall
   ; Clean up all app data on uninstall
-  RMDir /r "$APPDATA\CNC Dual head"
-  RMDir /r "$LOCALAPPDATA\CNC Dual head"
+  RMDir /r "${APPDATA_CACHE}"
+  RMDir /r "${LOCALAPPDATA_CACHE}"
   RMDir /r "$APPDATA\electron"
 !macroend
