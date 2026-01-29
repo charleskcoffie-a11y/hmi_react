@@ -71,15 +71,19 @@ export default function AutoTeach({
   const activeStepNumber = Math.min(recordedSteps.length + 1, 10);
 
   const eligibleRepeatTargets = useMemo(() => {
-    // Allow repeating ONLY previously-recorded steps (2-9)
-    // Never allow repeating step 1, step 10, or the current uncommitted active step
-    const recordedTargets = recordedSteps
+    // Allow repeating any previously-recorded step (2-9)
+    // Can repeat any step that was successfully recorded before the current step
+    const recorded = recordedSteps
       .map((s) => s.step)
-      .filter((n) => typeof n === 'number' && n >= 2 && n <= 9);
+      .filter((n) => typeof n === 'number');
     
-    // Unique + sorted (do NOT add activeStepNumber since it's not recorded yet)
-    const result = Array.from(new Set(recordedTargets)).sort((a, b) => a - b);
-    console.log('[AutoTeach] eligibleRepeatTargets:', result, 'recordedSteps:', recordedSteps.map(s => ({ step: s.step, name: s.stepName })), 'activeStepNumber:', activeStepNumber);
+    // Filter to only include steps 2-9 (not step 1, not step 10)
+    // These are the only valid targets for a repeat pattern
+    const validTargets = recorded.filter((n) => n >= 2 && n <= 9);
+    
+    // Get unique, sorted list
+    const result = Array.from(new Set(validTargets)).sort((a, b) => a - b);
+    console.log('[AutoTeach] eligibleRepeatTargets:', result, 'recordedSteps count:', recordedSteps.length, 'activeStepNumber:', activeStepNumber);
     return result;
   }, [recordedSteps, activeStepNumber]);
 

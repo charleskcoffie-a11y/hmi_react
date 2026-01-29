@@ -752,8 +752,8 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                 <label className="dialog-label">Repeat Step (Target)</label>
                 <input
                   type="number"
-                  min="1"
-                  max={Math.max(1, (editedSteps.find(s => s.stepNumber === repeatDialog.stepNumber)?.stepNumber || 2) - 1)}
+                  min="2"
+                  max={Math.max(2, repeatDialog.stepNumber - 1)}
                   value={repeatDialog.repeatTargetStep}
                   onClick={() => {
                     setKeypadTarget({ type: 'repeatTargetStep', stepNumber: repeatDialog.stepNumber });
@@ -764,7 +764,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                   className="step-dialog-input modern"
                   style={{ cursor: 'pointer' }}
                 />
-                <div className="dialog-hint">Must be before current step</div>
+                <div className="dialog-hint">Must be between 2 and {Math.max(2, repeatDialog.stepNumber - 1)}</div>
               </div>
               <div>
                 <label className="dialog-label">Repeat Count</label>
