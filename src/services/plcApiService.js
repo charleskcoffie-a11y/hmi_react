@@ -154,16 +154,43 @@ async function disableJogMode(payload) {
     throw new Error('Missing side for jog mode disable');
   }
   
-  // Use disable tags: GLEFTHEAD.bHmiLeftJogHeadEnabledOff or GRIGHTHEAD.bHmiRightJogHeadEnabledOff
-  const tag = side === 'left' 
-    ? 'GLEFTHEAD.bHmiLeftJogHeadEnabledOff' 
-    : 'GRIGHTHEAD.bHmiRightJogHeadEnabledOff';
+  // Pulse the same jog button again to toggle jog OFF
+  // The PLC handles toggle logic - each pulse toggles jog state
+  const index = side === 'left' ? 3 : 42;
+  const tagName = side === 'left' ? 'GLEFTHEAD.bHmiLeftJogPb' : 'GRIGHTHEAD.bHmiRightJogPb';
+  
+  console.log(`[plcApiService] Disabling jog mode for ${side} side - index: ${index}, tag: ${tagName}`);
   
   try {
-    await pulseBoolTag(tag, 100);
-    console.log(`[plcApiService] Jog mode disabled for ${side} side via ${tag}`);
+    // Try by index via io/pulse
+    const res = await fetch(`${API_BASE}/io/pulse`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ index, durationMs: 200 })
+    });
+    const data = await res.json();
+
+    // If index-based pulse fails, fall back to direct tag pulse
+    if (!data.success) {
+      console.warn(`[plcApiService] io/pulse failed for ${side} side (index ${index}). Falling back to tag ${tagName}. Error: ${data.error}`);
+      const fallback = await fetch(`${API_BASE}/pulse-bool`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tag: tagName, durationMs: 200 })
+      });
+      const fb = await fallback.json();
+      if (!fb.success) {
+        console.error(`[plcApiService] Jog mode disable FAILED for ${side} side via tag:`, fb.error);
+        throw new Error(fb.error || 'Failed to disable jog mode');
+      }
+      console.log(`[plcApiService] Jog mode disabled SUCCESS for ${side} side via tag pulse: ${tagName}`);
+      return fb;
+    }
+
+    console.log(`[plcApiService] Jog mode disabled SUCCESS for ${side} side - pulsed tag: ${data.tag || tagName}`);
+    return data;
   } catch (err) {
-    console.error(`[plcApiService] Failed to disable jog mode: ${err.message}`);
+    console.error(`[plcApiService] Failed to disable jog mode for ${side} side:`, err.message);
     throw err;
   }
 }

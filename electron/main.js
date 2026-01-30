@@ -179,6 +179,7 @@ app.on('activate', () => {
 // IPC handlers for recipe save/load
 // Store recipes under appData 'CNC Dual head' to persist across app updates
 const recipesDir = path.join(app.getPath('appData'), 'CNC Dual head', 'recipes');
+const lastRecipePath = path.join(app.getPath('appData'), 'CNC Dual head', 'last-recipe.json');
 
 ipcMain.handle('save-recipe', async (event, recipe, side) => {
   try {
@@ -227,6 +228,45 @@ ipcMain.handle('delete-recipe', async (event, recipeName, side) => {
     return { success: false, error: 'File not found' };
   } catch (err) {
     console.error(`[electron] Failed to delete recipe:`, err);
+    return { success: false, error: err.message };
+  }
+});
+
+// IPC handlers for last recipe persistence
+ipcMain.handle('get-last-recipe', async () => {
+  try {
+    if (!fs.existsSync(lastRecipePath)) {
+      return { right: null, left: null };
+    }
+    const content = fs.readFileSync(lastRecipePath, 'utf8');
+    const parsed = JSON.parse(content);
+    return {
+      right: parsed?.right || null,
+      left: parsed?.left || null
+    };
+  } catch (err) {
+    console.error('[electron] Failed to read last recipe file:', err);
+    return { right: null, left: null };
+  }
+});
+
+ipcMain.handle('set-last-recipe', async (_event, side, recipeName) => {
+  try {
+    const dir = path.dirname(lastRecipePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    const existing = fs.existsSync(lastRecipePath)
+      ? JSON.parse(fs.readFileSync(lastRecipePath, 'utf8'))
+      : { right: null, left: null };
+    const updated = {
+      ...existing,
+      [side]: recipeName || null
+    };
+    fs.writeFileSync(lastRecipePath, JSON.stringify(updated, null, 2));
+    return { success: true };
+  } catch (err) {
+    console.error('[electron] Failed to write last recipe file:', err);
     return { success: false, error: err.message };
   }
 });

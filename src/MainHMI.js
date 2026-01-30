@@ -24,7 +24,7 @@ import DebugPanel from './components/DebugPanel';
 import DigitalIOPage from './components/DigitalIOPage';
 import './styles/MainHMI.css';
 import { readPLCVar, writePLCVar, readAxisPositions, pulseBoolTag, writeScreenIndex } from './services/plcApiService';
-import { saveRecipeToFile, loadRecipesFromFolder, deleteRecipeFile } from './services/recipeService';
+import { saveRecipeToFile, loadRecipesFromFolder, deleteRecipeFile, getLastRecipe, setLastRecipe } from './services/recipeService';
 import { initializeBackendNetId } from './services/netIdService';
 import packageJson from '../package.json';
 
@@ -820,13 +820,15 @@ export default function MainHMI() {
         if (leftRecipes.length > 0) setRecipesLeft(leftRecipes);
         
         // Auto-load last used recipes to PLC on startup
-        const lastRightRecipeName = localStorage.getItem('lastRecipe_right');
-        const lastLeftRecipeName = localStorage.getItem('lastRecipe_left');
+        const lastRecipe = await getLastRecipe();
+        const lastRightRecipeName = lastRecipe?.right || null;
+        const lastLeftRecipeName = lastRecipe?.left || null;
         
         if (lastRightRecipeName && rightRecipes.length > 0) {
           const lastRightRecipe = rightRecipes.find(r => r.name === lastRightRecipeName);
           if (lastRightRecipe) {
             console.log(`[MainHMI] Auto-loading last right recipe to PLC: ${lastRightRecipeName}`);
+            setCurrentRecipe(prev => ({ ...prev, right: lastRightRecipeName }));
             try {
               // Send recipe parameters if available
               if (lastRightRecipe.parameters) {
@@ -852,8 +854,6 @@ export default function MainHMI() {
                 
                 console.log(`[MainHMI] Successfully auto-loaded right recipe program steps to PLC`);
               }
-              
-              setCurrentRecipe(prev => ({ ...prev, right: lastRightRecipeName }));
             } catch (err) {
               console.warn(`[MainHMI] Failed to auto-load right recipe to PLC:`, err);
             }
@@ -864,6 +864,7 @@ export default function MainHMI() {
           const lastLeftRecipe = leftRecipes.find(r => r.name === lastLeftRecipeName);
           if (lastLeftRecipe) {
             console.log(`[MainHMI] Auto-loading last left recipe to PLC: ${lastLeftRecipeName}`);
+            setCurrentRecipe(prev => ({ ...prev, left: lastLeftRecipeName }));
             try {
               // Send recipe parameters if available
               if (lastLeftRecipe.parameters) {
@@ -889,8 +890,6 @@ export default function MainHMI() {
                 
                 console.log(`[MainHMI] Successfully auto-loaded left recipe program steps to PLC`);
               }
-              
-              setCurrentRecipe(prev => ({ ...prev, left: lastLeftRecipeName }));
             } catch (err) {
               console.warn(`[MainHMI] Failed to auto-load left recipe to PLC:`, err);
             }
@@ -907,10 +906,28 @@ export default function MainHMI() {
 
   const [recipesLeft, setRecipesLeft] = useState([]);
 
-  const [currentRecipe, setCurrentRecipe] = useState({
-    right: null,
-    left: null
+  const [currentRecipe, setCurrentRecipe] = useState(() => {
+    // Initialize from localStorage immediately so UI shows recipe names on mount
+    const lastRightRecipeName = localStorage.getItem('lastRecipe_right');
+    const lastLeftRecipeName = localStorage.getItem('lastRecipe_left');
+    return {
+      right: lastRightRecipeName || null,
+      left: lastLeftRecipeName || null
+    };
   });
+
+  // Ensure last recipe is loaded from Electron appData (if available)
+  useEffect(() => {
+    (async () => {
+      const lastRecipe = await getLastRecipe();
+      if (lastRecipe?.right || lastRecipe?.left) {
+        setCurrentRecipe(prev => ({
+          right: lastRecipe?.right ?? prev.right,
+          left: lastRecipe?.left ?? prev.left
+        }));
+      }
+    })();
+  }, []);
 
   const [messageModal, setMessageModal] = useState({
     isOpen: false,
@@ -1045,7 +1062,7 @@ export default function MainHMI() {
     setCurrentRecipe((prev) => ({ ...prev, [side]: recipeName }));
     
     // Save as last used recipe for this side
-    localStorage.setItem(`lastRecipe_${side}`, recipeName);
+    setLastRecipe(side, recipeName);
     
     const recipeObj = typeof recipe === 'string'
       ? (side === 'right' ? recipesRight : recipesLeft).find((r) => r.name === recipeName)
@@ -1139,7 +1156,7 @@ export default function MainHMI() {
     saveRecipeToFile(newRecipe, side);
     
     // Track as last used recipe
-    localStorage.setItem(`lastRecipe_${side}`, newRecipe.name);
+    setLastRecipe(side, newRecipe.name);
     
     if (side === 'right') {
       setRecipesRight(prev => {

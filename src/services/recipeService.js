@@ -109,3 +109,42 @@ export const deleteRecipeFile = async (recipeName, side) => {
   const recipes = readStore(side).filter((r) => r.name !== recipeName);
   writeStore(side, recipes);
 };
+
+export const getLastRecipe = async () => {
+  // Electron: use appData-backed file
+  if (isElectron() && window.electron && window.electron.getLastRecipe) {
+    try {
+      const data = await window.electron.getLastRecipe();
+      return {
+        right: data?.right || null,
+        left: data?.left || null
+      };
+    } catch (err) {
+      console.warn('[recipeService] Failed to get last recipe from Electron:', err);
+    }
+  }
+
+  // Browser fallback: localStorage
+  if (hasStorage()) {
+    return {
+      right: window.localStorage.getItem('lastRecipe_right') || null,
+      left: window.localStorage.getItem('lastRecipe_left') || null
+    };
+  }
+
+  return { right: null, left: null };
+};
+
+export const setLastRecipe = async (side, recipeName) => {
+  if (!side) return;
+  if (hasStorage()) {
+    window.localStorage.setItem(`lastRecipe_${side}`, recipeName || '');
+  }
+  if (isElectron() && window.electron && window.electron.setLastRecipe) {
+    try {
+      await window.electron.setLastRecipe(side, recipeName || null);
+    } catch (err) {
+      console.warn('[recipeService] Failed to save last recipe to Electron:', err);
+    }
+  }
+};

@@ -27,8 +27,10 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
   const [plcStatus, setPlcStatus] = useState('unknown');
   const [showAxisModal, setShowAxisModal] = useState(false);
   const [pendingStep, setPendingStep] = useState(null); // Store step data while waiting for axis selection
-  const [jogMode, setJogMode] = useState(false); // Jog mode for recipe editing
+  const [jogMode, setJogMode] = useState(false); // Jog mode local UI state
+  const [jogModeActive, setJogModeActive] = useState(false); // PLC feedback for jog mode
   const [selectedJogAxis, setSelectedJogAxis] = useState(null); // Selected axis for jog
+  const [jogPollInterval, setJogPollInterval] = useState(null); // Polling interval for jog feedback
 
   const getPatternAxes = (patternCode) => {
     const code = Number(patternCode ?? 0);
@@ -67,6 +69,69 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
       setProgramDwell(program.dwell || 500);
     }
   }, [program?.name, program?.side]); // Only reload when program name/side changes, not the steps object itself
+
+  // Poll jog mode feedback from PLC
+  useEffect(() => {
+    if (!jogMode || !program?.side) return;
+
+    const pollJogFeedback = async () => {
+      try {
+        const res = await fetch('http://localhost:3001/read');
+        if (!res.ok) return;
+        const data = await res.json();
+        
+        // Determine which jog mode variable to read based on side
+        const jogModeVarName = program.side === 'left' 
+          ? 'GLEFTHEAD.bHmiLeftJogMode' 
+          : 'GRIGHTHEAD.bHmiRightJogMode';
+        
+        // Find the variable in the response
+        const jogModeValue = data.variables?.[jogModeVarName]?.value ?? false;
+        setJogModeActive(!!jogModeValue);
+        console.log(`[ProgramEditor] Jog feedback (${program.side}):`, jogModeValue);
+      } catch (err) {
+        console.error('[ProgramEditor] Failed to poll jog feedback:', err.message);
+      }
+    };
+
+    // Poll every 200ms while in jog mode
+    const interval = setInterval(pollJogFeedback, 200);
+    setJogPollInterval(interval);
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [jogMode, program?.side]);
+
+  // Handle jog mode enable/disable
+  const handleJogModeToggle = async () => {
+    if (!program?.side) {
+      console.error('[ProgramEditor] No program side defined');
+      return;
+    }
+
+    try {
+      if (!jogMode) {
+        // Enable jog mode - send pulse to PLC
+        console.log(`[ProgramEditor] Enabling jog mode for ${program.side}`);
+        await writePLCVar({ command: 'enableJog', side: program.side });
+        setJogMode(true);
+      } else {
+        // Disable jog mode locally - PLC handles its own disable logic
+        // Do not send disable command; PLC manages jog state
+        console.log(`[ProgramEditor] Disabling jog mode for ${program.side}`);
+        setJogMode(false);
+        setJogModeActive(false);
+      }
+    } catch (err) {
+      console.error('[ProgramEditor] Jog mode toggle failed:', err.message);
+      setDialog({ 
+        open: true, 
+        title: 'Jog Mode Error', 
+        message: `Failed to toggle jog mode: ${err.message}` 
+      });
+    }
+  };
 
   const confirmDownload = async () => {
     setDownloadDialog({ open: false });
@@ -358,11 +423,11 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                 + Add Step
               </button>
               <button 
-                className={`step-action-btn jog ${jogMode ? 'active' : ''}`}
-                onClick={() => setJogMode(!jogMode)}
-                title={jogMode ? 'Jog Mode: ON (Ready to record positions)' : 'Jog Mode: OFF (Click to enable)'}
+                className={`step-action-btn jog ${jogModeActive ? 'active' : ''}`}
+                onClick={handleJogModeToggle}
+                title={jogModeActive ? 'Jog Mode: ACTIVE on PLC' : 'Jog Mode: Inactive (Click to enable)'}
               >
-                {jogMode ? '✓ Jog' : '◉ Jog'}
+                {jogModeActive ? '✓ Jog' : '◉ Jog'}
               </button>
               <button className="step-action-btn delete" onClick={() => setStepDialog({ open: true, mode: 'delete', stepNumber: '', pattern: 0, repeatTargetStep: 1, repeatCount: 1 })}>
                 🗑 Delete Step
@@ -813,8 +878,11 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
             }
             const delta = des - cur;
             const isRightSide = program.side === 'right';
+            const extendPatterns = new Set([0, 2, 6]); // Red Ext, Exp Ext, RedExt+ExpExt
             const updated = editedSteps.map((s) => {
+              if (s.stepNumber === 1) return s; // skip step 1
               if (s.pattern === 5) return s; // skip repeat steps
+              if (!extendPatterns.has(Number(s.pattern))) return s; // skip retract/off patterns
               const axes = getPatternAxes(s.pattern);
               const next = { ...s, positions: { ...s.positions } };
               axes.forEach((ax) => {
