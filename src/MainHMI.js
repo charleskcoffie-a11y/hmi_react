@@ -1261,7 +1261,7 @@ export default function MainHMI() {
 
   // ...existing code...
 
-  const handleCreateRecipe = (recipeName, recipeDescription, side, fullRecipe = null) => {
+  const handleCreateRecipe = (recipeName, recipeDescription, side, fullRecipe = null, options = {}) => {
     if (currentUser === 'operator') {
       showMessage('Access Denied', 'Operators cannot create recipes.', 'warning');
       return;
@@ -1297,14 +1297,18 @@ export default function MainHMI() {
       setRecipesRight(prev => {
         const updated = [...prev, newRecipe];
         setCurrentRecipe(cr => ({ ...cr, right: newRecipe.name }));
-        setTimeout(() => handleLoadRecipe(newRecipe, 'right'), 0);
+        if (options.autoLoad !== false) {
+          setTimeout(() => handleLoadRecipe(newRecipe, 'right'), 0);
+        }
         return updated;
       });
     } else {
       setRecipesLeft(prev => {
         const updated = [...prev, newRecipe];
         setCurrentRecipe(cr => ({ ...cr, left: newRecipe.name }));
-        setTimeout(() => handleLoadRecipe(newRecipe, 'left'), 0);
+        if (options.autoLoad !== false) {
+          setTimeout(() => handleLoadRecipe(newRecipe, 'left'), 0);
+        }
         return updated;
       });
     }
@@ -1314,6 +1318,48 @@ export default function MainHMI() {
       ? `Recipe "${newRecipe.name}" imported successfully with ${stepCount} steps` 
       : `Recipe "${newRecipe.name}" created and loaded`;
     showMessage(fullRecipe ? 'Recipe Imported' : 'Recipe Created', message, 'success');
+  };
+
+  const handleOpenRecipeEditor = (recipeName, side) => {
+    console.log('[MainHMI] handleOpenRecipeEditor called for:', recipeName, 'side:', side);
+    if (!recipeName || !side) return;
+    setCurrentRecipe((cr) => ({ ...cr, [side]: recipeName }));
+    const recipes = side === 'right' ? recipesRight : recipesLeft;
+    console.log('[MainHMI] Available recipes:', recipes.map(r => r.name));
+    const recipe = recipes.find((r) => r.name === recipeName);
+    console.log('[MainHMI] Found recipe:', recipe?.name || 'NOT FOUND');
+
+    const programFromRecipe = recipe?.steps
+      ? { ...recipe, name: recipe.name, side }
+      : null;
+
+    const programFromCreated = createdPrograms.find((p) => p.side === side && p.name === recipeName);
+
+    const programToUse = programFromRecipe || programFromCreated || (() => {
+      const params = recipe?.parameters || { recipeSpeed: 100, stepDelay: 500 };
+      const steps = {
+        1: {
+          step: 1,
+          stepName: 'Start Position',
+          positions: { axis1Cmd: 0, axis2Cmd: 0 },
+          pattern: 6,
+          timestamp: new Date().toISOString()
+        }
+      };
+      return {
+        name: recipeName,
+        side,
+        steps,
+        speed: params.recipeSpeed || 100,
+        dwell: params.stepDelay || 500
+      };
+    })();
+
+    console.log('[MainHMI] Opening program editor with:', programToUse.name);
+    setProgramToEdit(programToUse);
+    setShowProgramEditor(true);
+    setRecipeOpen(false);
+    setRecipeSide(null);
   };
 
   const handleEditRecipe = (oldRecipe, newName, newDescription, side) => {
@@ -2453,6 +2499,7 @@ export default function MainHMI() {
         onEditRecipe={handleEditRecipe}
         onDeleteRecipe={handleDeleteRecipe}
         onCopyToOtherSide={handleCopyRecipeToOtherSide}
+        onTeachRecipe={handleOpenRecipeEditor}
         userRole={currentUser}
         editLockEnabled={editLockEnabled}
       />

@@ -113,6 +113,7 @@
   border-radius: 8px;
   max-height: 480px;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   padding: 8px;
 }
 
@@ -128,7 +129,7 @@
   color: #ccc;
   transition: all 0.2s ease;
   margin-bottom: 5px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
 }
 
@@ -139,7 +140,8 @@
 }
 
 .recipe-name {
-  font-weight: 600;
+  font-size: 17px;
+  font-weight: 700;
   color: #ffffff;
 }
 
@@ -465,6 +467,39 @@
   background: rgba(0, 0, 0, 0.3);
   border: 1px solid #0066cc;
   border-radius: 6px;
+}
+
+.recipe-editor .virtual-keyboard {
+  max-width: 540px;
+  margin: 0 auto 12px;
+  padding: 8px;
+  gap: 6px;
+}
+
+.recipe-editor .virtual-keyboard .keyboard-input {
+  padding: 10px;
+  font-size: 14px;
+  letter-spacing: 1px;
+}
+
+.recipe-editor .virtual-keyboard .keyboard-keys {
+  gap: 4px;
+}
+
+.recipe-editor .virtual-keyboard .keyboard-row {
+  gap: 4px;
+}
+
+.recipe-editor .virtual-keyboard .keyboard-key {
+  padding: 8px 6px;
+  font-size: 12px;
+  min-height: 40px;
+}
+
+.recipe-editor .virtual-keyboard .enter-key {
+  font-size: 13px;
+  padding: 10px;
+  min-height: 46px;
 }
 
 .recipe-simple-keypad {

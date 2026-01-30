@@ -427,7 +427,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                 onClick={handleJogModeToggle}
                 title={jogModeActive ? 'Jog Mode: ACTIVE on PLC' : 'Jog Mode: Inactive (Click to enable)'}
               >
-                {jogModeActive ? '✓ Jog' : '◉ Jog'}
+                {jogModeActive ? '✓ In Jog Mode' : 'Enable Jog'}
               </button>
               <button className="step-action-btn delete" onClick={() => setStepDialog({ open: true, mode: 'delete', stepNumber: '', pattern: 0, repeatTargetStep: 1, repeatCount: 1 })}>
                 🗑 Delete Step

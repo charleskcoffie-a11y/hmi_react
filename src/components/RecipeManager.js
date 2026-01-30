@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import ModernDialog from './ModernDialog';
-import NumericKeypad from './NumericKeypad';
+import VirtualKeyboard from './VirtualKeyboard';
 import '../styles/RecipeManager.css';
 import '../styles/RecipeManagerSide.css';
 import '../styles/RecipeTextarea.css';
 
-export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRecipe, onCreateRecipe, onEditRecipe, onDeleteRecipe, onCopyToOtherSide, userRole, editLockEnabled }) {
+export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRecipe, onCreateRecipe, onEditRecipe, onDeleteRecipe, onCopyToOtherSide, onTeachRecipe, userRole, editLockEnabled }) {
   const isOperator = userRole === 'operator';
   const isEditLocked = !editLockEnabled; // True when edit lock is disabled
     // Auto-close modal if isOpen becomes false (e.g., navigation)
@@ -15,7 +15,8 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
         setSelectedRecipe(null);
         setPendingDelete(null);
         setDialog({ open: false, title: '', message: '', mode: 'info' });
-        setKeypadOpen(false);
+        setSearchKeypadOpen(false);
+        setEditorKeypadOpen(false);
         setKeypadField(null);
       }
     }, [isOpen]);
@@ -53,7 +54,8 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
 
   const [selectedRecipe, setSelectedRecipe] = useState(recipes && recipes.length > 5 ? recipes[5] : recipes?.[0] || null);
   const [searchInput, setSearchInput] = useState('');
-  const [keypadOpen, setKeypadOpen] = useState(false);
+  const [searchKeypadOpen, setSearchKeypadOpen] = useState(false);
+  const [editorKeypadOpen, setEditorKeypadOpen] = useState(false);
   const [keypadField, setKeypadField] = useState(null); // 'name' or 'description'
   const [action, setAction] = useState(null);
   const [newRecipeName, setNewRecipeName] = useState('');
@@ -94,6 +96,22 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
     }
   };
 
+  const handleSave = () => {
+    if (isOperator) return;
+    if (newRecipeName.trim()) {
+      if (action === 'create' || action === 'copy') {
+        onCreateRecipe && onCreateRecipe(newRecipeName.trim(), newRecipeDescription.trim(), side, null, { autoLoad: false });
+      } else if (action === 'edit') {
+        onEditRecipe && onEditRecipe(selectedRecipe, newRecipeName.trim(), newRecipeDescription.trim(), side);
+      }
+      setAction(null);
+      setNewRecipeName('');
+      setNewRecipeDescription('');
+      setEditorKeypadOpen(false);
+      setKeypadField(null);
+    }
+  };
+
   const handleDelete = () => {
     if (selectedRecipe) {
       if (isOperator || isEditLocked) return;
@@ -113,7 +131,8 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
     setNewRecipeName('');
     setNewRecipeDescription('');
     setKeypadField('name');
-    setKeypadOpen(true);
+    setEditorKeypadOpen(true);
+    setSearchKeypadOpen(false);
   };
 
   // Export selected recipe as JSON file
@@ -196,22 +215,6 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
     reader.readAsText(file);
   };
 
-  const handleSave = () => {
-    if (isOperator) return;
-    if (newRecipeName.trim()) {
-      if (action === 'create' || action === 'copy') {
-        onCreateRecipe && onCreateRecipe(newRecipeName.trim(), newRecipeDescription.trim(), side);
-      } else if (action === 'edit') {
-        onEditRecipe && onEditRecipe(selectedRecipe, newRecipeName.trim(), newRecipeDescription.trim(), side);
-      }
-      setAction(null);
-      setNewRecipeName('');
-      setNewRecipeDescription('');
-      setKeypadOpen(false);
-      setKeypadField(null);
-    }
-  };
-
   const handleKeypadInput = (value) => {
     if (keypadField === 'name') {
       if (value.length <= 32) {
@@ -235,9 +238,11 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
       setKeypadField('description');
       // Keep keypad open for description input
     } else if (keypadField === 'description') {
-      handleSave();
+      setEditorKeypadOpen(false);
     }
   };
+
+
 
   if (!isOpen) return null;
 
@@ -261,7 +266,10 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
                 className="recipe-search-input"
                 placeholder="Search recipes by name..."
                 value={searchInput}
-                onFocus={() => setKeypadOpen(true)}
+                onFocus={() => {
+                  setSearchKeypadOpen(true);
+                  setEditorKeypadOpen(false);
+                }}
                 readOnly
               />
               <button 
@@ -273,7 +281,7 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
               </button>
             </div>
             
-            {keypadOpen && (
+            {searchKeypadOpen && (
               <div className="recipe-keypad-container">
                 <div className="recipe-simple-keypad">
                   <div className="recipe-keypad-row">
@@ -331,7 +339,7 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
                       className={`recipe-item ${selectedRecipe === recipe ? 'selected' : ''}`}
                       onClick={() => {
                         setSelectedRecipe(recipe);
-                        setKeypadOpen(false);
+                        setSearchKeypadOpen(false);
                       }}
                     >
                       <div className="recipe-item-header">
@@ -470,11 +478,13 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
               onChange={(e) => setNewRecipeName(e.target.value)}
               onClick={() => {
                 setKeypadField('name');
-                setKeypadOpen(true);
+                setEditorKeypadOpen(true);
+                setSearchKeypadOpen(false);
               }}
               onFocus={() => {
                 setKeypadField('name');
-                setKeypadOpen(true);
+                setEditorKeypadOpen(true);
+                setSearchKeypadOpen(false);
               }}
               placeholder="Recipe name"
               className="recipe-input"
@@ -484,18 +494,20 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
               onChange={(e) => setNewRecipeDescription(e.target.value)}
               onClick={() => {
                 setKeypadField('description');
-                setKeypadOpen(true);
+                setEditorKeypadOpen(true);
+                setSearchKeypadOpen(false);
               }}
               onFocus={() => {
                 setKeypadField('description');
-                setKeypadOpen(true);
+                setEditorKeypadOpen(true);
+                setSearchKeypadOpen(false);
               }}
               placeholder="Recipe description / notes"
               className="recipe-textarea"
               rows="3"
             />
-            {keypadOpen && (
-              <NumericKeypad
+            {editorKeypadOpen && (
+              <VirtualKeyboard
                 value={keypadField === 'name' ? newRecipeName : newRecipeDescription}
                 onInput={handleKeypadInput}
                 onBackspace={handleKeypadBackspace}
@@ -506,7 +518,7 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
               <button className="save-btn" onClick={handleSave}>Save</button>
               <button className="cancel-btn" onClick={() => {
                 setAction(null);
-                setKeypadOpen(false);
+                setEditorKeypadOpen(false);
                 setKeypadField(null);
               }}>Cancel</button>
             </div>
