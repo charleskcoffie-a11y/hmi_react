@@ -1,7 +1,7 @@
 import React from 'react';
 import '../styles/AxisPanel.css';
 
-function AxisPanel({ side, axis1Name, axis2Name, onAxisChange, axis1State, axis2State, actualPositions, step, stepDescription, recipe, recipes, onRecipeChange, onOpenRecipeSelector, unitSystem = 'mm', userRole, runMode = false, jogMode = false, sequenceActive = false }) {
+function AxisPanel({ side, axis1Name, axis2Name, onAxisChange, axis1State, axis2State, actualPositions, step, stepDescription, recipe, recipes, onRecipeChange, onOpenRecipeSelector, unitSystem = 'mm', userRole, runMode = false, jogMode = false, sequenceActive = false, headCount = 0, onResetHeadCount = () => {} }) {
   const canChangeRecipe = userRole !== 'operator';
   
   const selectedRecipe = recipes?.find(r => r.name === recipe);
@@ -14,7 +14,20 @@ function AxisPanel({ side, axis1Name, axis2Name, onAxisChange, axis1State, axis2
   return (
     <div className={`axis-panel axis-panel-${side.toLowerCase()}`}>
       <div className="panel-header">
-        <h2>{side} Side</h2>
+        <div className="panel-header-row">
+          <h2>{side} Side</h2>
+          <div className="head-count">
+            <span className="head-count-label">Count</span>
+            <span className="head-count-value">{headCount}</span>
+            <button
+              className="head-count-reset"
+              onClick={onResetHeadCount}
+              title="Reset head count"
+            >
+              Reset
+            </button>
+          </div>
+        </div>
         {(runMode || jogMode || sequenceActive) && (
           <div className="mode-status">
             {runMode && <span className="mode-badge run-badge">RUN</span>}

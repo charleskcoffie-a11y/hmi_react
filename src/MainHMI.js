@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import AxisPanel from './components/AxisPanel';
 import ModernDialog from './components/ModernDialog';
 import ControlPanel from './components/ControlPanel';
@@ -209,6 +209,16 @@ export default function MainHMI() {
     left: false
   });
 
+  const [headCounts, setHeadCounts] = useState(() => {
+    const right = parseInt(localStorage.getItem('headCount_right') || '0', 10);
+    const left = parseInt(localStorage.getItem('headCount_left') || '0', 10);
+    return {
+      right: Number.isNaN(right) ? 0 : right,
+      left: Number.isNaN(left) ? 0 : left
+    };
+  });
+  const prevSequenceActive = useRef({ right: false, left: false });
+
   // Alarm system (bitfield from PLC)
   const [alarmBits, setAlarmBits] = useState(0);
   const [alarms, setAlarms] = useState([]);
@@ -316,6 +326,31 @@ export default function MainHMI() {
     writeScreenIndex(currentScreen);
     console.log(`[MainHMI] Screen changed to index ${currentScreen}`);
   }, [currentScreen]);
+
+  // Persist head counts
+  useEffect(() => {
+    localStorage.setItem('headCount_right', String(headCounts.right));
+    localStorage.setItem('headCount_left', String(headCounts.left));
+  }, [headCounts]);
+
+  // Increment head counts on cycle completion (sequence active falling edge)
+  useEffect(() => {
+    const prev = prevSequenceActive.current;
+    if (prev.right && !sequenceActive.right) {
+      setHeadCounts((counts) => ({ ...counts, right: counts.right + 1 }));
+    }
+    if (prev.left && !sequenceActive.left) {
+      setHeadCounts((counts) => ({ ...counts, left: counts.left + 1 }));
+    }
+    prevSequenceActive.current = {
+      right: sequenceActive.right,
+      left: sequenceActive.left
+    };
+  }, [sequenceActive]);
+
+  const handleResetHeadCount = (side) => {
+    setHeadCounts((counts) => ({ ...counts, [side]: 0 }));
+  };
   
   useEffect(() => {
     let timer;
@@ -2113,6 +2148,8 @@ export default function MainHMI() {
             runMode={modeFeedback.right.runMode}
             jogMode={modeFeedback.right.jogMode}
             sequenceActive={sequenceActive.right}
+            headCount={headCounts.right}
+            onResetHeadCount={() => handleResetHeadCount('right')}
           />
           <AxisPanel
             side="Left"
@@ -2133,6 +2170,8 @@ export default function MainHMI() {
             runMode={modeFeedback.left.runMode}
             jogMode={modeFeedback.left.jogMode}
             sequenceActive={sequenceActive.left}
+            headCount={headCounts.left}
+            onResetHeadCount={() => handleResetHeadCount('left')}
           />
         </div>
       </div>
