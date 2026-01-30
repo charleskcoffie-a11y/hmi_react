@@ -5,8 +5,9 @@ import '../styles/RecipeManager.css';
 import '../styles/RecipeManagerSide.css';
 import '../styles/RecipeTextarea.css';
 
-export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRecipe, onCreateRecipe, onEditRecipe, onDeleteRecipe, onCopyToOtherSide, userRole }) {
+export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRecipe, onCreateRecipe, onEditRecipe, onDeleteRecipe, onCopyToOtherSide, userRole, editLockEnabled }) {
   const isOperator = userRole === 'operator';
+  const isEditLocked = !editLockEnabled; // True when edit lock is disabled
     // Auto-close modal if isOpen becomes false (e.g., navigation)
     useEffect(() => {
       if (!isOpen) {
@@ -65,7 +66,7 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
 
   const handleLoad = () => {
     if (selectedRecipe) {
-      if (isOperator) return;
+      if (isOperator || isEditLocked) return;
       console.log('Loading recipe:', selectedRecipe);
       onLoadRecipe && onLoadRecipe(selectedRecipe, side);
     }
@@ -73,7 +74,7 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
 
   const handleEdit = () => {
     if (selectedRecipe) {
-      if (isOperator) return;
+      if (isOperator || isEditLocked) return;
       const recipeName = typeof selectedRecipe === 'string' ? selectedRecipe : selectedRecipe.name;
       const recipeDesc = typeof selectedRecipe === 'object' ? selectedRecipe.description : '';
       setNewRecipeName(recipeName);
@@ -84,7 +85,7 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
 
   const handleCopy = () => {
     if (selectedRecipe) {
-      if (isOperator) return;
+      if (isOperator || isEditLocked) return;
       const recipeName = typeof selectedRecipe === 'string' ? selectedRecipe : selectedRecipe.name;
       const recipeDesc = typeof selectedRecipe === 'object' ? selectedRecipe.description : '';
       setNewRecipeName(`${recipeName} - Copy`);
@@ -95,7 +96,7 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
 
   const handleDelete = () => {
     if (selectedRecipe) {
-      if (isOperator) return;
+      if (isOperator || isEditLocked) return;
       setPendingDelete(selectedRecipe);
       setDialog({
         open: true,
@@ -353,32 +354,56 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
               <button 
                 className="recipe-action-btn load-btn"
                 onClick={handleLoad}
-                disabled={!selectedRecipe || isOperator}
-                title={isOperator ? 'Operators cannot change recipes' : 'Load selected recipe'}
+                disabled={!selectedRecipe || isOperator || isEditLocked}
+                title={
+                  isEditLocked 
+                    ? 'Enable edit lock switch to modify programs' 
+                    : isOperator 
+                      ? 'Operators cannot change recipes' 
+                      : 'Load selected recipe'
+                }
               >
                 ↓ Load
               </button>
               <button 
                 className="recipe-action-btn edit-btn"
                 onClick={handleEdit}
-                disabled={!selectedRecipe || isOperator}
-                title={isOperator ? 'Operators cannot edit recipes' : 'Edit recipe name/description'}
+                disabled={!selectedRecipe || isOperator || isEditLocked}
+                title={
+                  isEditLocked 
+                    ? 'Enable edit lock switch to modify programs' 
+                    : isOperator 
+                      ? 'Operators cannot edit recipes' 
+                      : 'Edit recipe name/description'
+                }
               >
                 ✎ Edit
               </button>
               <button 
                 className="recipe-action-btn copy-btn"
                 onClick={handleCopy}
-                disabled={!selectedRecipe || isOperator}
-                title={isOperator ? 'Operators cannot copy recipes' : 'Copy recipe'}
+                disabled={!selectedRecipe || isOperator || isEditLocked}
+                title={
+                  isEditLocked 
+                    ? 'Enable edit lock switch to modify programs' 
+                    : isOperator 
+                      ? 'Operators cannot copy recipes' 
+                      : 'Copy recipe'
+                }
               >
                 ⧉ Copy
               </button>
               <button 
                 className="recipe-action-btn delete-btn"
                 onClick={handleDelete}
-                disabled={!selectedRecipe || isOperator}
-                title={isOperator ? 'Operators cannot delete recipes' : 'Delete recipe'}
+                disabled={!selectedRecipe || isOperator || isEditLocked}
+                title={
+                  isEditLocked 
+                    ? 'Enable edit lock switch to modify programs' 
+                    : isOperator 
+                      ? 'Operators cannot delete recipes' 
+                      : 'Delete recipe'
+                }
               >
                 🗑 Delete
               </button>
@@ -390,8 +415,14 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
                     onCopyToOtherSide(selectedRecipe, side);
                   }
                 }}
-                disabled={!selectedRecipe || isOperator}
-                title={isOperator ? 'Operators cannot copy recipes' : `Copy to ${side === 'right' ? 'Left' : 'Right'} side`}
+                disabled={!selectedRecipe || isOperator || isEditLocked}
+                title={
+                  isEditLocked 
+                    ? 'Enable edit lock switch to modify programs' 
+                    : isOperator 
+                      ? 'Operators cannot copy recipes' 
+                      : `Copy to ${side === 'right' ? 'Left' : 'Right'} side`
+                }
               >
                 {side === 'right' ? '← Copy to Left' : 'Copy to Right →'}
               </button>

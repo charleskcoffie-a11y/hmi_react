@@ -287,6 +287,9 @@ export default function MainHMI() {
   // Pump enable status (controls if Home and Start Position buttons are enabled)
   const [pumpEnabled, setPumpEnabled] = useState(false);
   
+  // Edit lock status from PLC (GIO.bEditLock - index 106)
+  const [editLockEnabled, setEditLockEnabled] = useState(false);
+  
   // Current screen tracking for PLC
   const [currentScreen, setCurrentScreen] = useState(SCREEN_INDEX.MAIN_CONTROL);
   
@@ -776,6 +779,21 @@ export default function MainHMI() {
           }
         } catch (pumpErr) {
           console.warn('[MainHMI] Pump enable read error:', pumpErr.message || pumpErr);
+        }
+
+        // Read edit lock status from PLC (GIO.bEditLock - index 106)
+        try {
+          const editLockRes = await fetch('http://localhost:3001/read?tag=GIO.bEditLock');
+          if (editLockRes.ok) {
+            const editLockData = await editLockRes.json();
+            if (editLockData.success) {
+              const editLockValue = Boolean(editLockData.value);
+              // Only update if changed
+              setEditLockEnabled(prev => prev !== editLockValue ? editLockValue : prev);
+            }
+          }
+        } catch (editLockErr) {
+          console.warn('[MainHMI] Edit lock status read error:', editLockErr.message || editLockErr);
         }
 
         // Read homing status variables from PLC
@@ -2334,6 +2352,7 @@ export default function MainHMI() {
           homedSides={homedSides}
           atStartPos={atStartPos}
           modeFeedback={modeFeedback}
+          editLockEnabled={editLockEnabled}
         />
       </div>
  
@@ -2353,6 +2372,7 @@ export default function MainHMI() {
         onDeleteRecipe={handleDeleteRecipe}
         onCopyToOtherSide={handleCopyRecipeToOtherSide}
         userRole={currentUser}
+        editLockEnabled={editLockEnabled}
       />
 
       <MachineParameters

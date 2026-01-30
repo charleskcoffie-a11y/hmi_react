@@ -1,19 +1,19 @@
 import React from 'react';
 import '../styles/ControlPanel.css';
 
-export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach, onMachineParameters, onStartPosition, userRole, pumpEnabled, startPosReadyStatus, startPosFeedback, homedSides, atStartPos, modeFeedback }) {
+export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach, onMachineParameters, onStartPosition, userRole, pumpEnabled, startPosReadyStatus, startPosFeedback, homedSides, atStartPos, modeFeedback, editLockEnabled }) {
   // Role-based access control
   const isAdmin = userRole === 'admin';
   const isInRunMode = modeFeedback?.left?.runMode || modeFeedback?.right?.runMode;
-  const canAutoTeach = !isInRunMode && (isAdmin || ((userRole !== 'operator') && pumpEnabled)); // Disable Auto Teach when in run mode
-  const canEditProgram = userRole !== 'operator' || isAdmin;
+  const canAutoTeach = !isInRunMode && (isAdmin || ((userRole !== 'operator') && pumpEnabled)) && editLockEnabled; // Disable Auto Teach when in run mode or edit lock disabled
+  const canEditProgram = (userRole !== 'operator' || isAdmin) && editLockEnabled; // Disable Edit Program when edit lock disabled
   const canMachineParams = userRole === 'engineering' || isAdmin;
   // Start position enable condition: pump running AND axis homed AND axis NOT at start position
   const leftStartReady = pumpEnabled && homedSides?.left && !atStartPos?.left;
   const rightStartReady = pumpEnabled && homedSides?.right && !atStartPos?.right;
   const leftStartActive = Boolean(startPosFeedback?.left);
   const rightStartActive = Boolean(startPosFeedback?.right);
-  const canPartParameters = true; // All can access part parameters
+  const canPartParameters = editLockEnabled; // Disable Part Parameters when edit lock disabled
 
   return (
     <>
@@ -47,7 +47,17 @@ export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach,
             className="control-btn auto-teach-btn"
             onClick={onAutoTeach}
             disabled={!canAutoTeach}
-            title={isInRunMode ? 'Auto Teach disabled during run mode' : !pumpEnabled ? 'Pump must be running for Auto Teach' : canAutoTeach ? 'Create auto-teach program' : 'Operators cannot access Auto Teach'}
+            title={
+              !editLockEnabled 
+                ? 'Enable edit lock switch to modify programs' 
+                : isInRunMode 
+                  ? 'Auto Teach disabled during run mode' 
+                  : !pumpEnabled 
+                    ? 'Pump must be running for Auto Teach' 
+                    : canAutoTeach 
+                      ? 'Create auto-teach program' 
+                      : 'Operators cannot access Auto Teach'
+            }
           >
             <span className="btn-icon">🎯</span>
             Auto Teach
@@ -56,7 +66,13 @@ export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach,
             className="control-btn edit-btn"
             onClick={onEditProgram}
             disabled={!canEditProgram}
-            title={canEditProgram ? 'Edit program' : 'Operators cannot edit programs'}
+            title={
+              !editLockEnabled 
+                ? 'Enable edit lock switch to modify programs' 
+                : canEditProgram 
+                  ? 'Edit program' 
+                  : 'Operators cannot edit programs'
+            }
           >
             <span className="btn-icon">✎</span>
             Edit Program
@@ -65,7 +81,13 @@ export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach,
             className="control-btn param-btn"
             onClick={onParameters}
             disabled={!canPartParameters}
-            title={canPartParameters ? 'Set part parameters' : 'Not available'}
+            title={
+              !editLockEnabled 
+                ? 'Enable edit lock switch to modify programs' 
+                : canPartParameters 
+                  ? 'Set part parameters' 
+                  : 'Not available'
+            }
           >
             <span className="btn-icon">⚙</span>
             Part Parameters
