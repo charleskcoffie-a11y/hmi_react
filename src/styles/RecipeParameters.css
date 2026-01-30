@@ -250,3 +250,26 @@
 .cancel-param-btn:hover {
   background: rgba(255, 107, 107, 0.3);
 }
+
+.lube-page-btn {
+  padding: 12px 24px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #ffffff;
+  background: linear-gradient(135deg, #00c853 0%, #00e676 100%);
+  border: 1px solid #00e676;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 10px rgba(0, 230, 118, 0.3);
+}
+
+.lube-page-btn:hover {
+  background: linear-gradient(135deg, #00e676 0%, #76ff03 100%);
+  box-shadow: 0 6px 15px rgba(0, 230, 118, 0.5);
+  transform: translateY(-2px);
+}
+
+.lube-page-btn:active {
+  transform: translateY(0);
+}

@@ -70,6 +70,7 @@ export default function NumericKeypad({
   };
 
   const clampAndSubmit = () => {
+    console.log('[NumericKeypad] ENTER button clicked, value:', value);
     let num = parseFloat(value);
     if (isNaN(num)) num = 0;
     if (decimals >= 0) {
@@ -77,6 +78,7 @@ export default function NumericKeypad({
     }
     if (min !== null && num < min) num = min;
     if (max !== null && num > max) num = max;
+    console.log('[NumericKeypad] Calling onSubmit with:', num);
     onSubmit && onSubmit(num);
   };
 
@@ -115,7 +117,7 @@ export default function NumericKeypad({
 
           <button className="nk-key nk-wide" onClick={() => addChar('0')}>0</button>
           <button className={`nk-key ${decimals === 0 ? 'nk-disabled' : ''}`} onClick={() => addChar('.')}>.</button>
-          <button className="nk-key nk-enter" onClick={clampAndSubmit}>ENTER</button>
+          <button type="button" className="nk-key nk-enter" onClick={clampAndSubmit} style={{cursor: 'pointer'}}>ENTER</button>
         </div>
       </div>
     </div>

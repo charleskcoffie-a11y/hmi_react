@@ -4,6 +4,7 @@ import ModernDialog from './components/ModernDialog';
 import ControlPanel from './components/ControlPanel';
 import RecipeManager from './components/RecipeManager';
 import RecipeParameters from './components/RecipeParameters';
+import LubePage from './components/LubePage';
 import MachineParameters from './components/MachineParameters';
 import SideSelector from './components/SideSelector';
 import ProgramNameModal from './components/ProgramNameModal';
@@ -219,6 +220,16 @@ export default function MainHMI() {
   });
   const prevSequenceActive = useRef({ right: false, left: false });
 
+  // Cycles since last lube (resets to 0 after lube)
+  const [cyclesSinceLastLube, setCyclesSinceLastLube] = useState(() => {
+    const right = parseInt(localStorage.getItem('cyclesSinceLastLube_right') || '0', 10);
+    const left = parseInt(localStorage.getItem('cyclesSinceLastLube_left') || '0', 10);
+    return {
+      right: Number.isNaN(right) ? 0 : right,
+      left: Number.isNaN(left) ? 0 : left
+    };
+  });
+
   // Alarm system (bitfield from PLC)
   const [alarmBits, setAlarmBits] = useState(0);
   const [alarms, setAlarms] = useState([]);
@@ -336,20 +347,90 @@ export default function MainHMI() {
     localStorage.setItem('headCount_left', String(headCounts.left));
   }, [headCounts]);
 
+  // Persist cycles since last lube
+  useEffect(() => {
+    localStorage.setItem('cyclesSinceLastLube_right', String(cyclesSinceLastLube.right));
+    localStorage.setItem('cyclesSinceLastLube_left', String(cyclesSinceLastLube.left));
+  }, [cyclesSinceLastLube]);
+
   // Increment head counts on cycle completion (sequence active falling edge)
   useEffect(() => {
     const prev = prevSequenceActive.current;
+    
+    // Right head cycle complete
     if (prev.right && !sequenceActive.right) {
       setHeadCounts((counts) => ({ ...counts, right: counts.right + 1 }));
+      setCyclesSinceLastLube((counts) => {
+        const newCount = counts.right + 1;
+        // Check if lube is needed
+        checkAndTriggerLube('right', newCount);
+        return { ...counts, right: newCount };
+      });
     }
+    
+    // Left head cycle complete
     if (prev.left && !sequenceActive.left) {
       setHeadCounts((counts) => ({ ...counts, left: counts.left + 1 }));
+      setCyclesSinceLastLube((counts) => {
+        const newCount = counts.left + 1;
+        // Check if lube is needed
+        checkAndTriggerLube('left', newCount);
+        return { ...counts, left: newCount };
+      });
     }
+    
     prevSequenceActive.current = {
       right: sequenceActive.right,
       left: sequenceActive.left
     };
   }, [sequenceActive]);
+
+  // Check and trigger lubrication when cycle count threshold is reached
+  const checkAndTriggerLube = async (side, currentCount) => {
+    try {
+      const lubeSettings = localStorage.getItem('lubeSettings');
+      if (!lubeSettings) return;
+      
+      const settings = JSON.parse(lubeSettings);
+      const sideSettings = settings[side];
+      
+      if (!sideSettings || sideSettings.cycleCountToLube <= 0) return;
+      
+      // Check if current count reached threshold
+      if (currentCount >= sideSettings.cycleCountToLube) {
+        console.log(`[MainHMI] Cycle count ${currentCount} reached threshold for ${side} head - triggering lube`);
+        
+        // Reset the counter to 0
+        setCyclesSinceLastLube((counts) => ({ ...counts, [side]: 0 }));
+        
+        const tag = side === 'right' ? 'GIO.bLubeHead' : 'GIO.bLubeHeadSelected';
+        const { noOfShots, pulseDelay } = sideSettings;
+        
+        // Pulse the lube head multiple times with delay
+        for (let i = 0; i < noOfShots; i++) {
+          console.log(`[MainHMI] Auto-lube ${side} head - shot ${i + 1}/${noOfShots}`);
+          
+          const response = await fetch('http://localhost:3001/io/pulse', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tag, duration: 200 })
+          });
+          
+          if (!response.ok) {
+            console.error(`[MainHMI] Failed to pulse ${tag}`);
+            break;
+          }
+          
+          // Wait for pulse delay before next shot (except on last shot)
+          if (i < noOfShots - 1) {
+            await new Promise(resolve => setTimeout(resolve, pulseDelay));
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[MainHMI] Auto-lube error:', error);
+    }
+  };
 
   const handleResetHeadCount = (side) => {
     setHeadCounts((counts) => ({ ...counts, [side]: 0 }));
@@ -1011,6 +1092,7 @@ export default function MainHMI() {
   const [showParameterSideSelector, setShowParameterSideSelector] = useState(false);
 
   const [machineParametersOpen, setMachineParametersOpen] = useState(false);
+  const [lubePageOpen, setLubePageOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
 
   const [showEnableSideSelector, setShowEnableSideSelector] = useState(false);
@@ -2394,6 +2476,7 @@ export default function MainHMI() {
           setHomingTimeout(newTimeout);
           localStorage.setItem('homingTimeout', newTimeout.toString());
         }}
+        onOpenLubePage={() => setLubePageOpen(true)}
       />
 
       <DigitalIOPage
@@ -2577,6 +2660,11 @@ export default function MainHMI() {
         side={parametersSide}
         parameters={currentParameters}
         onSave={handleSaveParameters}
+      />
+
+      <LubePage
+        isOpen={lubePageOpen}
+        onClose={() => setLubePageOpen(false)}
       />
 
       {showAutoTeachSelector && (

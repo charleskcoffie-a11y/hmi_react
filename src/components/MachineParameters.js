@@ -4,7 +4,7 @@ import ConnectionStatus from './ConnectionStatus';
 import NetIDSettings from './NetIDSettings';
 import '../styles/MachineParameters.css';
 
-export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknown', unitSystem = 'mm', onUnitChange, userRole = 'operator', userPasswords = { admin: '5771', operator: 'op123', setup: 'setup123', engineering: 'eng123' }, onUpdatePasswords, onOpenDebug = () => {}, homingTimeout = 60, onHomingTimeoutChange = () => {} }) {
+export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknown', unitSystem = 'mm', onUnitChange, userRole = 'operator', userPasswords = { admin: '5771', operator: 'op123', setup: 'setup123', engineering: 'eng123' }, onUpdatePasswords, onOpenDebug = () => {}, homingTimeout = 60, onHomingTimeoutChange = () => {}, onOpenLubePage = () => {} }) {
   const [parameters, setParameters] = useState(() => {
     // Load from localStorage if available
     const saved = localStorage.getItem('machineParameters');
@@ -215,150 +215,223 @@ export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknow
             </div>
           </div>
 
-          <div className="parameters-list">
-            {parameterConfigs.map(config => (
-              <div key={config.key} className="parameter-row">
-                <div className="param-label-section">
-                  <span className="param-label">{config.label}</span>
-                  {config.unit && (
-                    <span className="param-unit">
-                      {unitSystem === 'mm' ? 'mm' : 'in'}
-                    </span>
+          <div className="params-two-column">
+            {/* Left Column */}
+            <div className="params-column">
+              <div className="parameters-list">
+                {parameterConfigs.slice(0, 5).map(config => (
+                  <div key={config.key} className="parameter-row">
+                    <div className="param-label-section">
+                      <span className="param-label">{config.label}</span>
+                      {config.unit && (
+                        <span className="param-unit">
+                          {unitSystem === 'mm' ? 'mm' : 'in'}
+                        </span>
+                      )}
+                    </div>
+
+                    {editingParam === config.key ? (
+                      <div className="param-edit">
+                        <input
+                          type="number"
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          className="param-input"
+                          autoFocus
+                          step="0.01"
+                        />
+                        <button 
+                          className="save-btn"
+                          onClick={() => saveEdit(config.key)}
+                        >
+                          ✓
+                        </button>
+                        <button 
+                          className="cancel-btn"
+                          onClick={cancelEdit}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <div 
+                        className="param-value-section"
+                        onClick={() => startEdit(config.key, parameters[config.key])}
+                      >
+                        <span className="param-value">
+                          {getDisplayValue(parameters[config.key])}
+                        </span>
+                        <span className="plc-value">(PLC: {parameters[config.key].toFixed(2)} in)</span>
+                        <span className="edit-hint">✎</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Homing Timeout Parameter */}
+              <div className="parameters-list">
+                <div className="parameter-row">
+                  <div className="param-label-section">
+                    <span className="param-label">Homing Timeout</span>
+                    <span className="param-unit">seconds</span>
+                  </div>
+
+                  {editingHomingTimeout ? (
+                    <div className="param-edit">
+                      <input
+                        type="number"
+                        value={homingTimeoutEdit}
+                        onChange={(e) => setHomingTimeoutEdit(e.target.value)}
+                        className="param-input"
+                        autoFocus
+                        min="5"
+                        max="300"
+                        step="1"
+                      />
+                      <button 
+                        className="save-btn"
+                        onClick={() => {
+                          const newTimeout = parseInt(homingTimeoutEdit, 10);
+                          if (newTimeout && newTimeout > 0) {
+                            onHomingTimeoutChange(newTimeout);
+                            setEditingHomingTimeout(false);
+                          }
+                        }}
+                      >
+                        ✓
+                      </button>
+                      <button 
+                        className="cancel-btn"
+                        onClick={() => {
+                          setEditingHomingTimeout(false);
+                          setHomingTimeoutEdit(homingTimeout.toString());
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <div 
+                      className="param-value-section"
+                      onClick={() => {
+                        setEditingHomingTimeout(true);
+                        setHomingTimeoutEdit(homingTimeout.toString());
+                      }}
+                    >
+                      <span className="param-value">{homingTimeout}</span>
+                      <span className="param-desc">(5-300 seconds)</span>
+                      <span className="edit-hint">✎</span>
+                    </div>
                   )}
                 </div>
-
-                {editingParam === config.key ? (
-                  <div className="param-edit">
-                    <input
-                      type="number"
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      className="param-input"
-                      autoFocus
-                      step="0.01"
-                    />
-                    <button 
-                      className="save-btn"
-                      onClick={() => saveEdit(config.key)}
-                    >
-                      ✓
-                    </button>
-                    <button 
-                      className="cancel-btn"
-                      onClick={cancelEdit}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ) : (
-                  <div 
-                    className="param-value-section"
-                    onClick={() => startEdit(config.key, parameters[config.key])}
-                  >
-                    <span className="param-value">
-                      {getDisplayValue(parameters[config.key])}
-                    </span>
-                    <span className="plc-value">(PLC: {parameters[config.key].toFixed(2)} in)</span>
-                    <span className="edit-hint">✎</span>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Homing Timeout Parameter */}
-          <div className="parameters-list">
-            <div className="parameter-row">
-              <div className="param-label-section">
-                <span className="param-label">Homing Timeout</span>
-                <span className="param-unit">seconds</span>
               </div>
 
-              {editingHomingTimeout ? (
-                <div className="param-edit">
-                  <input
-                    type="number"
-                    value={homingTimeoutEdit}
-                    onChange={(e) => setHomingTimeoutEdit(e.target.value)}
-                    className="param-input"
-                    autoFocus
-                    min="5"
-                    max="300"
-                    step="1"
-                  />
-                  <button 
-                    className="save-btn"
-                    onClick={() => {
-                      const newTimeout = parseInt(homingTimeoutEdit, 10);
-                      if (newTimeout && newTimeout > 0) {
-                        onHomingTimeoutChange(newTimeout);
-                        setEditingHomingTimeout(false);
-                      }
-                    }}
-                  >
-                    ✓
-                  </button>
-                  <button 
-                    className="cancel-btn"
-                    onClick={() => {
-                      setEditingHomingTimeout(false);
-                      setHomingTimeoutEdit(homingTimeout.toString());
-                    }}
-                  >
-                    ✕
-                  </button>
+              <div className="passwords-trigger">
+                <div>
+                  <h3 className="passwords-title">User Passwords</h3>
+                  <p className="passwords-note">{isAdmin ? 'Admin can view and change all passwords.' : 'Only Admin can view or change passwords.'}</p>
                 </div>
-              ) : (
-                <div 
-                  className="param-value-section"
-                  onClick={() => {
-                    setEditingHomingTimeout(true);
-                    setHomingTimeoutEdit(homingTimeout.toString());
-                  }}
+                <button
+                  className="passwords-open-btn"
+                  onClick={() => isAdmin && setShowPasswordModal(true)}
+                  disabled={!isAdmin}
+                  title={isAdmin ? 'Open password manager' : 'Only Admin can access'}
                 >
-                  <span className="param-value">{homingTimeout}</span>
-                  <span className="param-desc">(5-300 seconds)</span>
-                  <span className="edit-hint">✎</span>
+                  Manage Passwords
+                </button>
+              </div>
+            </div>
+
+            {/* Right Column */}
+            <div className="params-column">
+              <div className="parameters-list">
+                {parameterConfigs.slice(5).map(config => (
+                  <div key={config.key} className="parameter-row">
+                    <div className="param-label-section">
+                      <span className="param-label">{config.label}</span>
+                      {config.unit && (
+                        <span className="param-unit">
+                          {unitSystem === 'mm' ? 'mm' : 'in'}
+                        </span>
+                      )}
+                    </div>
+
+                    {editingParam === config.key ? (
+                      <div className="param-edit">
+                        <input
+                          type="number"
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          className="param-input"
+                          autoFocus
+                          step="0.01"
+                        />
+                        <button 
+                          className="save-btn"
+                          onClick={() => saveEdit(config.key)}
+                        >
+                          ✓
+                        </button>
+                        <button 
+                          className="cancel-btn"
+                          onClick={cancelEdit}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <div 
+                        className="param-value-section"
+                        onClick={() => startEdit(config.key, parameters[config.key])}
+                      >
+                        <span className="param-value">
+                          {getDisplayValue(parameters[config.key])}
+                        </span>
+                        <span className="plc-value">(PLC: {parameters[config.key].toFixed(2)} in)</span>
+                        <span className="edit-hint">✎</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="netid-trigger">
+                <div>
+                  <h3 className="netid-title">🌐 Network Configuration</h3>
+                  <p className="netid-note">Configure PLC Net ID and SuperUser settings (requires SuperUser authentication).</p>
                 </div>
-              )}
-            </div>
-          </div>
+                <button
+                  className="netid-open-btn"
+                  onClick={() => setNetIDSettingsOpen(true)}
+                  title="Open network configuration settings"
+                >
+                  ⚙️ Network Settings
+                </button>
+              </div>
 
-          <div className="passwords-trigger">
-            <div>
-              <h3 className="passwords-title">User Passwords</h3>
-              <p className="passwords-note">{isAdmin ? 'Admin can view and change all passwords.' : 'Only Admin can view or change passwords.'}</p>
-            </div>
-            <button
-              className="passwords-open-btn"
-              onClick={() => isAdmin && setShowPasswordModal(true)}
-              disabled={!isAdmin}
-              title={isAdmin ? 'Open password manager' : 'Only Admin can access'}
-            >
-              Manage Passwords
-            </button>
-          </div>
+              <div className="lube-trigger">
+                <div>
+                  <h3 className="lube-title">💧 Lubrication Control</h3>
+                  <p className="lube-note">Configure lubrication settings for left and right heads, including shot count, pulse delay, and cycle thresholds.</p>
+                </div>
+                <button
+                  className="lube-open-btn"
+                  onClick={() => onOpenLubePage && onOpenLubePage()}
+                  title="Open lubrication settings"
+                >
+                  🔧 Lube Settings
+                </button>
+              </div>
 
-          <div className="netid-trigger">
-            <div>
-              <h3 className="netid-title">🌐 Network Configuration</h3>
-              <p className="netid-note">Configure PLC Net ID and SuperUser settings (requires SuperUser authentication).</p>
-            </div>
-            <button
-              className="netid-open-btn"
-              onClick={() => setNetIDSettingsOpen(true)}
-              title="Open network configuration settings"
-            >
-              ⚙️ Network Settings
-            </button>
-          </div>
-
-          <div className="params-info">
-            <div className="info-box">
-              <h3>Unit Conversion Info</h3>
-              <p>1 inch = 25.4 mm</p>
-              <p>All position and travel parameters use the selected unit for display and input.</p>
-              <p>The PLC always receives values in inches, regardless of your display preference.</p>
+              <div className="params-info">
+                <div className="info-box">
+                  <h3>Unit Conversion Info</h3>
+                  <p>1 inch = 25.4 mm</p>
+                  <p>All position and travel parameters use the selected unit for display and input.</p>
+                  <p>The PLC always receives values in inches, regardless of your display preference.</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
