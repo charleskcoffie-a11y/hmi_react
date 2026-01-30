@@ -94,8 +94,8 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
       }
     };
 
-    // Poll every 200ms while in jog mode
-    const interval = setInterval(pollJogFeedback, 200);
+    // Poll every 150ms while in jog mode for faster feedback
+    const interval = setInterval(pollJogFeedback, 150);
     setJogPollInterval(interval);
 
     return () => {

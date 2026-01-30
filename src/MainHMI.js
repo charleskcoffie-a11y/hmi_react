@@ -245,7 +245,7 @@ export default function MainHMI() {
 
   // Polling optimization: track activity for idle detection
   const lastActivityRef = React.useRef(Date.now());
-  const pollingIntervalRef = React.useRef(500); // Start with 500ms
+  const pollingIntervalRef = React.useRef(250); // Start with 250ms for faster response
   const isIdleRef = React.useRef(false);
   const isDeepIdleRef = React.useRef(false);
 
@@ -449,9 +449,9 @@ export default function MainHMI() {
         const timeSinceActivity = timeNow - lastActivityRef.current;
         const ACTIVITY_THRESHOLD = 3000; // 3 seconds of inactivity = idle
         const DEEP_IDLE_THRESHOLD = 15000; // 15 seconds of inactivity = deep idle
-        const ACTIVE_INTERVAL = 500;     // When active: poll every 500ms
-        const IDLE_INTERVAL = 2000;      // When idle: poll every 2 seconds
-        const DEEP_IDLE_INTERVAL = 5000; // When deep idle: poll every 5 seconds
+        const ACTIVE_INTERVAL = 250;     // When active: poll every 250ms (faster response)
+        const IDLE_INTERVAL = 1000;      // When idle: poll every 1 second
+        const DEEP_IDLE_INTERVAL = 3000; // When deep idle: poll every 3 seconds
         
         if (isJogOrRunActive) {
           lastActivityRef.current = timeNow;
@@ -461,14 +461,14 @@ export default function MainHMI() {
         } else if (timeSinceActivity > DEEP_IDLE_THRESHOLD) {
           pollingIntervalRef.current = DEEP_IDLE_INTERVAL;
           if (!isDeepIdleRef.current) {
-            console.log('[MainHMI] Machine deep idle - polling interval increased to 5000ms');
+            console.log('[MainHMI] Machine deep idle - polling interval increased to 3000ms');
           }
           isDeepIdleRef.current = true;
           isIdleRef.current = true;
         } else if (timeSinceActivity > ACTIVITY_THRESHOLD) {
           pollingIntervalRef.current = IDLE_INTERVAL;
           if (!isIdleRef.current) {
-            console.log('[MainHMI] Machine idle - polling interval increased to 2000ms');
+            console.log('[MainHMI] Machine idle - polling interval increased to 1000ms');
           }
           isIdleRef.current = true;
           isDeepIdleRef.current = false;
