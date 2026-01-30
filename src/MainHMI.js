@@ -210,6 +210,10 @@ export default function MainHMI() {
     left: false
   });
 
+  // Debounce PLC feedback to avoid UI flicker
+  const modeFeedbackDebounceRef = useRef({ candidate: null, since: 0 });
+  const sequenceActiveDebounceRef = useRef({ candidate: null, since: 0 });
+
   const [headCounts, setHeadCounts] = useState(() => {
     const right = parseInt(localStorage.getItem('headCount_right') || '0', 10);
     const left = parseInt(localStorage.getItem('headCount_left') || '0', 10);
@@ -245,7 +249,7 @@ export default function MainHMI() {
 
   // Polling optimization: track activity for idle detection
   const lastActivityRef = React.useRef(Date.now());
-  const pollingIntervalRef = React.useRef(250); // Start with 250ms for faster response
+  const pollingIntervalRef = React.useRef(150); // Start with 150ms for smooth axis display
   const isIdleRef = React.useRef(false);
   const isDeepIdleRef = React.useRef(false);
 
@@ -435,6 +439,22 @@ export default function MainHMI() {
   const handleResetHeadCount = (side) => {
     setHeadCounts((counts) => ({ ...counts, [side]: 0 }));
   };
+
+  const applyDebouncedState = (ref, nextValue, apply, delayMs = 300) => {
+    const now = Date.now();
+    const currentCandidate = ref.current.candidate;
+    const sameCandidate = currentCandidate && JSON.stringify(currentCandidate) === JSON.stringify(nextValue);
+
+    if (!sameCandidate) {
+      ref.current.candidate = nextValue;
+      ref.current.since = now;
+      return;
+    }
+
+    if (now - ref.current.since >= delayMs) {
+      apply(nextValue);
+    }
+  };
   
   useEffect(() => {
     let timer;
@@ -449,7 +469,7 @@ export default function MainHMI() {
         const timeSinceActivity = timeNow - lastActivityRef.current;
         const ACTIVITY_THRESHOLD = 3000; // 3 seconds of inactivity = idle
         const DEEP_IDLE_THRESHOLD = 15000; // 15 seconds of inactivity = deep idle
-        const ACTIVE_INTERVAL = 250;     // When active: poll every 250ms (faster response)
+        const ACTIVE_INTERVAL = 150;     // When active: poll every 150ms for smooth position display
         const IDLE_INTERVAL = 1000;      // When idle: poll every 1 second
         const DEEP_IDLE_INTERVAL = 3000; // When deep idle: poll every 3 seconds
         
@@ -478,52 +498,121 @@ export default function MainHMI() {
           isDeepIdleRef.current = false;
         }
         
-        // Read axis positions from PLC
-        const data = await readAxisPositions();
-        const newPositions = data.actualPositions || { right: { axis1: 0, axis2: 0 }, left: { axis1: 0, axis2: 0 } };
-        
-        // Only update if positions actually changed (prevents unnecessary re-renders)
-        setActualPositions(prev => {
-          if (JSON.stringify(prev) !== JSON.stringify(newPositions)) {
-            return newPositions;
-          }
-          return prev;
-        });
-        
-        setPlcStatus(data.connected ? 'good' : 'bad');
-        
-        // Read machine count from PLC
+        // Read all critical variables in one batch call (efficient) with debounced feedback
+        let batchReadOk = false;
         try {
-          const countResponse = await fetch('http://localhost:3001/read?tag=GPersistent.dABSMachineCount');
-          if (countResponse.ok) {
-            const countData = await countResponse.json();
-            console.log('[MainHMI] Machine count response:', countData);
-            if (countData.success) {
-              // DINT is a 32-bit signed integer - handle various response formats
-              let count = 0;
-              if (typeof countData.value === 'number') {
-                count = countData.value;
-              } else if (countData.value && typeof countData.value === 'object') {
-                // Handle object responses (ads-client sometimes wraps values)
-                if ('value' in countData.value) {
-                  count = countData.value.value;
-                } else if ('low' in countData.value) {
-                  count = countData.value.low || 0;
-                } else {
-                  // Try to extract first numeric value from object
-                  count = Object.values(countData.value).find(v => typeof v === 'number') || 0;
-                }
+          const batchResponse = await fetch('http://localhost:3001/read-batch');
+          if (!batchResponse.ok) throw new Error('Batch read failed');
+          const batchData = await batchResponse.json();
+
+          if (batchData.success && batchData.connected) {
+            batchReadOk = true;
+
+            // Update axis positions
+            const newPositions = batchData.actualPositions || { right: { axis1: 0, axis2: 0 }, left: { axis1: 0, axis2: 0 } };
+            setActualPositions(prev => {
+              if (JSON.stringify(prev) !== JSON.stringify(newPositions)) {
+                return newPositions;
               }
-              const finalCount = Math.floor(Math.max(0, count)); // Ensure non-negative
-              console.log('[MainHMI] Setting machine count to:', finalCount);
-              // Only update if value changed
-              setMachineCount(prev => prev !== finalCount ? finalCount : prev);
-            } else {
-              console.warn('[MainHMI] Machine count read failed:', countData.error);
-            }
+              return prev;
+            });
+
+            // Update machine count
+            const finalCount = Math.floor(Math.max(0, batchData.machineCount || 0));
+            setMachineCount(prev => prev !== finalCount ? finalCount : prev);
+
+            // Update mode feedback (debounced to prevent flicker)
+            const newModeFeedback = {
+              left: {
+                jogMode: batchData.modeFeedback?.left?.jogMode ?? false,
+                runMode: batchData.modeFeedback?.left?.runMode ?? false
+              },
+              right: {
+                jogMode: batchData.modeFeedback?.right?.jogMode ?? false,
+                runMode: batchData.modeFeedback?.right?.runMode ?? false
+              }
+            };
+            applyDebouncedState(modeFeedbackDebounceRef, newModeFeedback, (value) => {
+              setModeFeedback(prev => (JSON.stringify(prev) !== JSON.stringify(value) ? value : prev));
+            });
+
+            // Update sequence active (debounced to prevent flicker)
+            const newSequenceActive = {
+              left: batchData.sequenceActive?.left ?? false,
+              right: batchData.sequenceActive?.right ?? false
+            };
+            applyDebouncedState(sequenceActiveDebounceRef, newSequenceActive, (value) => {
+              setSequenceActive(prev => (JSON.stringify(prev) !== JSON.stringify(value) ? value : prev));
+            });
+
+            // Update homing status
+            setHomingStatus(prev => {
+              const newHomingStatus = {
+                left: {
+                  enabled: batchData.homingStatus?.left?.enabled ?? false,
+                  homed: batchData.homingStatus?.left?.homed ?? false
+                },
+                right: {
+                  enabled: batchData.homingStatus?.right?.enabled ?? false,
+                  homed: batchData.homingStatus?.right?.homed ?? false
+                }
+              };
+              if (JSON.stringify(prev) !== JSON.stringify(newHomingStatus)) {
+                return newHomingStatus;
+              }
+              return prev;
+            });
+
+            setPlcStatus(batchData.connected ? 'good' : 'bad');
+          } else {
+            setPlcStatus('bad');
           }
-        } catch (countErr) {
-          console.warn('[MainHMI] Machine count fetch error:', countErr.message || countErr);
+        } catch (err) {
+          console.warn('[MainHMI] Batch read failed:', err.message);
+          batchReadOk = false;
+        }
+
+        // Fallback to stable individual reads if batch read fails
+        if (!batchReadOk) {
+          try {
+            const data = await readAxisPositions();
+            const newPositions = data.actualPositions || { right: { axis1: 0, axis2: 0 }, left: { axis1: 0, axis2: 0 } };
+            setActualPositions(prev => {
+              if (JSON.stringify(prev) !== JSON.stringify(newPositions)) {
+                return newPositions;
+              }
+              return prev;
+            });
+            setPlcStatus(data.connected ? 'good' : 'bad');
+          } catch (err) {
+            console.error('[MainHMI] Read axis positions failed:', err.message);
+            setPlcStatus('bad');
+          }
+
+          try {
+            const countResponse = await fetch('http://localhost:3001/read?tag=GPersistent.dABSMachineCount');
+            if (countResponse.ok) {
+              const countData = await countResponse.json();
+              if (countData.success) {
+                let count = 0;
+                if (typeof countData.value === 'number') {
+                  count = countData.value;
+                } else if (countData.value && typeof countData.value === 'object') {
+                  if ('value' in countData.value) {
+                    count = countData.value.value;
+                  } else if ('low' in countData.value) {
+                    count = countData.value.low || 0;
+                  } else {
+                    count = Object.values(countData.value).find(v => typeof v === 'number') || 0;
+                  }
+                }
+                const finalCount = Math.floor(Math.max(0, count));
+                setMachineCount(prev => prev !== finalCount ? finalCount : prev);
+              }
+            }
+          } catch (countErr) {
+            console.warn('[MainHMI] Machine count fetch error:', countErr.message || countErr);
+          }
         }
 
         // Read right head step number and description from PLC
@@ -605,73 +694,69 @@ export default function MainHMI() {
         }
 
         // Read mode feedback from PLC (RunMode and JogMode)
-        try {
-          const rightRunRes = await fetch('http://localhost:3001/read?tag=GRIGHTHEAD.bHmiRightRunMode');
-          const rightJogRes = await fetch('http://localhost:3001/read?tag=GRIGHTHEAD.bHmiRightJogMode');
-          const leftRunRes = await fetch('http://localhost:3001/read?tag=GLEFTHEAD.bHmiLeftRunMode');
-          const leftJogRes = await fetch('http://localhost:3001/read?tag=GLEFTHEAD.bHmiLeftJogMode');
-          
-          if (rightRunRes.ok && rightJogRes.ok && leftRunRes.ok && leftJogRes.ok) {
-            const [rightRunData, rightJogData, leftRunData, leftJogData] = await Promise.all([
-              rightRunRes.json(),
-              rightJogRes.json(),
-              leftRunRes.json(),
-              leftJogRes.json()
-            ]);
+        if (!batchReadOk) {
+          try {
+            const rightRunRes = await fetch('http://localhost:3001/read?tag=GRIGHTHEAD.bHmiRightRunMode');
+            const rightJogRes = await fetch('http://localhost:3001/read?tag=GRIGHTHEAD.bHmiRightJogMode');
+            const leftRunRes = await fetch('http://localhost:3001/read?tag=GLEFTHEAD.bHmiLeftRunMode');
+            const leftJogRes = await fetch('http://localhost:3001/read?tag=GLEFTHEAD.bHmiLeftJogMode');
             
-            const newModeFeedback = {
-              right: {
-                runMode: rightRunData.success ? Boolean(rightRunData.value) : false,
-                jogMode: rightJogData.success ? Boolean(rightJogData.value) : false
-              },
-              left: {
-                runMode: leftRunData.success ? Boolean(leftRunData.value) : false,
-                jogMode: leftJogData.success ? Boolean(leftJogData.value) : false
-              }
-            };
-            
-            // Only update if changed
-            setModeFeedback(prev => {
-              if (JSON.stringify(prev) !== JSON.stringify(newModeFeedback)) {
-                return newModeFeedback;
-              }
-              return prev;
-            });
+            if (rightRunRes.ok && rightJogRes.ok && leftRunRes.ok && leftJogRes.ok) {
+              const [rightRunData, rightJogData, leftRunData, leftJogData] = await Promise.all([
+                rightRunRes.json(),
+                rightJogRes.json(),
+                leftRunRes.json(),
+                leftJogRes.json()
+              ]);
+              
+              const newModeFeedback = {
+                right: {
+                  runMode: rightRunData.success ? Boolean(rightRunData.value) : false,
+                  jogMode: rightJogData.success ? Boolean(rightJogData.value) : false
+                },
+                left: {
+                  runMode: leftRunData.success ? Boolean(leftRunData.value) : false,
+                  jogMode: leftJogData.success ? Boolean(leftJogData.value) : false
+                }
+              };
+              
+              applyDebouncedState(modeFeedbackDebounceRef, newModeFeedback, (value) => {
+                setModeFeedback(prev => (JSON.stringify(prev) !== JSON.stringify(value) ? value : prev));
+              });
 
-            // Note: Dialog visibility is now controlled by user selection (handleEnableJogButton)
-            // Not automatically opening/closing based on PLC feedback to avoid timing delays
-            // User can click CLOSE button to exit, which will clear jog mode on PLC
+              // Note: Dialog visibility is now controlled by user selection (handleEnableJogButton)
+              // Not automatically opening/closing based on PLC feedback to avoid timing delays
+              // User can click CLOSE button to exit, which will clear jog mode on PLC
+            }
+          } catch (modeErr) {
+            console.warn('[MainHMI] Mode feedback read error:', modeErr.message || modeErr);
           }
-        } catch (modeErr) {
-          console.warn('[MainHMI] Mode feedback read error:', modeErr.message || modeErr);
         }
 
         // Read sequence active status from PLC
-        try {
-          const rightSeqRes = await fetch('http://localhost:3001/read?tag=GRIGHTHEAD.bRightSeqAct');
-          const leftSeqRes = await fetch('http://localhost:3001/read?tag=GLEFTHEAD.bLeftSeqAct');
-          
-          if (rightSeqRes.ok && leftSeqRes.ok) {
-            const [rightSeqData, leftSeqData] = await Promise.all([
-              rightSeqRes.json(),
-              leftSeqRes.json()
-            ]);
+        if (!batchReadOk) {
+          try {
+            const rightSeqRes = await fetch('http://localhost:3001/read?tag=GRIGHTHEAD.bRightSeqAct');
+            const leftSeqRes = await fetch('http://localhost:3001/read?tag=GLEFTHEAD.bLeftSeqAct');
             
-            const newSequenceActive = {
-              right: rightSeqData.success ? Boolean(rightSeqData.value) : false,
-              left: leftSeqData.success ? Boolean(leftSeqData.value) : false
-            };
-            
-            // Only update if changed
-            setSequenceActive(prev => {
-              if (JSON.stringify(prev) !== JSON.stringify(newSequenceActive)) {
-                return newSequenceActive;
-              }
-              return prev;
-            });
+            if (rightSeqRes.ok && leftSeqRes.ok) {
+              const [rightSeqData, leftSeqData] = await Promise.all([
+                rightSeqRes.json(),
+                leftSeqRes.json()
+              ]);
+              
+              const newSequenceActive = {
+                right: rightSeqData.success ? Boolean(rightSeqData.value) : false,
+                left: leftSeqData.success ? Boolean(leftSeqData.value) : false
+              };
+              
+              applyDebouncedState(sequenceActiveDebounceRef, newSequenceActive, (value) => {
+                setSequenceActive(prev => (JSON.stringify(prev) !== JSON.stringify(value) ? value : prev));
+              });
+            }
+          } catch (seqErr) {
+            console.warn('[MainHMI] Sequence active read error:', seqErr.message || seqErr);
           }
-        } catch (seqErr) {
-          console.warn('[MainHMI] Sequence active read error:', seqErr.message || seqErr);
         }
 
         // Read start position enable status from PLC (ready to move to start position)

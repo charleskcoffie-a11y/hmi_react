@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ModernDialog from './ModernDialog';
 import AxisSelectionModal from './AxisSelectionModal';
 import '../styles/ProgramEditor.css';
@@ -31,6 +31,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
   const [jogModeActive, setJogModeActive] = useState(false); // PLC feedback for jog mode
   const [selectedJogAxis, setSelectedJogAxis] = useState(null); // Selected axis for jog
   const [jogPollInterval, setJogPollInterval] = useState(null); // Polling interval for jog feedback
+  const jogFeedbackDebounceRef = useRef({ candidate: null, since: 0 });
 
   const getPatternAxes = (patternCode) => {
     const code = Number(patternCode ?? 0);
@@ -86,8 +87,20 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
           : 'GRIGHTHEAD.bHmiRightJogMode';
         
         // Find the variable in the response
-        const jogModeValue = data.variables?.[jogModeVarName]?.value ?? false;
-        setJogModeActive(!!jogModeValue);
+        const jogModeValue = !!(data.variables?.[jogModeVarName]?.value ?? false);
+        const now = Date.now();
+        const candidate = jogFeedbackDebounceRef.current.candidate;
+        const sameCandidate = candidate === jogModeValue;
+
+        if (!sameCandidate) {
+          jogFeedbackDebounceRef.current.candidate = jogModeValue;
+          jogFeedbackDebounceRef.current.since = now;
+          return;
+        }
+
+        if (now - jogFeedbackDebounceRef.current.since >= 300) {
+          setJogModeActive(jogModeValue);
+        }
         console.log(`[ProgramEditor] Jog feedback (${program.side}):`, jogModeValue);
       } catch (err) {
         console.error('[ProgramEditor] Failed to poll jog feedback:', err.message);

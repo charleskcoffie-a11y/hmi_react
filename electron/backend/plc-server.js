@@ -257,6 +257,142 @@ function createServer() {
     }
   });
 
+  /**
+   * Comprehensive batch read - reads all critical variables in a single call
+   * This reduces network overhead significantly vs individual reads
+   */
+  app.get('/read-batch', async (_req, res) => {
+    try {
+      if (!connected) {
+        return res.json({
+          success: false,
+          connected: false,
+          error: 'PLC not connected'
+        });
+      }
+
+      // Define all critical tags to read in batch
+      const tagsToRead = [
+        // Axis positions (4 tags)
+        'GPersistent.lAxis1ActPos',
+        'GPersistent.lAxis2ActPos',
+        'GPersistent.lAxis3ActPos',
+        'GPersistent.lAxis4ActPos',
+        // Machine status (2 tags)
+        'GPersistent.dABSMachineCount',
+        'GAxis.AlarmSystem',
+        // Mode feedback (4 tags)
+        'GLEFTHEAD.bHmiLeftJogMode',
+        'GLEFTHEAD.bHmiLeftRunMode',
+        'GRIGHTHEAD.bHmiRightJogMode',
+        'GRIGHTHEAD.bHmiRightRunMode',
+        // Sequence active (2 tags)
+        'GLEFTHEAD.bLeftSeqAct',
+        'GRIGHTHEAD.bRightSeqAct',
+        // Homing status (4 tags)
+        'GLEFTHEAD.bHmiLeftHomeEna',
+        'GLEFTHEAD.bLeftHeadHomed',
+        'GRIGHTHEAD.bHmiRightHomeEna',
+        'GRIGHTHEAD.bRightHeadHomed',
+        // Recipe parameters - left (5 tags)
+        'GLEFTHEAD.nRecipeTubeID',
+        'GLEFTHEAD.nRecipeTubeOD',
+        'GLEFTHEAD.nRecipeFinalSize',
+        'GLEFTHEAD.nRecipeDepth',
+        'GLEFTHEAD.nRecipeSpeed',
+        // Recipe parameters - right (5 tags)
+        'GRIGHTHEAD.nRecipeTubeID',
+        'GRIGHTHEAD.nRecipeTubeOD',
+        'GRIGHTHEAD.nRecipeFinalSize',
+        'GRIGHTHEAD.nRecipeDepth',
+        'GRIGHTHEAD.nRecipeSpeed'
+      ];
+
+      // Read all tags in parallel
+      const results = await Promise.all(
+        tagsToRead.map(async (tag) => {
+          try {
+            const value = await readTagValue(tag);
+            return { tag, value, success: true };
+          } catch (err) {
+            console.warn(`[plc-server] Failed to read ${tag}:`, err.message);
+            return { tag, value: null, success: false, error: err.message };
+          }
+        })
+      );
+
+      // Organize results into structured response
+      const data = {
+        success: true,
+        connected: true,
+        timestamp: new Date().toISOString(),
+        actualPositions: {
+          right: {
+            axis1: results.find(r => r.tag === 'GPersistent.lAxis1ActPos')?.value ?? 0,
+            axis2: results.find(r => r.tag === 'GPersistent.lAxis2ActPos')?.value ?? 0
+          },
+          left: {
+            axis1: results.find(r => r.tag === 'GPersistent.lAxis3ActPos')?.value ?? 0,
+            axis2: results.find(r => r.tag === 'GPersistent.lAxis4ActPos')?.value ?? 0
+          }
+        },
+        machineCount: results.find(r => r.tag === 'GPersistent.dABSMachineCount')?.value ?? 0,
+        alarmSystem: results.find(r => r.tag === 'GAxis.AlarmSystem')?.value ?? 0,
+        modeFeedback: {
+          left: {
+            jogMode: results.find(r => r.tag === 'GLEFTHEAD.bHmiLeftJogMode')?.value ?? false,
+            runMode: results.find(r => r.tag === 'GLEFTHEAD.bHmiLeftRunMode')?.value ?? false
+          },
+          right: {
+            jogMode: results.find(r => r.tag === 'GRIGHTHEAD.bHmiRightJogMode')?.value ?? false,
+            runMode: results.find(r => r.tag === 'GRIGHTHEAD.bHmiRightRunMode')?.value ?? false
+          }
+        },
+        homingStatus: {
+          left: {
+            enabled: results.find(r => r.tag === 'GLEFTHEAD.bHmiLeftHomeEna')?.value ?? false,
+            homed: results.find(r => r.tag === 'GLEFTHEAD.bLeftHeadHomed')?.value ?? false
+          },
+          right: {
+            enabled: results.find(r => r.tag === 'GRIGHTHEAD.bHmiRightHomeEna')?.value ?? false,
+            homed: results.find(r => r.tag === 'GRIGHTHEAD.bRightHeadHomed')?.value ?? false
+          }
+        },
+        sequenceActive: {
+          left: results.find(r => r.tag === 'GLEFTHEAD.bLeftSeqAct')?.value ?? false,
+          right: results.find(r => r.tag === 'GRIGHTHEAD.bRightSeqAct')?.value ?? false
+        },
+        recipeParameters: {
+          left: {
+            tubeID: results.find(r => r.tag === 'GLEFTHEAD.nRecipeTubeID')?.value ?? 0,
+            tubeOD: results.find(r => r.tag === 'GLEFTHEAD.nRecipeTubeOD')?.value ?? 0,
+            finalSize: results.find(r => r.tag === 'GLEFTHEAD.nRecipeFinalSize')?.value ?? 0,
+            depth: results.find(r => r.tag === 'GLEFTHEAD.nRecipeDepth')?.value ?? 0,
+            speed: results.find(r => r.tag === 'GLEFTHEAD.nRecipeSpeed')?.value ?? 100
+          },
+          right: {
+            tubeID: results.find(r => r.tag === 'GRIGHTHEAD.nRecipeTubeID')?.value ?? 0,
+            tubeOD: results.find(r => r.tag === 'GRIGHTHEAD.nRecipeTubeOD')?.value ?? 0,
+            finalSize: results.find(r => r.tag === 'GRIGHTHEAD.nRecipeFinalSize')?.value ?? 0,
+            depth: results.find(r => r.tag === 'GRIGHTHEAD.nRecipeDepth')?.value ?? 0,
+            speed: results.find(r => r.tag === 'GRIGHTHEAD.nRecipeSpeed')?.value ?? 100
+          }
+        },
+        rawResults: results // Include raw results for debugging
+      };
+
+      console.log(`[plc-server] Batch read completed: read ${results.length} tags successfully`);
+      res.json(data);
+    } catch (err) {
+      console.error('[plc-server] Batch read error:', err.message);
+      res.status(500).json({
+        success: false,
+        connected: false,
+        error: err.message
+      });
+    }
+  });
+
   app.post('/write', async (req, res) => {
     try {
       if (!connected) {
