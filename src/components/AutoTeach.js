@@ -20,13 +20,13 @@ export default function AutoTeach({
 
   const patternOptions = useMemo(
     () => [
-      { code: 2, name: 'Exp Ext' },
-      { code: 3, name: 'Exp Ret' },
-      { code: 0, name: 'Red Ext' },
-      { code: 1, name: 'Red Ret' },
-      { code: 4, name: 'RedRet + ExpRet' },
+      { code: 2, name: 'ID Ext' },
+      { code: 3, name: 'ID Ret' },
+      { code: 0, name: 'OD Ext' },
+      { code: 1, name: 'OD Ret' },
+      { code: 4, name: 'OD Ret + ID Ret' },
       { code: 5, name: 'Repeat' },
-      { code: 6, name: 'RedExt + ExpExt' },
+      { code: 6, name: 'OD Ext + ID Ext' },
     ],
     []
   );
@@ -618,7 +618,7 @@ export default function AutoTeach({
 
   // Enable axis for STEP 2+ (called when user clicks ID/OD button in modal)
   const handleEnableAxisStep2Plus = async (axis) => {
-    console.log('[AutoTeach] handleEnableAxisStep2Plus called - axis:', axis, 'side:', side);
+    // console.log('[AutoTeach] handleEnableAxisStep2Plus called - axis:', axis, 'side:', side);
     
     try {
       setEnablingAxes(true);
@@ -629,11 +629,11 @@ export default function AutoTeach({
 
       const tagsToPulse = axis === 'id' ? [idTag] : axis === 'od' ? [odTag] : [idTag, odTag];
       
-      console.log('[AutoTeach] Pulsing tags for axis:', axis, 'tags:', tagsToPulse);
+      // console.log('[AutoTeach] Pulsing tags for axis:', axis, 'tags:', tagsToPulse);
       
       // Pulse each tag and wait for success
       for (const tag of tagsToPulse) {
-        console.log('[AutoTeach] PULSE REQUEST: tag=', tag, 'durationMs=200');
+        // console.log('[AutoTeach] PULSE REQUEST: tag=', tag, 'durationMs=200');
         
         const response = await fetch('http://localhost:3001/pulse-bool', {
           method: 'POST',
@@ -641,7 +641,7 @@ export default function AutoTeach({
           body: JSON.stringify({ tag, durationMs: 200 })
         });
         
-        console.log('[AutoTeach] PULSE HTTP RESPONSE: status=', response.status, 'statusText=', response.statusText);
+        // console.log('[AutoTeach] PULSE HTTP RESPONSE: status=', response.status, 'statusText=', response.statusText);
         
         if (!response.ok) {
           const errorText = await response.text();
@@ -650,14 +650,14 @@ export default function AutoTeach({
         }
         
         const result = await response.json();
-        console.log('[AutoTeach] PULSE RESULT JSON:', result);
+        // console.log('[AutoTeach] PULSE RESULT JSON:', result);
         
         if (!result.success) {
           console.error('[AutoTeach] PULSE FAILED - PLC returned success=false:', result);
           throw new Error(result.error || result.message || `PLC pulse failed for ${tag}`);
         }
         
-        console.log('[AutoTeach] PULSE SUCCESS for tag:', tag);
+        // console.log('[AutoTeach] PULSE SUCCESS for tag:', tag);
       }
 
       // Poll PLC ready feedback for selected axis(es)
@@ -678,10 +678,10 @@ export default function AutoTeach({
             );
             const allTrue = reads.every((r) => r.ok && r.value === true);
             setLastAxisFeedback(reads);
-            console.log('[AutoTeach] STEP 2+ Enable Feedback poll:', reads, 'allTrue:', allTrue);
+            // console.log('[AutoTeach] STEP 2+ Enable Feedback poll:', reads, 'allTrue:', allTrue);
             if (allTrue) return true;
           } catch (e) {
-            console.warn('[AutoTeach] STEP 2+ Enable Feedback poll error:', e?.message);
+            // console.warn('[AutoTeach] STEP 2+ Enable Feedback poll error:', e?.message);
           }
           await new Promise((res) => setTimeout(res, intervalMs));
         }
@@ -693,7 +693,7 @@ export default function AutoTeach({
         throw new Error(`Axis not ready. Feedback: ${readyTags.join(', ')}`);
       }
       
-      console.log('[AutoTeach] Successfully enabled axis for STEP 2+:', axis);
+      // console.log('[AutoTeach] Successfully enabled axis for STEP 2+:', axis);
       setEnablingAxes(false);
       
     } catch (err) {
@@ -929,17 +929,17 @@ export default function AutoTeach({
                         className={`enable-axes-btn ${enabledAxis === 'id' ? 'selected' : ''}`}
                         onClick={() => handleEnableAxes('id')}
                         disabled={enablingAxes}
-                        title="Enable ID axis"
+                        title="Enable ID axis (Exp Ext)"
                       >
-                        {enablingAxes && enabledAxis === 'id' ? 'Enabling...' : '⚙️ Enable ID'}
+                        {enablingAxes && enabledAxis === 'id' ? 'Enabling...' : 'ID (Exp Ext)'}
                       </button>
                       <button
                         className={`enable-axes-btn ${enabledAxis === 'od' ? 'selected' : ''}`}
                         onClick={() => handleEnableAxes('od')}
                         disabled={enablingAxes}
-                        title="Enable OD axis"
+                        title="Enable OD axis (Red Ext)"
                       >
-                        {enablingAxes && enabledAxis === 'od' ? 'Enabling...' : '⚙️ Enable OD'}
+                        {enablingAxes && enabledAxis === 'od' ? 'Enabling...' : 'OD (Red Ext)'}
                       </button>
                     </div>
                     <button

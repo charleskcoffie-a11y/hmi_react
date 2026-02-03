@@ -548,23 +548,23 @@
 }
 
 .record-btn {
-  padding: 14px 24px;
+  padding: 8px 16px;
   background: linear-gradient(135deg, #28a745 0%, #1d6e2d 100%);
   color: white;
-  border: 2px solid #28a745;
-  border-radius: 8px;
-  font-size: 1.1rem;
-  font-weight: 700;
+  border: 1px solid rgba(40, 167, 69, 0.5);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  transition: all 0.2s;
+  letter-spacing: 0.3px;
+  min-height: 36px;
 }
 
 .record-btn:hover:not(:disabled) {
   background: linear-gradient(135deg, #32c857 0%, #28a745 100%);
-  box-shadow: 0 4px 20px rgba(40, 167, 69, 0.5);
-  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+  transform: translateY(-1px);
 }
 
 .record-btn:active:not(:disabled) {
@@ -1364,20 +1364,21 @@
 
 .save-program-section .save-program-btn {
   flex: 1;
-  padding: 12px 24px;
+  padding: 8px 16px;
   background: linear-gradient(135deg, #4a9eff 0%, #2a7fd9 100%);
   color: white;
-  border: none;
+  border: 1px solid rgba(74, 158, 255, 0.5);
   border-radius: 6px;
-  font-size: 1rem;
-  font-weight: 700;
+  font-size: 0.85rem;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+  min-height: 36px;
 }
 
 .save-program-section .save-program-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(74, 158, 255, 0.4);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(74, 158, 255, 0.4);
 }
 
 .save-program-section .save-program-btn:disabled {
@@ -1386,15 +1387,16 @@
 }
 
 .save-program-section .cancel-teach-btn {
-  padding: 12px 24px;
+  padding: 8px 16px;
   background: rgba(255, 107, 107, 0.2);
   color: #ff6b6b;
   border: 1px solid #ff6b6b;
   border-radius: 6px;
-  font-size: 1rem;
+  font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+  min-height: 36px;
 }
 
 /* PLC Status Pill */

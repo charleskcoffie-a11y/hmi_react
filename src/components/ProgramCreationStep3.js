@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import ModernDialog from './ModernDialog';
 import NumericKeypad from './NumericKeypad';
+import { pulseBoolTag } from '../services/plcApiService';
 import '../styles/ProgramCreationStep3.css';
 
 export default function ProgramCreationStep3({ programName, side, onStepComplete, onCancel, onPrevious }) {
@@ -25,12 +26,26 @@ export default function ProgramCreationStep3({ programName, side, onStepComplete
   const axis1Name = side === 'right' ? 'Axis 1 (ID)' : 'Axis 3 (ID)';
   const axis2Name = side === 'right' ? 'Axis 2 (OD)' : 'Axis 4 (OD)';
 
-  const handleJog = (axis, direction) => {
+  const handleJog = async (axis, direction) => {
     const increment = direction === 'up' ? 1 : -1;
     if (axis === 'idExpand') setIdExpandValue(prev => prev + increment);
     if (axis === 'idRetract') setIdRetractValue(prev => prev + increment);
     if (axis === 'odExpand') setOdExpandValue(prev => prev + increment);
     if (axis === 'odRetract') setOdRetractValue(prev => prev + increment);
+
+    // Trigger PLC jog command for the axis
+    if (jogMode) {
+      const isIdAxis = axis.includes('id');
+      const isAdvance = direction === 'up';
+      const tag = isAdvance ? 'GIO.bJogAdvPb' : 'GIO.bJogRetPb';
+      
+      try {
+        await pulseBoolTag(tag, 100);
+        console.log(`[ProgramCreationStep3] Jogged ${axis} ${direction} via ${tag}`);
+      } catch (err) {
+        console.error('[ProgramCreationStep3] Jog command failed:', err);
+      }
+    }
   };
 
   const handleRecord = (type) => {
@@ -302,13 +317,13 @@ export default function ProgramCreationStep3({ programName, side, onStepComplete
             value={patternCode}
             onChange={(e) => setPatternCode(parseInt(e.target.value, 10))}
           >
-            <option value={0}>0 - Red Ext</option>
-            <option value={1}>1 - Red Ret</option>
-            <option value={2}>2 - Exp Ext</option>
-            <option value={3}>3 - Exp Ret</option>
-            <option value={4}>4 - RedRet + ExpRet</option>
+            <option value={0}>0 - OD Ext</option>
+            <option value={1}>1 - OD Ret</option>
+            <option value={2}>2 - ID Ext</option>
+            <option value={3}>3 - ID Ret</option>
+            <option value={4}>4 - OD Ret + ID Ret</option>
             <option value={5}>5 - Repeat</option>
-            <option value={6}>6 - RedExt + ExpExt</option>
+            <option value={6}>6 - OD Ext + ID Ext</option>
             <option value={8}>8 - All off</option>
           </select>
         </div>

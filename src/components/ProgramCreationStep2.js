@@ -223,13 +223,13 @@ export default function ProgramCreationStep2({ programName, side, onStepComplete
             value={patternCode}
             onChange={(e) => setPatternCode(parseInt(e.target.value, 10))}
           >
-            <option value={0}>0 - Red Ext</option>
-            <option value={1}>1 - Red Ret</option>
-            <option value={2}>2 - Exp Ext</option>
-            <option value={3}>3 - Exp Ret</option>
-            <option value={4}>4 - RedRet + ExpRet</option>
+            <option value={0}>0 - OD Ext</option>
+            <option value={1}>1 - OD Ret</option>
+            <option value={2}>2 - ID Ext</option>
+            <option value={3}>3 - ID Ret</option>
+            <option value={4}>4 - OD Ret + ID Ret</option>
             <option value={5}>5 - Repeat</option>
-            <option value={6}>6 - RedExt + ExpExt</option>
+            <option value={6}>6 - OD Ext + ID Ext</option>
             <option value={8}>8 - All off</option>
           </select>
         </div>

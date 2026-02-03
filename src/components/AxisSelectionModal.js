@@ -36,9 +36,9 @@ export default function AxisSelectionModal({
   const showOD = axes === 'od' || axes === 'both';
 
   const handleConfirm = () => {
-    console.log('[AxisSelectionModal] handleConfirm called with enabledAxis:', enabledAxis);
+    // console.log('[AxisSelectionModal] handleConfirm called with enabledAxis:', enabledAxis);
     if (enabledAxis) {
-      console.log('[AxisSelectionModal] Calling onSelectAxis with:', enabledAxis);
+      // console.log('[AxisSelectionModal] Calling onSelectAxis with:', enabledAxis);
       onSelectAxis(enabledAxis);
       setEnabledAxis(null);
       onClose();
@@ -65,7 +65,7 @@ export default function AxisSelectionModal({
   };
 
   const handleAxisClick = async (axis) => {
-    console.log('[AxisSelectionModal] Axis button clicked, calling onAxisClick:', axis);
+    // console.log('[AxisSelectionModal] Axis button clicked, calling onAxisClick:', axis);
     setEnabling(true);
     try {
       // Call parent to pulse and enable the axis (same as Step 1 Enable button)
@@ -73,7 +73,7 @@ export default function AxisSelectionModal({
         await onAxisClick(axis);
       }
       setEnabledAxis(axis);
-      console.log('[AxisSelectionModal] Axis enable completed for:', axis);
+      // console.log('[AxisSelectionModal] Axis enable completed for:', axis);
     } catch (err) {
       console.error('[AxisSelectionModal] Error enabling axis:', err);
     } finally {
@@ -97,7 +97,7 @@ export default function AxisSelectionModal({
             <button
               className={`axis-button id-button ${enabledAxis === 'id' ? 'active' : ''}`}
               onClick={() => {
-                console.log('[AxisSelectionModal] ID button clicked');
+                // console.log('[AxisSelectionModal] ID button clicked');
                 handleAxisClick('id');
               }}
               disabled={enabling}
@@ -109,7 +109,7 @@ export default function AxisSelectionModal({
             <button
               className={`axis-button od-button ${enabledAxis === 'od' ? 'active' : ''}`}
               onClick={() => {
-                console.log('[AxisSelectionModal] OD button clicked');
+                // console.log('[AxisSelectionModal] OD button clicked');
                 handleAxisClick('od');
               }}
               disabled={enabling}

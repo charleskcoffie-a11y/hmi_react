@@ -273,3 +273,66 @@
 .lube-page-btn:active {
   transform: translateY(0);
 }
+.param-jog-controls {
+  background: rgba(42, 74, 127, 0.3);
+  border: 2px solid #2a4a7f;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.param-jog-controls h3 {
+  margin: 0 0 12px 0;
+  color: #4a9eff;
+  font-size: 1rem;
+}
+
+.jog-button-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.jog-advance-btn,
+.jog-retract-btn {
+  padding: 12px 24px;
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #ffffff;
+  flex: 1;
+  min-width: 120px;
+}
+
+.jog-advance-btn {
+  background: linear-gradient(135deg, #4a9eff 0%, #00c853 100%);
+  box-shadow: 0 4px 10px rgba(74, 158, 255, 0.3);
+}
+
+.jog-advance-btn:hover {
+  background: linear-gradient(135deg, #5aadff 0%, #00e676 100%);
+  box-shadow: 0 6px 15px rgba(74, 158, 255, 0.5);
+  transform: translateY(-2px);
+}
+
+.jog-advance-btn:active {
+  transform: translateY(0);
+}
+
+.jog-retract-btn {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ff5252 100%);
+  box-shadow: 0 4px 10px rgba(255, 107, 107, 0.3);
+}
+
+.jog-retract-btn:hover {
+  background: linear-gradient(135deg, #ff8080 0%, #ff6b6b 100%);
+  box-shadow: 0 6px 15px rgba(255, 107, 107, 0.5);
+  transform: translateY(-2px);
+}
+
+.jog-retract-btn:active {
+  transform: translateY(0);
+}

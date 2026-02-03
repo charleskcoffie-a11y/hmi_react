@@ -720,6 +720,24 @@
   box-shadow: 0 0 20px rgba(0, 200, 150, 0.6);
 }
 
+.mode-control-btn.unit-toggle-btn {
+  border-color: rgba(30, 136, 229, 0.35);
+  background: linear-gradient(135deg, rgba(30, 136, 229, 0.25) 0%, rgba(21, 101, 192, 0.2) 100%);
+  color: #f5f8ff;
+  min-width: 140px;
+}
+
+.mode-control-btn.unit-toggle-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(30, 136, 229, 0.45) 0%, rgba(21, 101, 192, 0.35) 100%);
+  border-color: rgba(30, 136, 229, 0.6);
+}
+
+.mode-control-btn.unit-toggle-btn.active {
+  background: linear-gradient(135deg, #1e88e5 0%, #1565c0 100%);
+  border-color: #4dabf7;
+  box-shadow: 0 0 20px rgba(30, 136, 229, 0.6);
+}
+
 .mode-icon {
   font-size: 20px;
 }

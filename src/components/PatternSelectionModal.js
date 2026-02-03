@@ -1,5 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import ModernDialog from './ModernDialog';
+import PatternAxisSelectionModal from './PatternAxisSelectionModal';
 import '../styles/PatternSelectionModal.css';
 
 export default function PatternSelectionModal({
@@ -7,16 +8,21 @@ export default function PatternSelectionModal({
   onClose,
   onSelectPattern,
   stepNumber,
+  side,
+  onTriggerAxisPLC,
+  lastFeedback = [],
 }) {
+  const [showAxisSelector, setShowAxisSelector] = useState(false);
+  const [selectedPattern, setSelectedPattern] = useState(null);
   const patternOptions = useMemo(
     () => [
-      { code: 2, name: 'Exp Ext' },
-      { code: 3, name: 'Exp Ret' },
-      { code: 0, name: 'Red Ext' },
-      { code: 1, name: 'Red Ret' },
-      { code: 4, name: 'RedRet + ExpRet' },
+      { code: 2, name: 'ID Ext' },
+      { code: 3, name: 'ID Ret' },
+      { code: 0, name: 'OD Ext' },
+      { code: 1, name: 'OD Ret' },
+      { code: 4, name: 'OD Ret + ID Ret' },
       { code: 5, name: 'Repeat' },
-      { code: 6, name: 'RedExt + ExpExt' },
+      { code: 6, name: 'OD Ext + ID Ext' },
     ],
     []
   );
@@ -38,9 +44,39 @@ export default function PatternSelectionModal({
     return patternOptions;
   }, [patternOptions, stepNumber]);
 
-  const handlePatternSelect = (pattern) => {
-    onSelectPattern(pattern);
-    onClose();
+  // Determine if this pattern needs axis selection
+  const patternRequiresAxisSelection = (code) => {
+    // Patterns that only work with specific axes need selection
+    return [0, 1, 2, 3].includes(code); // Red Ext/Ret and Exp Ext/Ret
+  };
+
+  const handlePatternSelect = (patternCode) => {
+    if (patternRequiresAxisSelection(patternCode)) {
+      // Show axis selector for this pattern
+      setSelectedPattern(patternCode);
+      setShowAxisSelector(true);
+    } else {
+      // Patterns 4, 5, 6 don't need axis selection
+      onSelectPattern(patternCode, null);
+      onClose();
+    }
+  };
+
+  const handleAxisSelected = (axis) => {
+    // User selected an axis - proceed with pattern and axis
+    if (selectedPattern !== null) {
+      onSelectPattern(selectedPattern, axis);
+      setSelectedPattern(null);
+      setShowAxisSelector(false);
+      onClose();
+    }
+  };
+
+  const handleAxisTriggerPLC = async (axis, triggerWrite = false) => {
+    // Call parent's PLC trigger function if provided
+    if (onTriggerAxisPLC && triggerWrite) {
+      await onTriggerAxisPLC(axis);
+    }
   };
 
   return (
@@ -65,6 +101,20 @@ export default function PatternSelectionModal({
           ))}
         </div>
       </div>
+      
+      <PatternAxisSelectionModal
+        isOpen={showAxisSelector}
+        onClose={() => {
+          setShowAxisSelector(false);
+          setSelectedPattern(null);
+        }}
+        onSelectAxis={handleAxisSelected}
+        onTriggerPLC={handleAxisTriggerPLC}
+        side={side}
+        patternCode={selectedPattern}
+        stepNumber={stepNumber}
+        lastFeedback={lastFeedback}
+      />
     </ModernDialog>
   );
 }

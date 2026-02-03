@@ -52,6 +52,21 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
       };
     }, [isOpen, onClose]);
 
+    // Validate selectedRecipe still exists after recipes update
+    useEffect(() => {
+      if (selectedRecipe && recipes && recipes.length > 0) {
+        const selectedName = typeof selectedRecipe === 'string' ? selectedRecipe : selectedRecipe?.name;
+        const stillExists = recipes.some(r => {
+          const name = typeof r === 'string' ? r : r?.name;
+          return name === selectedName;
+        });
+        if (!stillExists) {
+          // Recipe was deleted, select a new one
+          setSelectedRecipe(recipes[0] || null);
+        }
+      }
+    }, [recipes]);
+
   const [selectedRecipe, setSelectedRecipe] = useState(recipes && recipes.length > 5 ? recipes[5] : recipes?.[0] || null);
   const [searchInput, setSearchInput] = useState('');
   const [searchKeypadOpen, setSearchKeypadOpen] = useState(false);
@@ -333,10 +348,12 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
                 })).map((recipe, index) => {
                   const recipeName = typeof recipe === 'string' ? recipe : recipe.name;
                   const recipeDesc = typeof recipe === 'object' ? recipe.description : '';
+                  const selectedName = typeof selectedRecipe === 'string' ? selectedRecipe : selectedRecipe?.name;
+                  const isSelected = recipeName === selectedName;
                   return (
                     <div
-                      key={index}
-                      className={`recipe-item ${selectedRecipe === recipe ? 'selected' : ''}`}
+                      key={recipeName || index}
+                      className={`recipe-item ${isSelected ? 'selected' : ''}`}
                       onClick={() => {
                         setSelectedRecipe(recipe);
                         setSearchKeypadOpen(false);

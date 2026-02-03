@@ -264,25 +264,26 @@ export default function ProgramCreationStep1({ programName, side, onPositionReco
             </button>
           </div>
         </div>
-      </div>
 
-      {stepMessage && (
-        <div className="step-message">
-          {stepMessage}
+        {stepMessage && (
+          <div className="step-message">
+            {stepMessage}
+          </div>
+        )}
+
+        <div className="dwell-input-row">
+          <label>Dwell (ms, optional for this step):</label>
+          <input
+            type="number"
+            min="0"
+            value={dwell}
+            onFocus={() => { setKeypadTarget({ field: 'dwell' }); setKeypadVal(parseFloat(dwell || '0')); setKeypadOpen(true); }}
+            readOnly
+            placeholder="Enter dwell for this step"
+          />
         </div>
-      )}
-
-      <div className="dwell-input-row">
-        <label>Dwell (ms, optional for this step):</label>
-        <input
-          type="number"
-          min="0"
-          value={dwell}
-          onFocus={() => { setKeypadTarget({ field: 'dwell' }); setKeypadVal(parseFloat(dwell || '0')); setKeypadOpen(true); }}
-          readOnly
-          placeholder="Enter dwell for this step"
-        />
       </div>
+
       <div className="step1-footer">
         <div className="step-progress">
           <span className="progress-item">

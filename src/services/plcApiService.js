@@ -360,28 +360,43 @@ export async function pulseBoolTag(tag, durationMs = 150) {
  */
 export async function writeScreenIndex(screenIndex) {
   try {
-    console.log(`[plcApiService] ===== WRITING SCREEN INDEX to GAXIS.dHmiCurrScrnIndex: ${screenIndex} =====`);
-    const res = await fetch(`${API_BASE}/write`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        tag: 'GAXIS.dHmiCurrScrnIndex', 
-        value: screenIndex 
-      })
-    });
-    
-    if (!res.ok) {
-      console.error(`[plcApiService] Screen index write HTTP error: ${res.status} ${res.statusText}`);
-      return { success: false, error: `HTTP ${res.status}` };
+    const candidateTags = [
+      'GAXIS.dHmiCurrScrnIndex',
+      'GAxis.dHmiCurrScrnIndex',
+      'GVL_GAXIS.dHmiCurrScrnIndex'
+    ];
+
+    let lastError = null;
+
+    for (const tag of candidateTags) {
+      console.log(`[plcApiService] ===== WRITING SCREEN INDEX to ${tag}: ${screenIndex} =====`);
+      const res = await fetch(`${API_BASE}/write`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tag,
+          value: screenIndex
+        })
+      });
+
+      if (!res.ok) {
+        lastError = `HTTP ${res.status}`;
+        console.error(`[plcApiService] Screen index write HTTP error for ${tag}: ${res.status} ${res.statusText}`);
+        continue;
+      }
+
+      const data = await res.json();
+      if (!data.success) {
+        lastError = data.error || 'Unknown error';
+        console.error(`[plcApiService] ❌ Screen index write FAILED for ${tag}: ${data.error}`);
+        continue;
+      }
+
+      console.log(`[plcApiService] ✓ Screen index write SUCCESS: ${screenIndex} written to ${tag}`);
+      return data;
     }
-    
-    const data = await res.json();
-    if (!data.success) {
-      console.error(`[plcApiService] ❌ Screen index write FAILED: ${data.error}`);
-    } else {
-      console.log(`[plcApiService] ✓ Screen index write SUCCESS: ${screenIndex} written to GAXIS.dHmiCurrScrnIndex`);
-    }
-    return data;
+
+    return { success: false, error: lastError || 'Failed to write screen index' };
   } catch (err) {
     console.error(`[plcApiService] ❌ EXCEPTION writing screen index:`, err.message, err);
     // Non-blocking - app continues if this fails

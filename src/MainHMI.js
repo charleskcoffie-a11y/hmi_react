@@ -120,6 +120,17 @@ const SCREEN_INDEX = {
   DOWNLOAD_PROGRAM: 41
 };
 
+const getProgramStepScreenIndex = (side, step) => {
+  const safeStep = Math.max(1, Math.min(10, Number(step) || 1));
+  if (side === 'right') {
+    return SCREEN_INDEX[`RIGHT_PROGRAM_STEP_${safeStep}`] ?? SCREEN_INDEX.PROGRAM_EDITOR;
+  }
+  if (side === 'left') {
+    return SCREEN_INDEX[`LEFT_PROGRAM_STEP_${safeStep}`] ?? SCREEN_INDEX.PROGRAM_EDITOR;
+  }
+  return SCREEN_INDEX.PROGRAM_EDITOR;
+};
+
 function decodeAlarmBits(bits) {
   const active = [];
   ALARM_MAP.forEach(def => {
@@ -298,6 +309,8 @@ export default function MainHMI() {
     left: { id: false, od: false },
     right: { id: false, od: false }
   });
+
+  const [showEnableSideSelector, setShowEnableSideSelector] = useState(false);
   
   // Pump enable status (controls if Home and Start Position buttons are enabled)
   const [pumpEnabled, setPumpEnabled] = useState(false);
@@ -341,22 +354,28 @@ export default function MainHMI() {
   
   // Write current screen index to PLC whenever it changes
   useEffect(() => {
-    writeScreenIndex(currentScreen);
-    console.log(`[MainHMI] Screen changed to index ${currentScreen}`);
+    const updateScreenIndex = () => {
+      writeScreenIndex(currentScreen);
+      console.log(`[MainHMI] Screen changed to index ${currentScreen}`);
+    };
+    updateScreenIndex();
   }, [currentScreen]);
 
-  // Persist head counts
   useEffect(() => {
-    localStorage.setItem('headCount_right', String(headCounts.right));
-    localStorage.setItem('headCount_left', String(headCounts.left));
+    const persistHeadCounts = () => {
+      localStorage.setItem('headCount_right', String(headCounts.right));
+      localStorage.setItem('headCount_left', String(headCounts.left));
+    };
+    persistHeadCounts();
   }, [headCounts]);
 
-  // Persist cycles since last lube
   useEffect(() => {
-    localStorage.setItem('cyclesSinceLastLube_right', String(cyclesSinceLastLube.right));
-    localStorage.setItem('cyclesSinceLastLube_left', String(cyclesSinceLastLube.left));
+    const persistCycles = () => {
+      localStorage.setItem('cyclesSinceLastLube_right', String(cyclesSinceLastLube.right));
+      localStorage.setItem('cyclesSinceLastLube_left', String(cyclesSinceLastLube.left));
+    };
+    persistCycles();
   }, [cyclesSinceLastLube]);
-
   // Increment head counts on cycle completion (sequence active falling edge)
   useEffect(() => {
     const prev = prevSequenceActive.current;
@@ -1177,10 +1196,9 @@ export default function MainHMI() {
   const [showParameterSideSelector, setShowParameterSideSelector] = useState(false);
 
   const [machineParametersOpen, setMachineParametersOpen] = useState(false);
+  const [netIdSettingsOpen, setNetIdSettingsOpen] = useState(false);
   const [lubePageOpen, setLubePageOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
-
-  const [showEnableSideSelector, setShowEnableSideSelector] = useState(false);
 
   const [autoTeachOpen, setAutoTeachOpen] = useState(false);
   const [autoTeachSide, setAutoTeachSide] = useState(null);
@@ -1195,6 +1213,78 @@ export default function MainHMI() {
   const [programToDownload, setProgramToDownload] = useState(null);
   const [showEditModeDialog, setShowEditModeDialog] = useState(false);
   const [showAutoAdjust, setShowAutoAdjust] = useState(false);
+
+  // Keep screen index in sync with visible UI state
+  useEffect(() => {
+    let nextScreen = SCREEN_INDEX.MAIN_CONTROL;
+
+    if (showHomingDialog) {
+      nextScreen = SCREEN_INDEX.HOMING;
+    } else if (showEnableSideSelector) {
+      nextScreen = SCREEN_INDEX.JOG_SIDE_SELECTOR;
+    } else if (showJogDialog) {
+      if (jogActiveSide === 'left') {
+        nextScreen = SCREEN_INDEX.JOG_MODE_LEFT;
+      } else if (jogActiveSide === 'right') {
+        nextScreen = SCREEN_INDEX.JOG_MODE_RIGHT;
+      } else {
+        nextScreen = SCREEN_INDEX.JOG_MODE;
+      }
+    } else if (showAutoAdjust) {
+      nextScreen = SCREEN_INDEX.AUTO_ADJUST;
+    } else if (showDownloadModal) {
+      nextScreen = SCREEN_INDEX.DOWNLOAD_PROGRAM;
+    } else if (parametersOpen || showParameterSideSelector) {
+      nextScreen = SCREEN_INDEX.RECIPE_PARAMETERS;
+    } else if (recipeOpen || recipeSideSelectorOpen) {
+      nextScreen = SCREEN_INDEX.RECIPE_MANAGER;
+    } else if (machineParametersOpen) {
+      nextScreen = netIdSettingsOpen ? SCREEN_INDEX.NET_ID_SETTINGS : SCREEN_INDEX.MACHINE_PARAMETERS;
+    } else if (ioPageOpen) {
+      nextScreen = SCREEN_INDEX.DIGITAL_IO;
+    } else if (showProgramEditor || showEditProgramSideSelector) {
+      nextScreen = SCREEN_INDEX.PROGRAM_EDITOR;
+    } else if (currentProgram) {
+      nextScreen = getProgramStepScreenIndex(currentProgram.side, currentStep);
+    } else if (autoTeachOpen || showAutoTeachNameModal) {
+      if (autoTeachSide === 'left') {
+        nextScreen = SCREEN_INDEX.AUTO_TEACH_LEFT;
+      } else if (autoTeachSide === 'right') {
+        nextScreen = SCREEN_INDEX.AUTO_TEACH_RIGHT;
+      }
+    } else if (showProgramNameModal || showSideSelector || showAutoTeachSelector) {
+      nextScreen = SCREEN_INDEX.PROGRAM_EDITOR;
+    }
+
+    if (nextScreen !== currentScreen) {
+      setCurrentScreen(nextScreen);
+    }
+  }, [
+    showHomingDialog,
+    showEnableSideSelector,
+    showJogDialog,
+    jogActiveSide,
+    showAutoAdjust,
+    showDownloadModal,
+    parametersOpen,
+    showParameterSideSelector,
+    recipeOpen,
+    recipeSideSelectorOpen,
+    machineParametersOpen,
+    netIdSettingsOpen,
+    ioPageOpen,
+    showProgramEditor,
+    showEditProgramSideSelector,
+    currentProgram,
+    currentStep,
+    autoTeachOpen,
+    showAutoTeachNameModal,
+    autoTeachSide,
+    showProgramNameModal,
+    showSideSelector,
+    showAutoTeachSelector,
+    currentScreen
+  ]);
 
   const handleAxisChange = (axisName, value, mode) => {
     console.log(`${axisName} changed to ${value} (${mode})`);
@@ -1613,6 +1703,23 @@ export default function MainHMI() {
   };
 
   const handleCancelProgram = async () => {
+    // Pulse GAxis.bJogOff to disable jog mode when exiting edit program page
+    try {
+      const response = await fetch('http://localhost:3001/pulse-bool', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tag: 'GAxis.bJogOff', durationMs: 200 })
+      });
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          console.log('[MainHMI] GAxis.bJogOff pulsed on program cancel');
+        }
+      }
+    } catch (err) {
+      console.warn('[MainHMI] Error pulsing GAxis.bJogOff on cancel:', err.message);
+    }
+
     setShowSideSelector(false);
     setShowProgramNameModal(false);
     setSelectedSide(null);
@@ -2548,6 +2655,15 @@ export default function MainHMI() {
             <span className="mode-icon">⚡</span>
             <span>IO</span>
           </button>
+
+          <button
+            className={`mode-control-btn unit-toggle-btn ${unitSystem === 'mm' ? 'active' : ''}`}
+            onClick={() => setUnitSystem(prev => (prev === 'inch' ? 'mm' : 'inch'))}
+            title={`Switch to ${unitSystem === 'inch' ? 'mm' : 'in'}`}
+          >
+            <span className="mode-icon">📏</span>
+            <span>UNIT: {unitSystem === 'inch' ? 'IN' : 'MM'}</span>
+          </button>
         </div>
       </div>
 
@@ -2593,6 +2709,7 @@ export default function MainHMI() {
         isOpen={machineParametersOpen}
         onClose={async () => {
           setMachineParametersOpen(false);
+          setNetIdSettingsOpen(false);
           setCurrentScreen(SCREEN_INDEX.MAIN_CONTROL);
           await writeScreenIndex(SCREEN_INDEX.MAIN_CONTROL);
         }}
@@ -2609,6 +2726,8 @@ export default function MainHMI() {
           localStorage.setItem('homingTimeout', newTimeout.toString());
         }}
         onOpenLubePage={() => setLubePageOpen(true)}
+        onOpenNetIdSettings={() => setNetIdSettingsOpen(true)}
+        onCloseNetIdSettings={() => setNetIdSettingsOpen(false)}
       />
 
       <DigitalIOPage
@@ -2862,9 +2981,23 @@ export default function MainHMI() {
           setCurrentScreen(SCREEN_INDEX.MAIN_CONTROL);
           await writeScreenIndex(SCREEN_INDEX.MAIN_CONTROL);
         }}
-        side={programToEdit?.side || ''}
+        side={programToEdit?.side || 'right'}
         stepCount={programToEdit ? Object.keys(programToEdit.steps).length : 10}
         stroke={programToEdit?.side === 'right' ? parametersOpen ? undefined : undefined : undefined}
+        program={programToEdit}
+        onProgramUpdate={(updatedProgram) => {
+          console.log('[MainHMI] Auto-adjusted program received:', updatedProgram);
+          setProgramToEdit(updatedProgram);
+          // Save to localStorage
+          const storageKey = `${updatedProgram.side}_programs`;
+          const saved = JSON.parse(localStorage.getItem(storageKey) || '[]');
+          const index = saved.findIndex(p => p.name === updatedProgram.name);
+          if (index >= 0) {
+            saved[index] = updatedProgram;
+            localStorage.setItem(storageKey, JSON.stringify(saved));
+            console.log('[MainHMI] Auto-adjusted program saved to localStorage');
+          }
+        }}
       />
       <>
         {/* ModernDialog for manual/auto choice */}

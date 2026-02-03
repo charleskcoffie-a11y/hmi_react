@@ -502,3 +502,43 @@
 .step-content::-webkit-scrollbar-thumb:hover {
   background: #0088ff;
 }
+
+/* Dwell Input Row */
+.dwell-input-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: rgba(0, 102, 204, 0.1);
+  border: 1px solid #0066cc;
+  border-radius: 8px;
+  margin-top: 10px;
+}
+
+.dwell-input-row label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #00aaff;
+  white-space: nowrap;
+}
+
+.dwell-input-row input {
+  flex: 1;
+  padding: 10px 14px;
+  background: #0f1b2b;
+  border: 1px solid #264a7a;
+  border-radius: 6px;
+  color: #d7e6ff;
+  font-size: 14px;
+  font-family: 'Courier New', monospace;
+}
+
+.dwell-input-row input:focus {
+  outline: none;
+  border-color: #0088ff;
+  box-shadow: 0 0 8px rgba(0, 136, 255, 0.4);
+}
+
+.dwell-input-row input::placeholder {
+  color: #5a7ba5;
+}

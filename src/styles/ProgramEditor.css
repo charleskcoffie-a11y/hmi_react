@@ -45,12 +45,14 @@
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+  flex: 1;
 }
 
 .step-actions-group {
   display: flex;
-  gap: 10px;
+  gap: 6px;
   align-items: center;
+  flex-wrap: nowrap;
 }
 
 .program-editor-header h2 {
@@ -201,50 +203,67 @@
 
 .program-actions-group {
   display: flex;
-  gap: 10px;
+  gap: 6px;
   align-items: center;
-}
-.auto-edit-btn {
-  background: #6c5ce7;
-  color: #fff;
-  border: none;
-  padding: 8px 12px;
-  border-radius: 6px;
-  cursor: pointer;
+  flex-wrap: nowrap;
+  margin-left: auto;
 }
 
-.auto-edit-btn:hover { opacity: 0.9; }
+/* Unified button styling for all header buttons */
+.auto-edit-btn,
+.edit-all-dwell-btn,
+.edit-all-pattern-btn,
+.save-program-btn,
+.cancel-program-btn {
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  letter-spacing: 0.3px;
+  border: 1px solid transparent;
+}
+
+.auto-edit-btn {
+  background: linear-gradient(135deg, #6c5ce7 0%, #5f51d8 100%);
+  color: #fff;
+  border-color: rgba(108, 92, 231, 0.5);
+}
+
+.auto-edit-btn:hover {
+  background: linear-gradient(135deg, #5f51d8 0%, #6c5ce7 100%);
+  box-shadow: 0 4px 12px rgba(108, 92, 231, 0.4);
+  transform: translateY(-1px);
+}
 
 .edit-all-dwell-btn {
-  background: linear-gradient(135deg, rgba(40, 167, 69, 0.8), rgba(40, 167, 69, 1));
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
   color: #fff;
-  border: 1px solid #28a745;
-  padding: 8px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.2s;
+  border-color: rgba(40, 167, 69, 0.5);
 }
 
 .edit-all-dwell-btn:hover {
-  background: linear-gradient(135deg, rgba(40, 167, 69, 1), rgba(32, 201, 151, 1));
+  background: linear-gradient(135deg, #20c997 0%, #28a745 100%);
   box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+  transform: translateY(-1px);
 }
 
 .edit-all-pattern-btn {
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.8), rgba(118, 75, 162, 1));
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: #fff;
-  border: 1px solid #667eea;
-  padding: 8px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.2s;
+  border-color: rgba(102, 126, 234, 0.5);
 }
 
 .edit-all-pattern-btn:hover {
-  background: linear-gradient(135deg, rgba(102, 126, 234, 1), rgba(118, 75, 162, 1));
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  transform: translateY(-1px);
 }
 
 /* Improve readability inside Auto Edit dialog */
@@ -271,20 +290,19 @@
 }
 
 .step-action-btn {
-  padding: 14px 16px;
-  border-radius: 9px;
-  border: 1px solid rgba(127, 201, 255, 0.85);
-  font-weight: 700;
-  font-size: 0.8rem;
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid rgba(127, 201, 255, 0.5);
+  font-weight: 600;
+  font-size: 0.75rem;
   cursor: pointer;
   transition: all 0.2s ease;
-  min-height: 44px;
+  min-height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
   white-space: nowrap;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
 }
 
 .step-action-btn.add {
@@ -795,7 +813,7 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 50%, rgba(240, 147, 251, 0.08) 100%);
+  background: linear-gradient(135deg, rgba(15, 40, 75, 0.85) 0%, rgba(20, 35, 65, 0.85) 100%);
   border: 2px solid transparent;
   border-radius: 12px;
   padding: 20px;
@@ -851,14 +869,16 @@
 }
 
 .dialog-title-text {
-  color: #ffffff;
+  color: #f0f9ff;
   font-weight: 700;
-  font-size: 1.15rem;
+  font-size: 1.1rem;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .dialog-subtitle {
-  color: #cfe3ff;
-  font-size: 0.95rem;
+  color: #e3f2fd;
+  font-size: 0.9rem;
+  font-weight: 500;
 }
 
 .dialog-pill {
@@ -885,12 +905,16 @@
 }
 
 .dialog-label {
-  color: #ffffff;
-  font-weight: 700;
-  font-size: 1.05rem;
+  color: #f0f9ff;
+  font-weight: 600;
+  font-size: 0.95rem;
   letter-spacing: 0.3px;
   margin-bottom: 6px;
   display: block;
+  background: linear-gradient(135deg, rgba(30, 136, 229, 0.25) 0%, rgba(21, 101, 192, 0.25) 100%);
+  padding: 8px 12px;
+  border-radius: 6px;
+  border-left: 3px solid #1e88e5;
 }
 
 .step-dialog-input,
@@ -944,9 +968,9 @@
 }
 
 .dialog-hint {
-  font-size: 0.95rem;
-  color: #9ab3d7;
-  margin-top: 8px;
+  font-size: 0.85rem;
+  color: #bbdefb;
+  margin-top: 4px;
   font-weight: 500;
   letter-spacing: 0.2px;
 }
@@ -980,46 +1004,20 @@
 
 .save-program-btn {
   background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-  border: 2px solid #28a745;
-  border-radius: 9px;
   color: #ffffff;
-  padding: 14px 16px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.3s;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  white-space: nowrap;
+  border-color: rgba(40, 167, 69, 0.5);
 }
 
 .save-program-btn:hover {
   background: linear-gradient(135deg, #20c997 0%, #28a745 100%);
-  box-shadow: 0 0 20px rgba(40, 167, 69, 0.6);
-  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.5);
+  transform: translateY(-1px);
 }
 
 .cancel-program-btn {
   background: rgba(102, 102, 102, 0.3);
-  border: 2px solid #666666;
-  border-radius: 9px;
   color: #cccccc;
-  padding: 14px 16px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.3s;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  white-space: nowrap;
+  border-color: #666666;
 }
 
 .cancel-program-btn:hover {
@@ -1426,4 +1424,292 @@
   outline: none;
   border-color: #38ef7d;
   box-shadow: 0 0 8px rgba(56, 239, 125, 0.2);
+}
+
+/* Auto Edit Dialog Styling */
+.auto-edit-dialog-container {
+  background: rgba(15, 40, 75, 0.6);
+  border-radius: 12px;
+  padding: 16px;
+  border-left: 4px solid #1e88e5;
+}
+
+.auto-edit-header {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid rgba(30, 136, 229, 0.3);
+}
+
+.auto-edit-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #f0f9ff;
+  margin: 0 0 4px 0;
+}
+
+.auto-edit-description {
+  font-size: 13px;
+  color: #b3d9ff;
+  margin: 0;
+  font-weight: 500;
+}
+
+.auto-edit-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 700px) {
+  .auto-edit-inputs {
+    grid-template-columns: 1fr;
+  }
+}
+
+.auto-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.auto-edit-label {
+  display: block;
+  background: linear-gradient(135deg, #0d47a1 0%, #1565c0 100%);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #f0f9ff;
+  letter-spacing: 0.3px;
+}
+
+.auto-edit-input {
+  background: linear-gradient(135deg, rgba(30, 136, 229, 0.15) 0%, rgba(21, 101, 192, 0.1) 100%);
+  border: 2px solid #1e88e5;
+  border-radius: 8px;
+  padding: 14px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #f0f9ff;
+  font-family: 'Courier New', monospace;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2), 0 0 8px rgba(30, 136, 229, 0.15);
+}
+
+.auto-edit-input:hover {
+  border-color: #42a5f5;
+  background: linear-gradient(135deg, rgba(30, 136, 229, 0.25) 0%, rgba(21, 101, 192, 0.2) 100%);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2), 0 0 12px rgba(66, 165, 245, 0.3);
+  transform: translateY(-1px);
+}
+
+.auto-edit-input:active {
+  transform: translateY(0);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3), 0 0 8px rgba(30, 136, 229, 0.1);
+}
+
+.auto-edit-hint {
+  font-size: 12px;
+  color: #90caf9;
+  font-weight: 500;
+  margin-left: 2px;
+}
+
+/* Auto Edit Notes Section */
+.auto-edit-notes {
+  background: linear-gradient(135deg, rgba(25, 118, 210, 0.1) 0%, rgba(21, 101, 192, 0.08) 100%);
+  border: 1px solid rgba(30, 136, 229, 0.25);
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 12px;
+}
+
+.auto-edit-note-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #64b5f6;
+  margin: 0 0 8px 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.auto-edit-note-list {
+  margin: 0;
+  padding-left: 16px;
+  list-style-type: none;
+  counter-reset: step-counter;
+}
+
+.auto-edit-note-list li {
+  font-size: 12px;
+  color: #e3f2fd;
+  margin-bottom: 6px;
+  line-height: 1.4;
+  position: relative;
+  padding-left: 8px;
+}
+
+.auto-edit-note-list li:before {
+  content: "▪";
+  color: #42a5f5;
+  font-weight: bold;
+  position: absolute;
+  left: -12px;
+}
+
+.auto-edit-note-list strong {
+  color: #90caf9;
+  font-weight: 600;
+}
+
+/* Repeat Dialog Styling */
+.repeat-dialog-container {
+  background: rgba(15, 40, 75, 0.6);
+  border-radius: 12px;
+  padding: 16px;
+  border-left: 4px solid #9c27b0;
+}
+
+.repeat-header {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid rgba(156, 39, 176, 0.3);
+}
+
+.repeat-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #f0f9ff;
+  margin: 0 0 4px 0;
+}
+
+.repeat-description {
+  font-size: 13px;
+  color: #e1bee7;
+  margin: 0;
+  font-weight: 500;
+}
+
+.repeat-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 700px) {
+  .repeat-inputs {
+    grid-template-columns: 1fr;
+  }
+}
+
+.repeat-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.repeat-label {
+  display: block;
+  background: linear-gradient(135deg, #7b1fa2 0%, #8e24aa 100%);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #f0f9ff;
+  letter-spacing: 0.3px;
+}
+
+.repeat-input {
+  background: linear-gradient(135deg, rgba(156, 39, 176, 0.15) 0%, rgba(142, 36, 170, 0.1) 100%);
+  border: 2px solid #9c27b0;
+  border-radius: 8px;
+  padding: 14px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #f0f9ff;
+  font-family: 'Courier New', monospace;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2), 0 0 8px rgba(156, 39, 176, 0.15);
+}
+
+.repeat-input:hover {
+  border-color: #ba68c8;
+  background: linear-gradient(135deg, rgba(156, 39, 176, 0.25) 0%, rgba(142, 36, 170, 0.2) 100%);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2), 0 0 12px rgba(186, 104, 200, 0.3);
+  transform: translateY(-1px);
+}
+
+.repeat-input:active {
+  transform: translateY(0);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3), 0 0 8px rgba(156, 39, 176, 0.1);
+}
+
+.repeat-hint {
+  font-size: 12px;
+  color: #ce93d8;
+  font-weight: 500;
+  margin-left: 2px;
+}
+
+/* Repeat Notes Section */
+.repeat-notes {
+  background: linear-gradient(135deg, rgba(156, 39, 176, 0.1) 0%, rgba(142, 36, 170, 0.08) 100%);
+  border: 1px solid rgba(156, 39, 176, 0.25);
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 12px;
+}
+
+.repeat-note-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ce93d8;
+  margin: 0 0 8px 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.repeat-note-list {
+  margin: 0;
+  padding-left: 16px;
+  list-style-type: none;
+  counter-reset: step-counter;
+}
+
+.repeat-note-list li {
+  font-size: 12px;
+  color: #f3e5f5;
+  margin-bottom: 6px;
+  line-height: 1.4;
+  position: relative;
+  padding-left: 8px;
+}
+
+.repeat-note-list li:before {
+  content: "▪";
+  color: #ba68c8;
+  font-weight: bold;
+  position: absolute;
+  left: -12px;
+}
+
+.repeat-note-list strong {
+  color: #ce93d8;
+  font-weight: 600;
 }

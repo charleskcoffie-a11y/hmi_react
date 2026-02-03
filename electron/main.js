@@ -106,20 +106,52 @@ function createWindow() {
   // Load from build files - Electron app always loads from build folder
   const loadFromBuild = () => {
     const isPackaged = app.isPackaged;
-    const buildPath = isPackaged
-      ? path.join(process.resourcesPath, 'app', 'build', 'index.html')
-      : path.join(__dirname, 'build', 'index.html');
+    const candidatePaths = isPackaged
+      ? [
+          path.join(app.getAppPath(), 'build', 'index.html'),
+          path.join(process.resourcesPath, 'app', 'build', 'index.html'),
+          path.join(process.resourcesPath, 'build', 'index.html'),
+        ]
+      : [
+          path.join(__dirname, 'build', 'index.html'),
+          path.join(process.cwd(), 'build', 'index.html'),
+        ];
+
+    const buildPath = candidatePaths.find((p) => fs.existsSync(p));
+
+    if (!buildPath) {
+      console.error('[electron] index.html not found. Tried:', candidatePaths);
+      const fallbackHtml = `
+        <html>
+          <head><title>HMI Load Error</title></head>
+          <body style="background:#000;color:#fff;font-family:sans-serif;padding:24px;">
+            <h2>HMI failed to load</h2>
+            <p>index.html was not found in the packaged build.</p>
+            <pre>${candidatePaths.join('\n')}</pre>
+          </body>
+        </html>
+      `;
+      win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(fallbackHtml)}`);
+      return;
+    }
 
     console.log('[electron] Loading from build:', buildPath);
     win.loadFile(buildPath).catch((err) => {
-      console.error('Failed to load index.html:', err);
+      console.error('[electron] Failed to load index.html:', err);
     });
   };
   
   // Load from build folder
   loadFromBuild();
 
+  win.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    console.error('[electron] did-fail-load:', { errorCode, errorDescription, validatedURL });
+  });
+
   win.setMenuBarVisibility(false);
+
+  // Open DevTools for debugging (commented out for production)
+  // win.webContents.openDevTools();
 
   // Ensure the window becomes visible and focused when ready
   win.once('ready-to-show', () => {

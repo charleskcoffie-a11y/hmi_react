@@ -32,6 +32,13 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
   const [selectedJogAxis, setSelectedJogAxis] = useState(null); // Selected axis for jog
   const [jogPollInterval, setJogPollInterval] = useState(null); // Polling interval for jog feedback
   const jogFeedbackDebounceRef = useRef({ candidate: null, since: 0 });
+  const [lastAxisFeedback, setLastAxisFeedback] = useState([]); // Track PLC feedback for axis selection
+  const [enablingAxis, setEnablingAxis] = useState(false); // Track if currently enabling axis
+
+  const INCH_TO_MM = 25.4;
+  const MM_TO_INCH = 0.0393701;
+  const toDisplayUnits = (val) => (unitSystem === 'mm' ? val * INCH_TO_MM : val);
+  const toStorageUnits = (val) => (unitSystem === 'mm' ? val * MM_TO_INCH : val);
 
   const getPatternAxes = (patternCode) => {
     const code = Number(patternCode ?? 0);
@@ -42,6 +49,101 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
     if (axis1Only.has(code)) return ['axis1'];
     if (axis2Only.has(code)) return ['axis2'];
     return [];
+  };
+
+  // Handle axis enable button click with PLC pulsing and feedback polling
+  const handleEnableAxis = async (axis) => {
+    // console.log('[ProgramEditor] handleEnableAxis called - axis:', axis, 'side:', program.side);
+    
+    try {
+      setEnablingAxis(true);
+      const side = program.side || 'right';
+      const idTag = side === 'left' ? 'GLEFTHEAD.bHmiLeftExpPb' : 'GRIGHTHEAD.bHmiRightExpPb';
+      const odTag = side === 'left' ? 'GLEFTHEAD.bHmiLeftRedPb' : 'GRIGHTHEAD.bHmiRightRedPb';
+      const idReadyTag = side === 'left' ? 'GLEFTHEAD.bHmiLeftExpEna' : 'GRIGHTHEAD.bHmiRightExpEna';
+      const odReadyTag = side === 'left' ? 'GLEFTHEAD.bHmiLeftRedEna' : 'GRIGHTHEAD.bHmiRightRedEna';
+
+      const tagsToPulse = axis === 'id' ? [idTag] : axis === 'od' ? [odTag] : [idTag, odTag];
+      
+      // console.log('[ProgramEditor] Pulsing tags for axis:', axis, 'tags:', tagsToPulse);
+      
+      // Pulse each tag
+      for (const tag of tagsToPulse) {
+        // console.log('[ProgramEditor] PULSE REQUEST: tag=', tag, 'durationMs=200');
+        
+        const response = await fetch('http://localhost:3001/pulse-bool', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tag, durationMs: 200 })
+        });
+        
+        // console.log('[ProgramEditor] PULSE HTTP RESPONSE: status=', response.status, 'statusText=', response.statusText);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('[ProgramEditor] PULSE HTTP ERROR:', errorText);
+          throw new Error(`HTTP error: ${response.status} ${response.statusText} for tag ${tag}`);
+        }
+        
+        const result = await response.json();
+        // console.log('[ProgramEditor] PULSE RESULT JSON:', result);
+        
+        if (!result.success) {
+          console.error('[ProgramEditor] PULSE FAILED - PLC returned success=false:', result);
+          throw new Error(result.error || result.message || `PLC pulse failed for ${tag}`);
+        }
+        
+        // console.log('[ProgramEditor] PULSE SUCCESS for tag:', tag);
+      }
+
+      // Poll PLC ready feedback for selected axis(es)
+      const readyTags = axis === 'id' ? [idReadyTag] : axis === 'od' ? [odReadyTag] : [idReadyTag, odReadyTag];
+      const waitForFeedback = async (tags, timeoutMs = 3000, intervalMs = 150) => {
+        const deadline = Date.now() + timeoutMs;
+        while (Date.now() < deadline) {
+          try {
+            const reads = await Promise.all(
+              tags.map(async (t) => {
+                const resp = await fetch(`http://localhost:3001/read?tag=${encodeURIComponent(t)}`);
+                if (!resp.ok) return { tag: t, ok: false };
+                const json = await resp.json();
+                const raw = json?.value;
+                const value = raw === true || raw === 1 || raw === 'true' || raw === 'TRUE';
+                return { tag: t, ok: true, value };
+              })
+            );
+            const allTrue = reads.every((r) => r.ok && r.value === true);
+            setLastAxisFeedback(reads);
+            // console.log('[ProgramEditor] Enable Feedback poll:', reads, 'allTrue:', allTrue);
+            if (allTrue) return true;
+          } catch (e) {
+            // console.warn('[ProgramEditor] Enable Feedback poll error:', e?.message);
+          }
+          await new Promise((res) => setTimeout(res, intervalMs));
+        }
+        return false;
+      };
+
+      const feedbackOk = await waitForFeedback(readyTags);
+      if (!feedbackOk) {
+        throw new Error(`Axis not ready. Feedback: ${readyTags.join(', ')}`);
+      }
+      
+      // console.log('[ProgramEditor] Successfully enabled axis:', axis);
+      setEnablingAxis(false);
+      
+    } catch (err) {
+      console.error('[ProgramEditor] Error enabling axis:', err?.message);
+      setEnablingAxis(false);
+      setDialog({
+        open: true,
+        title: 'Axis Enable Failed',
+        message: `Failed to enable ${axis.toUpperCase()} axis: ${err?.message}. Check PLC connection and try again.`,
+        confirm: () => setDialog({ open: false, title: '', message: '' }),
+        cancel: null,
+      });
+      throw err; // Re-throw so modal button can catch it
+    }
   };
 
   useEffect(() => {
@@ -215,7 +317,8 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
     const step = editedSteps.find(s => s.stepNumber === stepNumber);
     if (step) {
       setKeypadTarget({ stepNumber, field, type: 'position' });
-      setKeypadValue(step.positions?.[field] ?? 0);
+      const rawValue = step.positions?.[field] ?? 0;
+      setKeypadValue(toDisplayUnits(rawValue));
       setKeypadOpen(true);
     }
   };
@@ -283,11 +386,13 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
     const updatedSteps = editedSteps.map(step => {
       if (step.stepNumber === keypadTarget.stepNumber) {
         if (keypadTarget.type === 'position' && keypadTarget.field) {
+          const parsedValue = parseFloat(value);
+          const storageValue = toStorageUnits(parsedValue);
           return {
             ...step,
             positions: {
               ...step.positions,
-              [keypadTarget.field]: parseFloat(value)
+              [keypadTarget.field]: storageValue
             }
           };
         } else if (keypadTarget.type === 'speed') {
@@ -381,13 +486,13 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
   };
 
   const patternOptions = [
-    { code: 2, name: 'Exp Ext' },
-    { code: 3, name: 'Exp Ret' },
-    { code: 0, name: 'Red Ext' },
-    { code: 1, name: 'Red Ret' },
-    { code: 4, name: 'RedRet + ExpRet' },
+    { code: 2, name: 'ID Ext' },
+    { code: 3, name: 'ID Ret' },
+    { code: 0, name: 'OD Ext' },
+    { code: 1, name: 'OD Ret' },
+    { code: 4, name: 'OD Ret + ID Ret' },
     { code: 5, name: 'Repeat' },
-    { code: 6, name: 'RedExt + ExpExt' },
+    { code: 6, name: 'OD Ext + ID Ext' },
     { code: 8, name: 'All off' }
   ];
 
@@ -509,7 +614,8 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                             const cfg = axisMap[axis];
                             const valuePresent = cfg.value !== undefined && cfg.value !== null;
                             const unitLabel = unitSystem === 'inch' ? 'in' : 'mm';
-                            const displayValue = valuePresent ? `${parseFloat(cfg.value).toFixed(3)} ${unitLabel}` : '--';
+                            const convertedValue = valuePresent ? toDisplayUnits(parseFloat(cfg.value)) : null;
+                            const displayValue = valuePresent ? `${convertedValue.toFixed(3)} ${unitLabel}` : '--';
                             const className = 'position-value editable';
                             const onClick = () => handleEditPosition(step.stepNumber, cfg.field);
                             return (
@@ -588,8 +694,8 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
             keypadTarget?.type === 'deleteStep' ? '' :
             keypadTarget?.type === 'repeatTargetStep' ? '' :
             keypadTarget?.type === 'repeatCount' ? '' :
-            keypadTarget?.type === 'autoCurrentDiameter' ? 'mm' :
-            keypadTarget?.type === 'autoDesiredDiameter' ? 'mm' :
+            keypadTarget?.type === 'autoCurrentDiameter' ? (unitSystem === 'inch' ? 'in' : 'mm') :
+            keypadTarget?.type === 'autoDesiredDiameter' ? (unitSystem === 'inch' ? 'in' : 'mm') :
             keypadTarget?.type === 'position' ? (unitSystem === 'inch' ? 'in' : 'mm') :
             keypadTarget?.type === 'speed' || keypadTarget?.type === 'globalSpeed' ? '%' :
             'ms'
@@ -827,53 +933,52 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
           confirmText="Save"
           cancelText="Cancel"
         >
-          <div className="step-dialog-modern">
-            <div className="dialog-header-row">
-              <div className="dialog-icon">≋</div>
-              <div className="dialog-heading">
-                <div className="dialog-title-text">Configure Repeat</div>
-                <div className="dialog-subtitle">Choose target step and times</div>
-              </div>
-              <div className="dialog-pill">Pattern 5</div>
+          <div className="repeat-dialog-container">
+            <div className="repeat-header">
+              <div className="repeat-title">≋ Configure Repeat</div>
+              <p className="repeat-description">Make this step repeat back to a previous step</p>
             </div>
 
-            <div className="step-dialog-section two-col">
-              <div>
-                <label className="dialog-label">Repeat Step (Target)</label>
-                <input
-                  type="number"
-                  min="2"
-                  max={Math.max(2, repeatDialog.stepNumber - 1)}
-                  value={repeatDialog.repeatTargetStep}
+            <div className="repeat-inputs">
+              <div className="repeat-field">
+                <label className="repeat-label">Repeat Back To Step</label>
+                <div
+                  className="repeat-input"
                   onClick={() => {
                     setKeypadTarget({ type: 'repeatTargetStep', stepNumber: repeatDialog.stepNumber });
                     setKeypadValue(repeatDialog.repeatTargetStep || '');
                     setKeypadOpen(true);
                   }}
-                  readOnly
-                  className="step-dialog-input modern"
-                  style={{ cursor: 'pointer' }}
-                />
-                <div className="dialog-hint">Must be between 2 and {Math.max(2, repeatDialog.stepNumber - 1)}</div>
+                >
+                  {repeatDialog.repeatTargetStep || '−'}
+                </div>
+                <div className="repeat-hint">Target must be between 2 and {Math.max(2, repeatDialog.stepNumber - 1)}</div>
               </div>
-              <div>
-                <label className="dialog-label">Repeat Count</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="999"
-                  value={repeatDialog.repeatCount}
+
+              <div className="repeat-field">
+                <label className="repeat-label">Repeat Count</label>
+                <div
+                  className="repeat-input"
                   onClick={() => {
                     setKeypadTarget({ type: 'repeatCount', stepNumber: repeatDialog.stepNumber });
                     setKeypadValue(repeatDialog.repeatCount || '');
                     setKeypadOpen(true);
                   }}
-                  readOnly
-                  className="step-dialog-input modern"
-                  style={{ cursor: 'pointer' }}
-                />
-                <div className="dialog-hint">1 - 999 times</div>
+                >
+                  {repeatDialog.repeatCount || '−'}
+                </div>
+                <div className="repeat-hint">1 to 999 times to repeat</div>
               </div>
+            </div>
+
+            <div className="repeat-notes">
+              <div className="repeat-note-title">ℹ️ How Repeat Works:</div>
+              <ul className="repeat-note-list">
+                <li><strong>Repeats selected steps</strong> - Goes back to target step and repeats</li>
+                <li><strong>Pattern 5</strong> - Marks this step as the repeat end point</li>
+                <li><strong>Count</strong> - Number of times to repeat (max 999)</li>
+                <li><strong>Useful for</strong> - Multi-pass operations and complex patterns</li>
+              </ul>
             </div>
           </div>
         </ModernDialog>
@@ -889,7 +994,9 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
               setDialog({ open: true, title: 'Invalid Input', message: 'Enter both current and desired diameters.' });
               return;
             }
-            const delta = des - cur;
+            const curStorage = toStorageUnits(cur);
+            const desStorage = toStorageUnits(des);
+            const delta = desStorage - curStorage;
             const isRightSide = program.side === 'right';
             const extendPatterns = new Set([0, 2, 6]); // Red Ext, Exp Ext, RedExt+ExpExt
             const updated = editedSteps.map((s) => {
@@ -915,48 +1022,53 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
           confirmText="Apply"
           cancelText="Cancel"
         >
-          <div className="step-dialog-modern auto-edit-dialog">
-            <div className="dialog-header-row">
-              <div className="dialog-icon">⚡</div>
-              <div className="dialog-heading">
-                <div className="dialog-title-text">Auto Edit by Diameter</div>
-                <div className="dialog-subtitle">Offsets positions globally based on desired change</div>
-              </div>
-              <div className="dialog-pill">Global Offset</div>
+          <div className="auto-edit-dialog-container">
+            <div className="auto-edit-header">
+              <div className="auto-edit-title">⚡ Auto Edit by Diameter</div>
+              <p className="auto-edit-description">Automatically adjust all extend positions based on diameter change</p>
             </div>
-            <div className="step-dialog-section two-col">
-              <div>
-                <label className="dialog-label">Current Diameter</label>
-                <input
-                  type="number"
-                  value={autoEditDialog.currentDiameter}
+
+            <div className="auto-edit-inputs">
+              <div className="auto-edit-field">
+                <label className="auto-edit-label">Current Diameter</label>
+                <div
+                  className="auto-edit-input"
                   onClick={() => {
                     setKeypadTarget({ type: 'autoCurrentDiameter' });
                     setKeypadValue(autoEditDialog.currentDiameter || '');
                     setKeypadOpen(true);
                   }}
-                  readOnly
-                  className="step-dialog-input modern"
-                  style={{ cursor: 'pointer' }}
-                />
-                <div className="dialog-hint">Measured diameter (mm)</div>
+                >
+                  {autoEditDialog.currentDiameter || '−'}
+                </div>
+                <div className="auto-edit-hint">What is the measured diameter now? ({unitSystem === 'inch' ? 'inches' : 'mm'})</div>
               </div>
-              <div>
-                <label className="dialog-label">Desired Diameter</label>
-                <input
-                  type="number"
-                  value={autoEditDialog.desiredDiameter}
+
+              <div className="auto-edit-field">
+                <label className="auto-edit-label">Desired Diameter</label>
+                <div
+                  className="auto-edit-input"
                   onClick={() => {
                     setKeypadTarget({ type: 'autoDesiredDiameter' });
                     setKeypadValue(autoEditDialog.desiredDiameter || '');
                     setKeypadOpen(true);
                   }}
-                  readOnly
-                  className="step-dialog-input modern"
-                  style={{ cursor: 'pointer' }}
-                />
-                <div className="dialog-hint">Target diameter (mm)</div>
+                >
+                  {autoEditDialog.desiredDiameter || '−'}
+                </div>
+                <div className="auto-edit-hint">What diameter do you want? ({unitSystem === 'inch' ? 'inches' : 'mm'})</div>
               </div>
+            </div>
+
+            <div className="auto-edit-notes">
+              <div className="auto-edit-note-title">ℹ️ How It Works:</div>
+              <ul className="auto-edit-note-list">
+                <li><strong>Calculates the difference</strong> between current and desired diameter</li>
+                <li><strong>Adjusts all extend steps</strong> (Step 2+) by this amount</li>
+                <li><strong>Skips Step 1</strong> (always safe reference position)</li>
+                <li><strong>Ignores retract patterns</strong> (keeps centering unchanged)</li>
+                <li><strong>Skips repeat steps</strong> automatically</li>
+              </ul>
             </div>
           </div>
         </ModernDialog>
@@ -1161,6 +1273,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
           onClose={() => {
             setShowAxisModal(false);
             setPendingStep(null);
+            setLastAxisFeedback([]);
           }}
           onSelectAxis={(axis) => {
             if (pendingStep) {
@@ -1175,11 +1288,14 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
               setJogHint(true);
               setPendingStep(null);
               setShowAxisModal(false);
+              setLastAxisFeedback([]);
             }
           }}
+          onAxisClick={handleEnableAxis}
           side={program.side}
           patternCode={pendingStep?.pattern ?? 0}
           stepNumber={pendingStep?.stepNumber ?? 0}
+          lastFeedback={lastAxisFeedback}
         />
       </div>
     </div>

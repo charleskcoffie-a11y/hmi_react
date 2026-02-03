@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import ModernDialog from './ModernDialog';
 import ConnectionStatus from './ConnectionStatus';
 import NetIDSettings from './NetIDSettings';
+import PasswordKeypad from './PasswordKeypad';
 import '../styles/MachineParameters.css';
 
-export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknown', unitSystem = 'mm', onUnitChange, userRole = 'operator', userPasswords = { admin: '5771', operator: 'op123', setup: 'setup123', engineering: 'eng123' }, onUpdatePasswords, onOpenDebug = () => {}, homingTimeout = 60, onHomingTimeoutChange = () => {}, onOpenLubePage = () => {} }) {
+export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknown', unitSystem = 'mm', onUnitChange, userRole = 'operator', userPasswords = { admin: '5771', operator: 'op123', setup: 'setup123', engineering: 'eng123' }, onUpdatePasswords, onOpenDebug = () => {}, homingTimeout = 60, onHomingTimeoutChange = () => {}, onOpenLubePage = () => {}, onOpenNetIdSettings = () => {}, onCloseNetIdSettings = () => {} }) {
   const [parameters, setParameters] = useState(() => {
     // Load from localStorage if available
     const saved = localStorage.getItem('machineParameters');
@@ -42,6 +43,8 @@ export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknow
 
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showPasswords, setShowPasswords] = useState(false);
+  const [passwordKeypadOpen, setPasswordKeypadOpen] = useState(false);
+  const [editingPasswordRole, setEditingPasswordRole] = useState(null);
   const [connectionStatusOpen, setConnectionStatusOpen] = useState(false);
   const [netIDSettingsOpen, setNetIDSettingsOpen] = useState(false);
   const [actualConnectionStatus, setActualConnectionStatus] = useState('unknown');
@@ -127,6 +130,20 @@ export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknow
 
   const handlePasswordChange = (role, value) => {
     setPasswordEdits(prev => ({ ...prev, [role]: value }));
+  };
+
+  const openPasswordKeypad = (role) => {
+    if (!canChangePasswords) return;
+    setEditingPasswordRole(role);
+    setPasswordKeypadOpen(true);
+  };
+
+  const handlePasswordKeypadEnter = () => {
+    setPasswordKeypadOpen(false);
+    if (editingPasswordRole) {
+      handlePasswordSave(editingPasswordRole);
+      setEditingPasswordRole(null);
+    }
   };
 
   const handlePasswordSave = (role) => {
@@ -403,7 +420,10 @@ export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknow
                 </div>
                 <button
                   className="netid-open-btn"
-                  onClick={() => setNetIDSettingsOpen(true)}
+                  onClick={() => {
+                    setNetIDSettingsOpen(true);
+                    onOpenNetIdSettings();
+                  }}
                   title="Open network configuration settings"
                 >
                   ⚙️ Network Settings
@@ -466,13 +486,13 @@ export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknow
             {passwordRoles.map((role) => (
               <div key={role.id} className="password-row">
                 <div className="password-label">{role.label}</div>
-                <input
-                  type={showPasswords ? 'text' : 'password'}
-                  className="password-input"
-                  value={passwordEdits[role.id] || ''}
-                  onChange={(e) => handlePasswordChange(role.id, e.target.value)}
-                  disabled={!canChangePasswords}
-                />
+                <div
+                  className={`password-display ${!canChangePasswords ? 'disabled' : ''}`}
+                  onClick={() => openPasswordKeypad(role.id)}
+                  style={{ cursor: canChangePasswords ? 'pointer' : 'not-allowed' }}
+                >
+                  {showPasswords ? (passwordEdits[role.id] || '') : (passwordEdits[role.id] || '').replace(/./g, '•')}
+                </div>
                 <button 
                   className="password-save-btn" 
                   onClick={() => handlePasswordSave(role.id)}
@@ -487,6 +507,32 @@ export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknow
         </div>
       </ModernDialog>
 
+      <ModernDialog
+        isOpen={passwordKeypadOpen}
+        title={`Edit ${editingPasswordRole ? passwordRoles.find(r => r.id === editingPasswordRole)?.label : ''} Password`}
+        onCancel={() => {
+          setPasswordKeypadOpen(false);
+          setEditingPasswordRole(null);
+        }}
+        onConfirm={handlePasswordKeypadEnter}
+        confirmText="Save"
+        cancelText="Cancel"
+      >
+        <div className="password-keypad-container">
+          <div className="password-display-value">
+            {showPasswords 
+              ? (passwordEdits[editingPasswordRole] || '')
+              : (passwordEdits[editingPasswordRole] || '').replace(/./g, '•')}
+          </div>
+          <PasswordKeypad
+            value={passwordEdits[editingPasswordRole] || ''}
+            onValueChange={(val) => handlePasswordChange(editingPasswordRole, val)}
+            onEnter={handlePasswordKeypadEnter}
+            maxLength={20}
+          />
+        </div>
+      </ModernDialog>
+
         <ConnectionStatus
           isOpen={connectionStatusOpen}
           onClose={() => setConnectionStatusOpen(false)}
@@ -494,7 +540,10 @@ export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknow
 
         <NetIDSettings
           isOpen={netIDSettingsOpen}
-          onClose={() => setNetIDSettingsOpen(false)}
+          onClose={() => {
+            setNetIDSettingsOpen(false);
+            onCloseNetIdSettings();
+          }}
         />
     </>
   );

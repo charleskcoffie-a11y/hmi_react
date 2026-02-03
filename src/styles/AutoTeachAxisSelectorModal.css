@@ -168,6 +168,12 @@
   border-left: 4px solid #00ff00;
 }
 
+.status-message.error {
+  background-color: #3a1a1a;
+  color: #ff4444;
+  border-left: 4px solid #ff4444;
+}
+
 .modal-actions {
   display: flex;
   gap: 10px;
