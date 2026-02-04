@@ -26,21 +26,21 @@ export default function EditProgramSideSelector({ isOpen, onClose, onSelectSide 
           
           <div className="side-selector-buttons">
             <button 
-              className="side-selector-btn left-side-btn"
-              onClick={handleSelectLeft}
-            >
-              <div className="side-btn-icon">◀</div>
-              <div className="side-btn-text">Edit Left Side</div>
-              <div className="side-btn-subtext">Left side program</div>
-            </button>
-
-            <button 
               className="side-selector-btn right-side-btn"
               onClick={handleSelectRight}
             >
               <div className="side-btn-icon">▶</div>
               <div className="side-btn-text">Edit Right Side</div>
               <div className="side-btn-subtext">Right side program</div>
+            </button>
+
+            <button 
+              className="side-selector-btn left-side-btn"
+              onClick={handleSelectLeft}
+            >
+              <div className="side-btn-icon">◀</div>
+              <div className="side-btn-text">Edit Left Side</div>
+              <div className="side-btn-subtext">Left side program</div>
             </button>
           </div>
         </div>
