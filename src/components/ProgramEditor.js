@@ -812,6 +812,9 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                 }));
               setEditedSteps(filtered);
               setJogHint(false);
+              // Show success message and close dialog
+              setDialog({ open: true, title: 'Step Deleted', message: `Step ${target} has been deleted successfully.` });
+              setStepDialog({ open: false, mode: 'add', stepNumber: '', pattern: 0, repeatTargetStep: 1, repeatCount: 1 });
             } else {
               if (editedSteps.length >= 20) {
                 setDialog({ open: true, title: 'Step Limit Reached', message: 'Cannot add more than 20 steps.' });
