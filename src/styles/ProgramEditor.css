@@ -1794,29 +1794,31 @@
   font-size: 0.95rem;
   padding: 0 8px;
 }
-/* Jog Speed Slider for ProgramEditor */
+/* Jog Speed Slider for ProgramEditor - Compact */
 .program-jog-speed-slider-container {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px 16px;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
   background: rgba(0, 0, 0, 0.3);
-  border-radius: 6px;
+  border-radius: 4px;
   border: 1px solid #8f5a3f;
-  margin-top: 8px;
+  margin-top: 6px;
+  height: 32px;
 }
 
 .program-jog-speed-label {
   color: #ff6b35;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   font-weight: 600;
-  text-align: center;
+  white-space: nowrap;
+  min-width: 90px;
 }
 
 .program-jog-speed-slider {
-  width: 100%;
-  height: 6px;
-  border-radius: 3px;
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
   background: linear-gradient(90deg, #3d2b1f, #8f5a3f);
   outline: none;
   -webkit-appearance: none;
@@ -1826,37 +1828,31 @@
 .program-jog-speed-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background: #ff6b35;
   cursor: pointer;
-  border: 2px solid #ffb88c;
-  box-shadow: 0 0 8px rgba(255, 107, 53, 0.5);
-  transition: all 0.2s ease;
+  border: 1px solid #ffb88c;
+  box-shadow: 0 0 6px rgba(255, 107, 53, 0.4);
 }
 
 .program-jog-speed-slider::-webkit-slider-thumb:hover {
-  width: 20px;
-  height: 20px;
   background: #ff8955;
-  box-shadow: 0 0 12px rgba(255, 107, 53, 0.8);
+  box-shadow: 0 0 10px rgba(255, 107, 53, 0.6);
 }
 
 .program-jog-speed-slider::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background: #ff6b35;
   cursor: pointer;
-  border: 2px solid #ffb88c;
-  box-shadow: 0 0 8px rgba(255, 107, 53, 0.5);
-  transition: all 0.2s ease;
+  border: 1px solid #ffb88c;
+  box-shadow: 0 0 6px rgba(255, 107, 53, 0.4);
 }
 
 .program-jog-speed-slider::-moz-range-thumb:hover {
-  width: 20px;
-  height: 20px;
   background: #ff8955;
-  box-shadow: 0 0 12px rgba(255, 107, 53, 0.8);
+  box-shadow: 0 0 10px rgba(255, 107, 53, 0.6);
 }

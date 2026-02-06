@@ -346,6 +346,24 @@ export default function AutoTeach({
     }
   }, [pattern]);
 
+  // Write jog speed to PLC when it changes
+  useEffect(() => {
+    const writeJogSpeed = async () => {
+      try {
+        const speedTag = side === 'left' ? 'GLEFTHEAD.lHmileftJogSpd' : 'GRIGHTHEAD.lHmiRightJogSpd';
+        await fetch('http://localhost:3001/write', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tag: speedTag, value: jogSpeed })
+        });
+        console.log(`[AutoTeach] Wrote jog speed ${jogSpeed}% to ${speedTag}`);
+      } catch (err) {
+        console.warn('[AutoTeach] Failed to write jog speed to PLC:', err.message);
+      }
+    };
+    if (isOpen) writeJogSpeed();
+  }, [jogSpeed, side, isOpen]);
+
   // Keep view aligned to active teaching step card
   useEffect(() => {
     activeCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });

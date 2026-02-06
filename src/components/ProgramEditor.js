@@ -239,6 +239,24 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
     };
   }, [jogMode, program?.side]);
 
+  // Write jog speed to PLC when it changes
+  useEffect(() => {
+    const writeJogSpeed = async () => {
+      try {
+        const speedTag = program?.side === 'left' ? 'GLEFTHEAD.lHmileftJogSpd' : 'GRIGHTHEAD.lHmiRightJogSpd';
+        await fetch('http://localhost:3001/write', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tag: speedTag, value: jogSpeed })
+        });
+        console.log(`[ProgramEditor] Wrote jog speed ${jogSpeed}% to ${speedTag}`);
+      } catch (err) {
+        console.warn('[ProgramEditor] Failed to write jog speed to PLC:', err.message);
+      }
+    };
+    if (isOpen && program?.side) writeJogSpeed();
+  }, [jogSpeed, program?.side, isOpen]);
+
   // Handle jog mode enable/disable
   const handleJogModeToggle = async () => {
     if (!program?.side) {
