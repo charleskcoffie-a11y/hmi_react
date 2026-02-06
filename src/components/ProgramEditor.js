@@ -813,8 +813,8 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
               setEditedSteps(filtered);
               setJogHint(false);
             } else {
-              if (editedSteps.length >= 10) {
-                setDialog({ open: true, title: 'Step Limit Reached', message: 'Cannot add more than 10 steps.' });
+              if (editedSteps.length >= 20) {
+                setDialog({ open: true, title: 'Step Limit Reached', message: 'Cannot add more than 20 steps.' });
                 setStepDialog({ open: false, mode: 'add', stepNumber: '', pattern: 0, repeatTargetStep: 1, repeatCount: 1 });
                 return;
               }
@@ -837,20 +837,34 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                 } : {})
               };
               
+              const pattern = Number(stepDialog.pattern ?? 0);
+              const returnPatterns = new Set([1, 3, 4, 7]); // Red Ret, Exp Ret, Both Ret, RedExt+ExpRet
+              
               setPendingStep(newStep);
               setStepDialog({ open: false, mode: 'add', stepNumber: '', pattern: 0, repeatTargetStep: 1, repeatCount: 1 });
               
-              // Pattern 5 (Repeat) doesn't need axis selection or position teaching
-              if (stepDialog.pattern === 5) {
+              // Pattern 5 (Repeat) or Return patterns - auto-copy Step 1 positions
+              if (pattern === 5 || returnPatterns.has(pattern)) {
+                // For return patterns, copy Step 1 positions
+                if (returnPatterns.has(pattern)) {
+                  const step1 = editedSteps.find(s => s.stepNumber === 1);
+                  if (step1) {
+                    newStep.positions = {
+                      axis1Cmd: Number(step1.positions?.axis1Cmd) || 0,
+                      axis2Cmd: Number(step1.positions?.axis2Cmd) || 0
+                    };
+                  }
+                }
                 const merged = [...editedSteps];
                 merged.splice(newStep.stepNumber - 1, 0, newStep);
-                const renumbered = merged.slice(0, 10).map((s, idx) => ({
+                const renumbered = merged.slice(0, 20).map((s, idx) => ({
                   ...s,
                   stepNumber: idx + 1,
                   stepName: s.stepName?.replace(/Step\s+\d+/, `Step ${idx + 1}`) || `Step ${idx + 1}`
                 }));
                 setEditedSteps(renumbered);
                 setPendingStep(null);
+                console.log(`[ProgramEditor] Auto-added ${pattern === 5 ? 'Repeat' : 'Return'} step at ${insertAt} with Step 1 positions`);
               } else {
                 // Show axis modal for other patterns (similar to AutoTeach)
                 setShowAxisModal(true);
@@ -1331,20 +1345,41 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
             setPendingStep(null);
             setLastAxisFeedback([]);
           }}
-          onSelectAxis={(axis) => {
+          onSelectAxis={async (axis) => {
             if (pendingStep) {
-              const merged = [...editedSteps];
-              merged.splice(pendingStep.stepNumber - 1, 0, pendingStep);
-              const renumbered = merged.slice(0, 10).map((s, idx) => ({
-                ...s,
-                stepNumber: idx + 1,
-                stepName: s.stepName?.replace(/Step\s+\d+/, `Step ${idx + 1}`) || `Step ${idx + 1}`
-              }));
-              setEditedSteps(renumbered);
-              setJogHint(true);
-              setPendingStep(null);
-              setShowAxisModal(false);
-              setLastAxisFeedback([]);
+              try {
+                // Read current PLC positions and populate the step
+                const posData = await readAxisPositions();
+                const sidePositions = program.side === 'right' ? posData.actualPositions.right : posData.actualPositions.left;
+                
+                const updatedStep = {
+                  ...pendingStep,
+                  positions: {
+                    axis1Cmd: Number(sidePositions?.axis1) || 0,
+                    axis2Cmd: Number(sidePositions?.axis2) || 0
+                  }
+                };
+                
+                const merged = [...editedSteps];
+                merged.splice(updatedStep.stepNumber - 1, 0, updatedStep);
+                const renumbered = merged.slice(0, 20).map((s, idx) => ({
+                  ...s,
+                  stepNumber: idx + 1,
+                  stepName: s.stepName?.replace(/Step\s+\d+/, `Step ${idx + 1}`) || `Step ${idx + 1}`
+                }));
+                setEditedSteps(renumbered);
+                setJogHint(true);
+                setPendingStep(null);
+                setShowAxisModal(false);
+                setLastAxisFeedback([]);
+              } catch (err) {
+                console.error('[ProgramEditor] Error reading positions for new step:', err.message);
+                setDialog({
+                  open: true,
+                  title: 'Position Read Failed',
+                  message: `Failed to read current axis positions: ${err.message}`
+                });
+              }
             }
           }}
           onAxisClick={handleEnableAxis}
