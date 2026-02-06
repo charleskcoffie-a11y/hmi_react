@@ -8,7 +8,7 @@
   z-index: 9999;
 }
 .modern-dialog {
-  background: #ffffff;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
   border-radius: 18px;
   box-shadow: 0 10px 36px rgba(0,0,0,0.26);
   padding: 36px 28px;
@@ -16,6 +16,60 @@
   max-width: 92vw;
   text-align: center;
   animation: dialogSlideIn 0.25s ease-out;
+  border: 2px solid rgba(102, 126, 234, 0.15);
+}
+
+/* Message/Error Dialog Variant */
+.modern-dialog.message-dialog {
+  background: linear-gradient(145deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+  border: 2px solid #4da3ff;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(77, 163, 255, 0.3);
+  padding: 32px;
+}
+
+.modern-dialog.message-dialog .modern-dialog-title {
+  color: #eaf2ff;
+  font-size: 1.5rem;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.modern-dialog.message-dialog .modern-dialog-message {
+  color: #d1e0ff;
+  font-size: 1.1rem;
+  line-height: 1.6;
+}
+
+.modern-dialog.message-dialog .message-icon {
+  font-size: 2.5rem;
+  display: inline-block;
+  animation: iconBounce 0.6s ease-out;
+}
+
+@keyframes iconBounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
+.modern-dialog.error-variant {
+  background: linear-gradient(145deg, #1a0a0a 0%, #2d1515 50%, #1a0a0a 100%);
+  border: 2px solid #ff6b6b;
+  box-shadow: 0 20px 60px rgba(255, 0, 0, 0.3), 0 0 0 1px rgba(255, 107, 107, 0.4);
+}
+
+.modern-dialog.success-variant {
+  background: linear-gradient(145deg, #0a1a0a 0%, #152d15 50%, #0a1a0a 100%);
+  border: 2px solid #51cf66;
+  box-shadow: 0 20px 60px rgba(0, 255, 0, 0.2), 0 0 0 1px rgba(81, 207, 102, 0.4);
+}
+
+.modern-dialog.warning-variant {
+  background: linear-gradient(145deg, #1a1510 0%, #2d2415 50%, #1a1510 100%);
+  border: 2px solid #ffa94d;
+  box-shadow: 0 20px 60px rgba(255, 165, 0, 0.25), 0 0 0 1px rgba(255, 169, 77, 0.4);
 }
 
 @keyframes dialogSlideIn {
@@ -108,4 +162,30 @@
 .modern-dialog-cancel:focus {
   outline: none;
   box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.35);
+}
+
+/* Message Dialog Custom Button */
+.message-dialog-btn {
+  background: linear-gradient(135deg, #4da3ff 0%, #667eea 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  padding: 14px 40px;
+  font-size: 1.1rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 6px 20px rgba(77, 163, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.message-dialog-btn:hover {
+  background: linear-gradient(135deg, #667eea 0%, #4da3ff 100%);
+  box-shadow: 0 8px 28px rgba(77, 163, 255, 0.6);
+  transform: translateY(-2px) scale(1.05);
+}
+
+.message-dialog-btn:active {
+  transform: translateY(0) scale(0.98);
 }

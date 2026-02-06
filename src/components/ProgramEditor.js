@@ -735,15 +735,11 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
         <ModernDialog
           isOpen={dialog.open}
           title={dialog.title || 'Notice'}
+          message={dialog.message}
           onClose={() => setDialog({ open: false, title: '', message: '' })}
-        >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <span>{dialog.message}</span>
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button onClick={() => setDialog({ open: false, title: '', message: '' })}>Close</button>
-            </div>
-          </div>
-        </ModernDialog>
+          zIndex={12000}
+          variant="message-dialog"
+        />
 
         <ModernDialog
           isOpen={stepDialog.open}
