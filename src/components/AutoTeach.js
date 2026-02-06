@@ -68,18 +68,27 @@ export default function AutoTeach({
   const [lastAxisFeedback, setLastAxisFeedback] = useState([]); // Track last feedback read values for ID/OD
   const activeCardRef = useRef(null);
 
-  const activeStepNumber = Math.min(recordedSteps.length + 1, 10);
+  const activeStepNumber = Math.min(recordedSteps.length + 1, 20);
+  const [currentPage, setCurrentPage] = useState(1); // Page 1 = steps 1-10, Page 2 = steps 11-20
+
+  // Calculate display steps for pagination (must be before all useMemo calls)
+  const displaySteps = useMemo(() => {
+    // Page 1: steps 1-10, Page 2: steps 11-20
+    const start = (currentPage - 1) * 10 + 1;
+    const end = Math.min(currentPage * 10, 20);
+    return recordedSteps.filter(s => s.step >= start && s.step <= end);
+  }, [recordedSteps, currentPage]);
 
   const eligibleRepeatTargets = useMemo(() => {
-    // Allow repeating any previously-recorded step (2-9)
+    // Allow repeating any previously-recorded step (2-19)
     // Can repeat any step that was successfully recorded before the current step
     const recorded = recordedSteps
       .map((s) => s.step)
       .filter((n) => typeof n === 'number');
     
-    // Filter to only include steps 2-9 (not step 1, not step 10)
+    // Filter to only include steps 2-19 (not step 1, not step 20)
     // These are the only valid targets for a repeat pattern
-    const validTargets = recorded.filter((n) => n >= 2 && n <= 9);
+    const validTargets = recorded.filter((n) => n >= 2 && n <= 19);
     
     // Get unique, sorted list
     const result = Array.from(new Set(validTargets)).sort((a, b) => a - b);
@@ -89,7 +98,7 @@ export default function AutoTeach({
 
   const repeatAllowedForActiveStep =
     activeStepNumber >= 3 &&
-    activeStepNumber <= 10 &&
+    activeStepNumber <= 20 &&
     eligibleRepeatTargets.length > 0;
 
   // Step 1 is fixed to PLC pattern code 6 (RedExt + ExpExt) and must not be editable.
@@ -417,11 +426,11 @@ export default function AutoTeach({
 
   const handleRecordPosition = async () => {
     if (isRecording) return;
-    if (recordedSteps.length >= 10) {
+    if (recordedSteps.length >= 20) {
       setDialog({
         open: true,
         title: 'Max Steps Reached',
-        message: 'You can record up to 10 steps.',
+        message: 'You can record up to 20 steps.',
         confirm: closeDialog,
         cancel: null,
       });
@@ -467,7 +476,7 @@ export default function AutoTeach({
         return;
       }
 
-      if (!repeatTargetStep || repeatTargetStep === 1 || repeatTargetStep === 10) {
+      if (!repeatTargetStep || repeatTargetStep === 1 || repeatTargetStep === 20) {
         setRepeatConfigOpen(true);
         setIsRecording(false);
         return;
@@ -485,7 +494,8 @@ export default function AutoTeach({
   };
 
   const recordStepWithAxis = (stepNumberToRecord, patternToRecord) => {
-    const defaultStepName = stepNumberToRecord === 1 ? 'Start Position' : `Step ${stepNumberToRecord}`;
+    const getPageDisplay = (step) => step <= 10 ? '' : ` (Page 2)`;
+    const defaultStepName = stepNumberToRecord === 1 ? 'Start Position' : `Step ${stepNumberToRecord}${getPageDisplay(stepNumberToRecord)}`;
     const defaultDwell = 0;
     const newStep = {
       step: stepNumberToRecord,
@@ -554,8 +564,9 @@ export default function AutoTeach({
         return;
       }
 
-      const stepNumberToRecord = Math.min(recordedSteps.length + 1, 10);
-      const defaultStepName = stepNumberToRecord === 1 ? 'Start Position' : `Step ${stepNumberToRecord}`;
+      const stepNumberToRecord = Math.min(recordedSteps.length + 1, 20);
+      const getPageDisplay = (step) => step <= 10 ? '' : ` (Page 2)`;
+      const defaultStepName = stepNumberToRecord === 1 ? 'Start Position' : `Step ${stepNumberToRecord}${getPageDisplay(stepNumberToRecord)}`;
 
       const newStep = {
         step: stepNumberToRecord,
@@ -583,8 +594,9 @@ export default function AutoTeach({
     } else {
       // Non-return pattern or first step
       if (meta.axes === 'none') {
-        const stepNumberToRecord = Math.min(recordedSteps.length + 1, 10);
-        const defaultStepName = stepNumberToRecord === 1 ? 'Start Position' : `Step ${stepNumberToRecord}`;
+        const stepNumberToRecord = Math.min(recordedSteps.length + 1, 20);
+        const getPageDisplay = (step) => step <= 10 ? '' : ` (Page 2)`;
+        const defaultStepName = stepNumberToRecord === 1 ? 'Start Position' : `Step ${stepNumberToRecord}${getPageDisplay(stepNumberToRecord)}`;
         const newStep = {
           step: stepNumberToRecord,
           stepName: defaultStepName,
@@ -718,8 +730,9 @@ export default function AutoTeach({
     await new Promise(resolve => setTimeout(resolve, 300));
     
     // Now create and record the step
-    const stepNumberToRecord = Math.min(recordedSteps.length + 1, 10);
-    const defaultStepName = stepNumberToRecord === 1 ? 'Start Position' : `Step ${stepNumberToRecord}`;
+    const stepNumberToRecord = Math.min(recordedSteps.length + 1, 20);
+    const getPageDisplay = (step) => step <= 10 ? '' : ` (Page 2)`;
+    const defaultStepName = stepNumberToRecord === 1 ? 'Start Position' : `Step ${stepNumberToRecord}${getPageDisplay(stepNumberToRecord)}`;
 
     const newStep = {
       step: stepNumberToRecord,
@@ -790,7 +803,7 @@ export default function AutoTeach({
     const original = recordedSteps[editingStepIndex];
     if (original) {
       const forbidden = new Set(
-        original.step === 2 ? [1, 3, 4, 5, 8] : original.step === 10 ? [0, 2, 6] : []
+        original.step === 2 ? [1, 3, 4, 5, 8] : original.step === 20 ? [0, 2, 6] : []
       );
       if (forbidden.has(editStepPattern)) {
         setDialog({
@@ -799,7 +812,7 @@ export default function AutoTeach({
           message:
             original.step === 2
               ? 'Selected pattern is not allowed for Step 2.'
-              : 'Selected pattern is not allowed for Step 10.',
+              : 'Selected pattern is not allowed for Step 20.',
           confirm: closeDialog,
           cancel: null,
         });
@@ -898,9 +911,9 @@ export default function AutoTeach({
             </span>
             <div className="progress-section">
               <div className="progress-bar-container">
-                <div className="progress-bar-fill" style={{ width: `${(recordedSteps.length / 10) * 100}%` }}></div>
+                <div className="progress-bar-fill" style={{ width: `${(recordedSteps.length / 20) * 100}%` }}></div>
               </div>
-              <div className="progress-text">{recordedSteps.length}/10</div>
+              <div className="progress-text">{recordedSteps.length}/20</div>
             </div>
             <button className="close-btn" onClick={onClose}>✕</button>
           </div>
@@ -909,7 +922,7 @@ export default function AutoTeach({
             {/* Current Step Controls */}
             <div className="current-step-controls">
               <div className="step-indicator">
-                <span className="step-badge">Step {activeStepNumber}/10</span>
+                <span className="step-badge">Step {activeStepNumber}/20</span>
                 <span className="position-compact">
                   {axis1Label}: {Number(safeActualPositions.axis1).toFixed(3)} | {axis2Label}: {Number(safeActualPositions.axis2).toFixed(3)}
                 </span>
@@ -919,7 +932,7 @@ export default function AutoTeach({
                   type="text"
                   value={stepName}
                   onChange={(e) => setStepName(e.target.value)}
-                  placeholder={activeStepNumber === 1 ? 'Start Position' : `Step ${activeStepNumber}`}
+                  placeholder={activeStepNumber === 1 ? 'Start Position' : `Step ${activeStepNumber}${currentPage === 2 ? ' (Page 2)' : ''}`}
                   className="step-name-input-compact"
                 />
                 {activeStepNumber === 1 ? (
@@ -945,10 +958,10 @@ export default function AutoTeach({
                     <button
                       className={`record-btn-compact ${isRecording ? 'recording' : ''}`}
                       onClick={handleRecordPosition}
-                      disabled={!axesEnabled || isRecording || recordedSteps.length >= 10}
+                      disabled={!axesEnabled || isRecording || recordedSteps.length >= 20}
                       title={!axesEnabled ? 'Enable ID or OD first' : 'Record start position'}
                     >
-                      {recordedSteps.length >= 10 ? 'Complete' : isRecording ? '⏺' : '⏺ Record'}
+                      {recordedSteps.length >= 20 ? 'Complete' : isRecording ? '⏺' : '⏺ Record'}
                     </button>
                   </>
                 ) : (
@@ -956,7 +969,7 @@ export default function AutoTeach({
                   <button
                     className="add-step-btn"
                     onClick={handleAddStep}
-                    disabled={recordedSteps.length >= 10}
+                    disabled={recordedSteps.length >= 20}
                   >
                     ➕ Add Step
                   </button>
@@ -972,11 +985,11 @@ export default function AutoTeach({
                   onClick={() => {
                     // Quick teach: save current position without keypad
                     recordStepWithAxis(
-                      Math.min(recordedSteps.length + 1, 10),
+                      Math.min(recordedSteps.length + 1, 20),
                       recordedSteps.length === 0 ? 6 : pattern
                     );
                   }}
-                  disabled={isRecording || recordedSteps.length >= 10}
+                  disabled={isRecording || recordedSteps.length >= 20}
                   title="Save current jog position immediately (quick teach)"
                 >
                   📍 Quick Teach
@@ -1006,9 +1019,30 @@ export default function AutoTeach({
               </div>
             </div>
 
-            {/* Recorded Steps Grid - Only Show Recorded Steps */}
+            {/* Page Navigation for Steps */}
+            {recordedSteps.length > 10 && (
+              <div className="pagination-controls">
+                <button 
+                  className="page-nav-btn prev"
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                >
+                  ◀ Page 1 (Steps 1-10)
+                </button>
+                <span className="page-indicator">Page {currentPage}</span>
+                <button 
+                  className="page-nav-btn next"
+                  onClick={() => setCurrentPage(2)}
+                  disabled={currentPage === 2}
+                >
+                  Page 2 (Steps 11-20) ▶
+                </button>
+              </div>
+            )}
+
+            {/* Recorded Steps Grid - Only Show Steps for Current Page */}
             <div className="steps-grid">
-              {recordedSteps.map((recordedStep, index) => {
+              {displaySteps.map((recordedStep, index) => {
                 const stepNum = recordedStep.step;
                 return (
                   <div 
@@ -1094,12 +1128,12 @@ export default function AutoTeach({
               onConfirm={() => {
                 const count = Math.max(1, Math.floor(Number(repeatCount) || 1));
                 console.log('[AutoTeach] Repeat confirmation - repeatTargetStep:', repeatTargetStep, 'eligibleRepeatTargets:', eligibleRepeatTargets, 'count:', count);
-                if (!repeatTargetStep || repeatTargetStep === 1 || repeatTargetStep === 10) {
+                if (!repeatTargetStep || repeatTargetStep === 1 || repeatTargetStep === 20) {
                   console.log('[AutoTeach] Failed first validation check');
                   setDialog({
                     open: true,
                     title: 'Invalid Repeat Step',
-                    message: 'You cannot repeat Step 1 or Step 10. Choose a step between 2 and 9.',
+                    message: 'You cannot repeat Step 1 or Step 20. Choose a step between 2 and 19.',
                     confirm: closeDialog,
                     cancel: null,
                   });
@@ -1111,7 +1145,7 @@ export default function AutoTeach({
                   setDialog({
                     open: true,
                     title: 'Invalid Repeat Step',
-                    message: 'Choose a previously recorded step between 2 and 9 to repeat.',
+                    message: 'Choose a previously recorded step between 2 and 19 to repeat.',
                     confirm: closeDialog,
                     cancel: null,
                   });
@@ -1119,7 +1153,7 @@ export default function AutoTeach({
                 }
 
                 // Create the repeat step and add it to recordedSteps
-                const stepNumberToRecord = Math.min(recordedSteps.length + 1, 10);
+                const stepNumberToRecord = Math.min(recordedSteps.length + 1, 20);
                 const defaultStepName = `Repeat Step ${repeatTargetStep}`;
 
                 const newStep = {
@@ -1199,8 +1233,8 @@ export default function AutoTeach({
                 <div className="repeat-info-box">
                   <div className="info-icon">ℹ️</div>
                   <div className="info-text">
-                    Repeat can be added on steps 3–10. Select a previously recorded target step (2–9). 
-                    Step 1 (Start) and Step 10 (End) cannot be repeated.
+                    Repeat can be added on steps 3–20. Select a previously recorded target step (2–19). 
+                    Step 1 (Start) and Step 20 (End) cannot be repeated.
                   </div>
                 </div>
               </div>
@@ -1242,7 +1276,7 @@ export default function AutoTeach({
               onAxisClick={handleEnableAxisStep2Plus}
               side={side}
               patternCode={pendingPattern ?? pattern}
-              stepNumber={Math.min(recordedSteps.length + 1, 10)}
+              stepNumber={Math.min(recordedSteps.length + 1, 20)}
               lastFeedback={lastAxisFeedback}
             />
 
@@ -1320,7 +1354,7 @@ export default function AutoTeach({
                         const forbidden = new Set(
                           stepNum === 2
                             ? [1, 3, 4, 5, 8]
-                            : stepNum === 10
+                            : stepNum === 20
                               ? [0, 2, 6, 5]
                               : []
                         );

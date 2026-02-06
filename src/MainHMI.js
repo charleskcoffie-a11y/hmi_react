@@ -40,7 +40,17 @@ const STEP_CONFIG = {
   7: { name: 'Step 7 Position', description: 'Record axis positions for step 7' },
   8: { name: 'Step 8 Position', description: 'Record axis positions for step 8' },
   9: { name: 'Step 9 Position', description: 'Record axis positions for step 9' },
-  10: { name: 'Final Position', description: 'Record final position for step 10' }
+  10: { name: 'Step 10 Position', description: 'Record axis positions for step 10' },
+  11: { name: 'Step 11 Position', description: 'Record axis positions for step 11' },
+  12: { name: 'Step 12 Position', description: 'Record axis positions for step 12' },
+  13: { name: 'Step 13 Position', description: 'Record axis positions for step 13' },
+  14: { name: 'Step 14 Position', description: 'Record axis positions for step 14' },
+  15: { name: 'Step 15 Position', description: 'Record axis positions for step 15' },
+  16: { name: 'Step 16 Position', description: 'Record axis positions for step 16' },
+  17: { name: 'Step 17 Position', description: 'Record axis positions for step 17' },
+  18: { name: 'Step 18 Position', description: 'Record axis positions for step 18' },
+  19: { name: 'Step 19 Position', description: 'Record axis positions for step 19' },
+  20: { name: 'Final Position', description: 'Record final position for step 20' }
 };
 
 // Alarm bit mapping (GVL_GAXIS.AlarmSystem bitfield)
@@ -105,6 +115,16 @@ const SCREEN_INDEX = {
   RIGHT_PROGRAM_STEP_8: 27,
   RIGHT_PROGRAM_STEP_9: 28,
   RIGHT_PROGRAM_STEP_10: 29,
+  RIGHT_PROGRAM_STEP_11: 50,
+  RIGHT_PROGRAM_STEP_12: 51,
+  RIGHT_PROGRAM_STEP_13: 52,
+  RIGHT_PROGRAM_STEP_14: 53,
+  RIGHT_PROGRAM_STEP_15: 54,
+  RIGHT_PROGRAM_STEP_16: 55,
+  RIGHT_PROGRAM_STEP_17: 56,
+  RIGHT_PROGRAM_STEP_18: 57,
+  RIGHT_PROGRAM_STEP_19: 58,
+  RIGHT_PROGRAM_STEP_20: 59,
   // Left side program creation (30-39)
   LEFT_PROGRAM_STEP_1: 30,
   LEFT_PROGRAM_STEP_2: 31,
@@ -116,12 +136,22 @@ const SCREEN_INDEX = {
   LEFT_PROGRAM_STEP_8: 37,
   LEFT_PROGRAM_STEP_9: 38,
   LEFT_PROGRAM_STEP_10: 39,
+  LEFT_PROGRAM_STEP_11: 60,
+  LEFT_PROGRAM_STEP_12: 61,
+  LEFT_PROGRAM_STEP_13: 62,
+  LEFT_PROGRAM_STEP_14: 63,
+  LEFT_PROGRAM_STEP_15: 64,
+  LEFT_PROGRAM_STEP_16: 65,
+  LEFT_PROGRAM_STEP_17: 66,
+  LEFT_PROGRAM_STEP_18: 67,
+  LEFT_PROGRAM_STEP_19: 68,
+  LEFT_PROGRAM_STEP_20: 69,
   AUTO_ADJUST: 40,
   DOWNLOAD_PROGRAM: 41
 };
 
 const getProgramStepScreenIndex = (side, step) => {
-  const safeStep = Math.max(1, Math.min(10, Number(step) || 1));
+  const safeStep = Math.max(1, Math.min(20, Number(step) || 1));
   if (side === 'right') {
     return SCREEN_INDEX[`RIGHT_PROGRAM_STEP_${safeStep}`] ?? SCREEN_INDEX.PROGRAM_EDITOR;
   }
@@ -2801,7 +2831,7 @@ export default function MainHMI() {
         />
       )}
 
-      {currentStep >= 4 && currentStep <= 10 && currentProgram && (
+      {currentStep >= 4 && currentStep <= 20 && currentProgram && (
         <GenericProgramStep
           programName={currentProgram.name}
           side={currentProgram.side}

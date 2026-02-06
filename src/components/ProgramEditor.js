@@ -8,6 +8,7 @@ import { readAxisPositions, writePLCVar } from '../services/plcApiService';
 export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram, onWriteToPLC, unitSystem }) {
   const [dialog, setDialog] = useState({ open: false, title: '', message: '' });
   const [editedSteps, setEditedSteps] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1); // Page 1 = steps 1-10, Page 2 = steps 11-20
   // Removed unused editingStepId and setEditingStepId
   const [keypadOpen, setKeypadOpen] = useState(false);
   const [keypadTarget, setKeypadTarget] = useState(null);
@@ -496,6 +497,14 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
     { code: 8, name: 'All off' }
   ];
 
+  const closeDialog = () => setDialog({ open: false, title: '', message: '' });
+
+  const displaySteps = editedSteps.filter(s => {
+    const start = (currentPage - 1) * 10 + 1;
+    const end = Math.min(currentPage * 10, 20);
+    return s.stepNumber >= start && s.stepNumber <= end;
+  });
+
   const getAxisLabelForKeypad = () => {
     const map = {
       axis1Cmd: 'Axis 1',
@@ -536,7 +545,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                   }
                   setStepDialog({ open: true, mode: 'add', stepNumber: editedSteps.length + 1, pattern: 0, repeatTargetStep: 1, repeatCount: 1 });
                 }}
-                disabled={editedSteps.length >= 10}
+                disabled={editedSteps.length >= 20}
               >
                 + Add Step
               </button>
@@ -584,8 +593,28 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
             {editedSteps.length === 0 ? (
               <div className="no-steps">No steps in this program</div>
             ) : (
-              <div className="steps-grid">
-                {editedSteps.map((step) => {
+              <>
+                {editedSteps.length > 10 && (
+                  <div className="pagination-controls">
+                    <button 
+                      className="page-nav-btn prev"
+                      onClick={() => setCurrentPage(1)}
+                      disabled={currentPage === 1}
+                    >
+                      ◀ Page 1 (Steps 1-10)
+                    </button>
+                    <span className="page-indicator">Page {currentPage}</span>
+                    <button 
+                      className="page-nav-btn next"
+                      onClick={() => setCurrentPage(2)}
+                      disabled={currentPage === 2}
+                    >
+                      Page 2 (Steps 11-20) ▶
+                    </button>
+                  </div>
+                )}
+                <div className="steps-grid">
+                  {displaySteps.map((step) => {
                   const patternName = patternOptions.find((p) => p.code === step.pattern)?.name || `Pattern ${step.pattern}`;
                   return (
                   <div key={step.stepNumber} className="step-editor-card">
@@ -663,6 +692,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                   );
                 })}
               </div>
+              </>
             )}
           </div>
         </div>
@@ -818,7 +848,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
               <div className="dialog-icon">{stepDialog.mode === 'delete' ? '🗑' : '+'}</div>
               <div className="dialog-heading">
                 <div className="dialog-title-text">{stepDialog.mode === 'delete' ? 'Remove a step' : 'Insert a new step'}</div>
-                <div className="dialog-subtitle">Maximum 10 steps allowed per program.</div>
+                <div className="dialog-subtitle">Maximum 20 steps allowed per program.</div>
               </div>
               <div className="dialog-pill">{editedSteps.length}/10 steps</div>
             </div>
@@ -1156,7 +1186,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                 >
                   {patternOptions.map(opt => {
                     const forbidden = new Set(
-                      patternDialog.selectedStep === 2 ? [1, 3, 4, 5, 8] : patternDialog.selectedStep === 10 ? [0, 2, 6] : []
+                      patternDialog.selectedStep === 2 ? [1, 3, 4, 5, 8] : patternDialog.selectedStep === 20 ? [0, 2, 6] : []
                     );
                     return (
                       <option key={opt.code} value={opt.code} disabled={forbidden.has(opt.code)}>
