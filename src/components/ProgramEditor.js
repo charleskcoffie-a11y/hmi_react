@@ -793,8 +793,22 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
               
               setPendingStep(newStep);
               setStepDialog({ open: false, mode: 'add', stepNumber: '', pattern: 0, repeatTargetStep: 1, repeatCount: 1 });
-              // Show axis modal for pattern selection (similar to AutoTeach)
-              setShowAxisModal(true);
+              
+              // Pattern 5 (Repeat) doesn't need axis selection or position teaching
+              if (stepDialog.pattern === 5) {
+                const merged = [...editedSteps];
+                merged.splice(newStep.stepNumber - 1, 0, newStep);
+                const renumbered = merged.slice(0, 10).map((s, idx) => ({
+                  ...s,
+                  stepNumber: idx + 1,
+                  stepName: s.stepName?.replace(/Step\s+\d+/, `Step ${idx + 1}`) || `Step ${idx + 1}`
+                }));
+                setEditedSteps(renumbered);
+                setPendingStep(null);
+              } else {
+                // Show axis modal for other patterns (similar to AutoTeach)
+                setShowAxisModal(true);
+              }
             }
           }}
           confirmText="Confirm"
