@@ -17,21 +17,6 @@ export default function SideSelector({ onSelectSide, onCancel, title, showBothOp
 
           <div className={`sides-grid ${showBothOption ? 'with-both' : ''}`}>
             <div
-              className={`side-card right-side ${hoveredSide === 'right' ? 'hovered' : ''}`}
-              onMouseEnter={() => setHoveredSide('right')}
-              onMouseLeave={() => setHoveredSide(null)}
-              onClick={() => onSelectSide('right')}
-            >
-              <div className="side-icon">🔴</div>
-              <h3>Right Side</h3>
-              <div className="side-axes">
-                <div className="axis-item">Axis 1 (ID)</div>
-                <div className="axis-item">Axis 2 (OD)</div>
-              </div>
-              <button className="select-btn">Select Right</button>
-            </div>
-
-            <div
               className={`side-card left-side ${hoveredSide === 'left' ? 'hovered' : ''}`}
               onMouseEnter={() => setHoveredSide('left')}
               onMouseLeave={() => setHoveredSide(null)}
@@ -44,6 +29,21 @@ export default function SideSelector({ onSelectSide, onCancel, title, showBothOp
                 <div className="axis-item">Axis 4 (OD)</div>
               </div>
               <button className="select-btn">Select Left</button>
+            </div>
+
+            <div
+              className={`side-card right-side ${hoveredSide === 'right' ? 'hovered' : ''}`}
+              onMouseEnter={() => setHoveredSide('right')}
+              onMouseLeave={() => setHoveredSide(null)}
+              onClick={() => onSelectSide('right')}
+            >
+              <div className="side-icon">🔴</div>
+              <h3>Right Side</h3>
+              <div className="side-axes">
+                <div className="axis-item">Axis 1 (ID)</div>
+                <div className="axis-item">Axis 2 (OD)</div>
+              </div>
+              <button className="select-btn">Select Right</button>
             </div>
 
             {showBothOption && (
