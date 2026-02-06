@@ -555,8 +555,8 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
               <button
                 className="step-action-btn add"
                 onClick={() => {
-                  if (editedSteps.length >= 10) {
-                    setDialog({ open: true, title: 'Step Limit', message: 'Maximum of 10 steps allowed.' });
+                  if (editedSteps.length >= 20) {
+                    setDialog({ open: true, title: 'Step Limit', message: 'Maximum of 20 steps allowed.' });
                     return;
                   }
                   setStepDialog({ open: true, mode: 'add', stepNumber: editedSteps.length + 1, pattern: 0, repeatTargetStep: 1, repeatCount: 1 });
