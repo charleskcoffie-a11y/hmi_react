@@ -39,6 +39,25 @@ export default function AxisSelectionModal({
     setLocalSpeed(jogSpeed);
   }, [jogSpeed, isOpen]);
 
+  // Write local speed to PLC when it changes
+  useEffect(() => {
+    const writeSpeed = async () => {
+      if (!isOpen || !side) return;
+      try {
+        const speedTag = side === 'left' ? 'GLEFTHEAD.lHmileftJogSpd' : 'GRIGHTHEAD.lHmiRightJogSpd';
+        await fetch('http://localhost:3001/write', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tag: speedTag, value: localSpeed })
+        });
+        console.log(`[AxisSelectionModal] Wrote jog speed ${localSpeed}% to ${speedTag}`);
+      } catch (err) {
+        console.warn('[AxisSelectionModal] Failed to write jog speed to PLC:', err.message);
+      }
+    };
+    writeSpeed();
+  }, [localSpeed, side, isOpen]);
+
   const showID = axes === 'id' || axes === 'both';
   const showOD = axes === 'od' || axes === 'both';
 

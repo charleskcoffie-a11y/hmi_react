@@ -94,6 +94,8 @@ const SCREEN_INDEX = {
   AUTO_TEACH_LEFT: 1,
   AUTO_TEACH_RIGHT: 2,
   PROGRAM_EDITOR: 3,
+  PROGRAM_EDITOR_LEFT: 70,
+  PROGRAM_EDITOR_RIGHT: 71,
   RECIPE_MANAGER: 4,
   RECIPE_PARAMETERS: 5,
   MACHINE_PARAMETERS: 6,
@@ -1273,7 +1275,14 @@ export default function MainHMI() {
     } else if (ioPageOpen) {
       nextScreen = SCREEN_INDEX.DIGITAL_IO;
     } else if (showProgramEditor || showEditProgramSideSelector) {
-      nextScreen = SCREEN_INDEX.PROGRAM_EDITOR;
+      // Use separate screen indices for left/right Edit Program
+      if (programToEdit?.side === 'left') {
+        nextScreen = SCREEN_INDEX.PROGRAM_EDITOR_LEFT;
+      } else if (programToEdit?.side === 'right') {
+        nextScreen = SCREEN_INDEX.PROGRAM_EDITOR_RIGHT;
+      } else {
+        nextScreen = SCREEN_INDEX.PROGRAM_EDITOR;
+      }
     } else if (currentProgram) {
       nextScreen = getProgramStepScreenIndex(currentProgram.side, currentStep);
     } else if (autoTeachOpen || showAutoTeachNameModal) {
@@ -1800,7 +1809,7 @@ export default function MainHMI() {
     setParametersOpen(false);
   };
 
-  const handleDeleteRecipe = (recipe, sideParam) => {
+  const handleDeleteRecipe = async (recipe, sideParam) => {
     if (currentUser === 'operator') {
       showMessage('Access Denied', 'Operators cannot delete recipes.', 'warning');
       return;
@@ -1810,7 +1819,7 @@ export default function MainHMI() {
     if (!side || !recipeName) return;
 
     // Delete from filesystem
-    deleteRecipeFile(recipeName, side);
+    await deleteRecipeFile(recipeName, side);
 
     if (side === 'right') {
       setRecipesRight((prev) => prev.filter((r) => r.name !== recipeName));
