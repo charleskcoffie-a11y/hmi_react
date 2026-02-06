@@ -179,6 +179,14 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
     }
   }, [program?.name, program?.side]); // Only reload when program name/side changes, not the steps object itself
 
+  // Reset page to 1 when dialog opens or program/side changes
+  useEffect(() => {
+    if (isOpen) {
+      setCurrentPage(1);
+      console.log('[ProgramEditor] Reset to page 1 (dialog opened or program changed)');
+    }
+  }, [isOpen, program?.name, program?.side]);
+
   // Auto-enable jog mode when axis modal is shown for teaching
   useEffect(() => {
     const enableJogForTeaching = async () => {
