@@ -27,6 +27,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
   const [loading, setLoading] = useState(false);
   const [plcStatus, setPlcStatus] = useState('unknown');
   const [showAxisModal, setShowAxisModal] = useState(false);
+  const [showSpeedModal, setShowSpeedModal] = useState(false);
   const [pendingStep, setPendingStep] = useState(null); // Store step data while waiting for axis selection
   const [jogMode, setJogMode] = useState(false); // Jog mode local UI state
   const [jogModeActive, setJogModeActive] = useState(false); // PLC feedback for jog mode
@@ -616,27 +617,14 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
               </button>
             </div>
 
-            {/* Jog Speed Slider */}
-            <div className="program-jog-speed-slider-container">
-              <label htmlFor="program-speed-slider" className="program-jog-speed-label">
-                Jog Speed: {jogSpeed}%
-              </label>
-              <input
-                id="program-speed-slider"
-                type="range"
-                min="10"
-                max="100"
-                step="5"
-                value={jogSpeed}
-                onChange={(e) => setJogSpeed(Number(e.target.value))}
-                className="program-jog-speed-slider"
-                title="Adjust default jog speed for this editing session"
-              />
-              <div className="speed-slider-legend">
-                <span className="legend-slow">Slow</span>
-                <span className="legend-fast">Fast</span>
-              </div>
-            </div>
+            {/* Jog Speed Button - Opens Modal */}
+            <button
+              className="program-jog-speed-btn"
+              onClick={() => setShowSpeedModal(true)}
+              title="Adjust jog speed for this editing session"
+            >
+              ⚡ Speed: {jogSpeed}%
+            </button>
 
             {jogHint && (
               <div className="jog-mode-banner">
@@ -1437,6 +1425,35 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
           lastFeedback={lastAxisFeedback}
           jogSpeed={jogSpeed}
         />
+
+        {/* Jog Speed Modal */}
+        <ModernDialog
+          isOpen={showSpeedModal}
+          title="Adjust Jog Speed"
+          onConfirm={() => setShowSpeedModal(false)}
+          onCancel={() => setShowSpeedModal(false)}
+          confirmText="Close"
+          cancelText="Cancel"
+          hideCancel={true}
+        >
+          <div className="jog-speed-modal-content">
+            <div className="speed-value-display">{jogSpeed}%</div>
+            <input
+              type="range"
+              min="10"
+              max="100"
+              step="5"
+              value={jogSpeed}
+              onChange={(e) => setJogSpeed(Number(e.target.value))}
+              className="speed-modal-slider"
+              title="Adjust jog speed (10% = slow, 100% = fast)"
+            />
+            <div className="speed-modal-legend">
+              <span className="legend-slow">10% Slow</span>
+              <span className="legend-fast">100% Fast</span>
+            </div>
+          </div>
+        </ModernDialog>
       </div>
     </div>
   );

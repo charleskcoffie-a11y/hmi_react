@@ -1472,67 +1472,109 @@
 }
 /* Jog Speed Slider for AutoTeach - Compact */
 .jog-speed-slider-container {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 8px;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 4px;
-  border: 1px solid #2a5a8f;
-  margin-top: 6px;
-  height: 32px;
+  display: none; /* Hidden - using modal instead */
 }
 
-.jog-speed-label {
-  color: #4a9eff;
-  font-size: 0.8rem;
+/* Jog Speed Button */
+.jog-speed-btn {
+  background: linear-gradient(135deg, #2a5a8f 0%, #1f4a7a 100%);
+  color: #88c0ff;
+  border: 1px solid #4a9eff;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
   font-weight: 600;
   white-space: nowrap;
+  transition: all 200ms ease;
+  margin-top: 6px;
+}
+
+.jog-speed-btn:hover {
+  background: linear-gradient(135deg, #3575ab 0%, #2a5a8f 100%);
+  box-shadow: 0 0 12px rgba(74, 158, 255, 0.4);
+  transform: translateY(-1px);
+}
+
+.jog-speed-btn:active {
+  transform: translateY(0);
+}
+
+/* Modal Speed Slider - Large and User Friendly */
+.jog-speed-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 20px;
+  align-items: center;
+}
+
+.speed-value-display {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #4a9eff;
+  text-align: center;
   min-width: 90px;
 }
 
-.jog-speed-slider {
-  flex: 1;
-  height: 4px;
-  border-radius: 2px;
+.speed-modal-slider {
+  width: 100%;
+  max-width: 300px;
+  height: 8px;
+  border-radius: 4px;
   background: linear-gradient(90deg, #1a3a6b, #2a5a8f);
   outline: none;
   -webkit-appearance: none;
   cursor: pointer;
 }
 
-.jog-speed-slider::-webkit-slider-thumb {
+.speed-modal-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 14px;
-  height: 14px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: #4a9eff;
   cursor: pointer;
-  border: 1px solid #88c0ff;
-  box-shadow: 0 0 6px rgba(74, 158, 255, 0.4);
-}
-
-.jog-speed-slider::-webkit-slider-thumb:hover {
-  background: #6ab3ff;
+  border: 2px solid #88c0ff;
   box-shadow: 0 0 10px rgba(74, 158, 255, 0.6);
+  transition: all 0.2s ease;
 }
 
-.jog-speed-slider::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
+.speed-modal-slider::-webkit-slider-thumb:hover {
+  width: 28px;
+  height: 28px;
+  background: #6ab3ff;
+  box-shadow: 0 0 16px rgba(74, 158, 255, 0.9);
+}
+
+.speed-modal-slider::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: #4a9eff;
   cursor: pointer;
-  border: 1px solid #88c0ff;
-  box-shadow: 0 0 6px rgba(74, 158, 255, 0.4);
+  border: 2px solid #88c0ff;
+  box-shadow: 0 0 10px rgba(74, 158, 255, 0.6);
+  transition: all 0.2s ease;
 }
 
-.jog-speed-slider::-moz-range-thumb:hover {
+.speed-modal-slider::-moz-range-thumb:hover {
+  width: 28px;
+  height: 28px;
   background: #6ab3ff;
-  box-shadow: 0 0 10px rgba(74, 158, 255, 0.6);
+  box-shadow: 0 0 16px rgba(74, 158, 255, 0.9);
+}
+
+.speed-modal-legend {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 300px;
+  font-size: 0.95rem;
+  color: #4a9eff;
+  font-weight: 600;
 }
 
 .speed-slider-legend {
-  display: none;
-}
+  display: none; /* Hidden - shown in modal instead */

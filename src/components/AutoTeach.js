@@ -54,6 +54,7 @@ export default function AutoTeach({
   // New modal states for refactored workflow
   const [showPatternModal, setShowPatternModal] = useState(false);
   const [showAxisModal, setShowAxisModal] = useState(false);
+  const [showSpeedModal, setShowSpeedModal] = useState(false);
   const [pendingPattern, setPendingPattern] = useState(null);
 
   const [repeatConfigOpen, setRepeatConfigOpen] = useState(false);
@@ -1040,27 +1041,14 @@ export default function AutoTeach({
                 </button>
               </div>
 
-              {/* Jog Speed Slider */}
-              <div className="jog-speed-slider-container">
-                <label htmlFor="autoteach-speed-slider" className="jog-speed-label">
-                  Jog Speed: {jogSpeed}%
-                </label>
-                <input
-                  id="autoteach-speed-slider"
-                  type="range"
-                  min="10"
-                  max="100"
-                  step="5"
-                  value={jogSpeed}
-                  onChange={(e) => setJogSpeed(Number(e.target.value))}
-                  className="jog-speed-slider"
-                  title="Adjust default jog speed for this teaching session"
-                />
-                <div className="speed-slider-legend">
-                  <span className="legend-slow">Slow</span>
-                  <span className="legend-fast">Fast</span>
-                </div>
-              </div>
+              {/* Jog Speed Button - Opens Modal */}
+              <button
+                className="jog-speed-btn"
+                onClick={() => setShowSpeedModal(true)}
+                title="Adjust jog speed for this teaching session"
+              >
+                ⚡ Speed: {jogSpeed}%
+              </button>
             </div>
 
             {/* Page Navigation for Steps */}
@@ -1413,6 +1401,35 @@ export default function AutoTeach({
                   </div>
                 </div>
               )}
+            </ModernDialog>
+
+            {/* Jog Speed Modal */}
+            <ModernDialog
+              isOpen={showSpeedModal}
+              title="Adjust Jog Speed"
+              onConfirm={() => setShowSpeedModal(false)}
+              onCancel={() => setShowSpeedModal(false)}
+              confirmText="Close"
+              cancelText="Cancel"
+              hideCancel={true}
+            >
+              <div className="jog-speed-modal-content">
+                <div className="speed-value-display">{jogSpeed}%</div>
+                <input
+                  type="range"
+                  min="10"
+                  max="100"
+                  step="5"
+                  value={jogSpeed}
+                  onChange={(e) => setJogSpeed(Number(e.target.value))}
+                  className="speed-modal-slider"
+                  title="Adjust jog speed (10% = slow, 100% = fast)"
+                />
+                <div className="speed-modal-legend">
+                  <span className="legend-slow">10% Slow</span>
+                  <span className="legend-fast">100% Fast</span>
+                </div>
+              </div>
             </ModernDialog>
         </div>
       </div>
