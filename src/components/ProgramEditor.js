@@ -1431,10 +1431,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
           isOpen={showSpeedModal}
           title="Adjust Jog Speed"
           onConfirm={() => setShowSpeedModal(false)}
-          onCancel={() => setShowSpeedModal(false)}
           confirmText="Close"
-          cancelText="Cancel"
-          hideCancel={true}
         >
           <div className="jog-speed-modal-content">
             <div className="speed-value-display">{jogSpeed}%</div>
