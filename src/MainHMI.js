@@ -2510,28 +2510,6 @@ export default function MainHMI() {
       <div className="hmi-content">
         <div className="panels-container">
           <AxisPanel
-            side="Right"
-            axis1Name="Axis1 (ID)"
-            axis2Name="Axis2 (OD)"
-            onAxisChange={handleAxisChange}
-            axis1State={axis1State}
-            axis2State={axis2State}
-            actualPositions={displayPositions.right}
-            unitSystem={unitSystem}
-            step={rightStepDisplay.stepNumber}
-            stepDescription={rightStepDisplay.stepDescription}
-            recipe={currentRecipe.right}
-            recipes={recipesRight}
-            onRecipeChange={(recipe) => setCurrentRecipe(prev => ({ ...prev, right: recipe }))}
-            onOpenRecipeSelector={handleOpenRecipeSelector}
-            userRole={currentUser}
-            runMode={modeFeedback.right.runMode}
-            jogMode={modeFeedback.right.jogMode}
-            sequenceActive={sequenceActive.right}
-            headCount={headCounts.right}
-            onResetHeadCount={() => handleResetHeadCount('right')}
-          />
-          <AxisPanel
             side="Left"
             axis1Name="Axis3 (ID)"
             axis2Name="Axis4 (OD)"
@@ -2552,6 +2530,28 @@ export default function MainHMI() {
             sequenceActive={sequenceActive.left}
             headCount={headCounts.left}
             onResetHeadCount={() => handleResetHeadCount('left')}
+          />
+          <AxisPanel
+            side="Right"
+            axis1Name="Axis1 (ID)"
+            axis2Name="Axis2 (OD)"
+            onAxisChange={handleAxisChange}
+            axis1State={axis1State}
+            axis2State={axis2State}
+            actualPositions={displayPositions.right}
+            unitSystem={unitSystem}
+            step={rightStepDisplay.stepNumber}
+            stepDescription={rightStepDisplay.stepDescription}
+            recipe={currentRecipe.right}
+            recipes={recipesRight}
+            onRecipeChange={(recipe) => setCurrentRecipe(prev => ({ ...prev, right: recipe }))}
+            onOpenRecipeSelector={handleOpenRecipeSelector}
+            userRole={currentUser}
+            runMode={modeFeedback.right.runMode}
+            jogMode={modeFeedback.right.jogMode}
+            sequenceActive={sequenceActive.right}
+            headCount={headCounts.right}
+            onResetHeadCount={() => handleResetHeadCount('right')}
           />
         </div>
       </div>
