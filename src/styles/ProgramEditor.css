@@ -217,10 +217,8 @@
 .cancel-program-btn {
   padding: 8px 14px;
   border-radius: 6px;
-<<<<<<< Updated upstream
   font-size: 0.75rem;
   font-weight: 600;
-=======
   cursor: pointer;
 }
 .auto-edit-btn:hover { opacity: 0.9; }
@@ -258,7 +256,6 @@
   border: 1px solid rgba(127, 201, 255, 0.85);
   font-weight: 700;
   font-size: 0.8rem;
->>>>>>> Stashed changes
   cursor: pointer;
   transition: all 0.2s ease;
   min-height: 36px;

@@ -47,28 +47,24 @@ export default function ModernDialog({
           {onCancel && (
             <button className="modern-dialog-cancel" onClick={onCancel}>{cancelText}</button>
           )}
-<<<<<<< Updated upstream
-          <button 
-            className="modern-dialog-confirm" 
-            onClick={() => {
-              console.log('[ModernDialog] Confirm button clicked, disabled=', confirmDisabled);
-              if (!confirmDisabled && onConfirm) {
-                console.log('[ModernDialog] Calling onConfirm');
-                onConfirm();
-              }
-            }} 
-            disabled={confirmDisabled}
-          >
-            {confirmText}
-          </button>
-=======
           {onConfirm && (
-            <button className="modern-dialog-confirm" onClick={onConfirm}>{confirmText}</button>
+            <button 
+              className="modern-dialog-confirm" 
+              onClick={() => {
+                console.log('[ModernDialog] Confirm button clicked, disabled=', confirmDisabled);
+                if (!confirmDisabled && onConfirm) {
+                  console.log('[ModernDialog] Calling onConfirm');
+                  onConfirm();
+                }
+              }} 
+              disabled={confirmDisabled}
+            >
+              {confirmText}
+            </button>
           )}
           {!onConfirm && !onCancel && (
             <button className="message-dialog-btn" onClick={handleClick}>Close</button>
           )}
->>>>>>> Stashed changes
         </div>
       </div>
     </div>
