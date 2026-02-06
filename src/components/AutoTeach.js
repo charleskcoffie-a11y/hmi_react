@@ -66,6 +66,7 @@ export default function AutoTeach({
   const [axesEnabled, setAxesEnabled] = useState(false); // ID/OD axes must be manually enabled
   const [enablingAxes, setEnablingAxes] = useState(false);
   const [lastAxisFeedback, setLastAxisFeedback] = useState([]); // Track last feedback read values for ID/OD
+  const [jogSpeed, setJogSpeed] = useState(100); // Jog speed percentage (10-100), default 100%
   const activeCardRef = useRef(null);
 
   const activeStepNumber = Math.min(recordedSteps.length + 1, 20);
@@ -629,8 +630,8 @@ export default function AutoTeach({
   };
 
   // Enable axis for STEP 2+ (called when user clicks ID/OD button in modal)
-  const handleEnableAxisStep2Plus = async (axis) => {
-    // console.log('[AutoTeach] handleEnableAxisStep2Plus called - axis:', axis, 'side:', side);
+  const handleEnableAxisStep2Plus = async (axis, speed = 100) => {
+    // console.log('[AutoTeach] handleEnableAxisStep2Plus called - axis:', axis, 'speed:', speed, 'side:', side);
     
     try {
       setEnablingAxes(true);
@@ -641,16 +642,19 @@ export default function AutoTeach({
 
       const tagsToPulse = axis === 'id' ? [idTag] : axis === 'od' ? [odTag] : [idTag, odTag];
       
-      // console.log('[AutoTeach] Pulsing tags for axis:', axis, 'tags:', tagsToPulse);
+      // Calculate pulse duration from speed percentage
+      const pulseDuration = 50 + (150 * speed / 100);
+      
+      // console.log('[AutoTeach] Pulsing tags for axis:', axis, 'tags:', tagsToPulse, 'duration:', pulseDuration);
       
       // Pulse each tag and wait for success
       for (const tag of tagsToPulse) {
-        // console.log('[AutoTeach] PULSE REQUEST: tag=', tag, 'durationMs=200');
+        // console.log('[AutoTeach] PULSE REQUEST: tag=', tag, 'durationMs=', pulseDuration);
         
         const response = await fetch('http://localhost:3001/pulse-bool', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tag, durationMs: 200 })
+          body: JSON.stringify({ tag, durationMs: pulseDuration })
         });
         
         // console.log('[AutoTeach] PULSE HTTP RESPONSE: status=', response.status, 'statusText=', response.statusText);
@@ -1017,6 +1021,28 @@ export default function AutoTeach({
                   ⏹ Disable Jog
                 </button>
               </div>
+
+              {/* Jog Speed Slider */}
+              <div className="jog-speed-slider-container">
+                <label htmlFor="autoteach-speed-slider" className="jog-speed-label">
+                  Jog Speed: {jogSpeed}%
+                </label>
+                <input
+                  id="autoteach-speed-slider"
+                  type="range"
+                  min="10"
+                  max="100"
+                  step="5"
+                  value={jogSpeed}
+                  onChange={(e) => setJogSpeed(Number(e.target.value))}
+                  className="jog-speed-slider"
+                  title="Adjust default jog speed for this teaching session"
+                />
+                <div className="speed-slider-legend">
+                  <span className="legend-slow">Slow</span>
+                  <span className="legend-fast">Fast</span>
+                </div>
+              </div>
             </div>
 
             {/* Page Navigation for Steps */}
@@ -1278,6 +1304,7 @@ export default function AutoTeach({
               patternCode={pendingPattern ?? pattern}
               stepNumber={Math.min(recordedSteps.length + 1, 20)}
               lastFeedback={lastAxisFeedback}
+              jogSpeed={jogSpeed}
             />
 
             <ModernDialog

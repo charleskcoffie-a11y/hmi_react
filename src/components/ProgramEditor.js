@@ -35,6 +35,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
   const jogFeedbackDebounceRef = useRef({ candidate: null, since: 0 });
   const [lastAxisFeedback, setLastAxisFeedback] = useState([]); // Track PLC feedback for axis selection
   const [enablingAxis, setEnablingAxis] = useState(false); // Track if currently enabling axis
+  const [jogSpeed, setJogSpeed] = useState(100); // Jog speed percentage (10-100), default 100%
 
   const INCH_TO_MM = 25.4;
   const MM_TO_INCH = 0.0393701;
@@ -53,8 +54,8 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
   };
 
   // Handle axis enable button click with PLC pulsing and feedback polling
-  const handleEnableAxis = async (axis) => {
-    // console.log('[ProgramEditor] handleEnableAxis called - axis:', axis, 'side:', program.side);
+  const handleEnableAxis = async (axis, speed = 100) => {
+    // console.log('[ProgramEditor] handleEnableAxis called - axis:', axis, 'speed:', speed, 'side:', program.side);
     
     try {
       setEnablingAxis(true);
@@ -66,16 +67,19 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
 
       const tagsToPulse = axis === 'id' ? [idTag] : axis === 'od' ? [odTag] : [idTag, odTag];
       
-      // console.log('[ProgramEditor] Pulsing tags for axis:', axis, 'tags:', tagsToPulse);
+      // Calculate pulse duration from speed percentage
+      const pulseDuration = 50 + (150 * speed / 100);
+      
+      // console.log('[ProgramEditor] Pulsing tags for axis:', axis, 'tags:', tagsToPulse, 'duration:', pulseDuration);
       
       // Pulse each tag
       for (const tag of tagsToPulse) {
-        // console.log('[ProgramEditor] PULSE REQUEST: tag=', tag, 'durationMs=200');
+        // console.log('[ProgramEditor] PULSE REQUEST: tag=', tag, 'durationMs=', pulseDuration);
         
         const response = await fetch('http://localhost:3001/pulse-bool', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tag, durationMs: 200 })
+          body: JSON.stringify({ tag, durationMs: pulseDuration })
         });
         
         // console.log('[ProgramEditor] PULSE HTTP RESPONSE: status=', response.status, 'statusText=', response.statusText);
@@ -593,6 +597,29 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                 ✕ Cancel
               </button>
             </div>
+
+            {/* Jog Speed Slider */}
+            <div className="program-jog-speed-slider-container">
+              <label htmlFor="program-speed-slider" className="program-jog-speed-label">
+                Jog Speed: {jogSpeed}%
+              </label>
+              <input
+                id="program-speed-slider"
+                type="range"
+                min="10"
+                max="100"
+                step="5"
+                value={jogSpeed}
+                onChange={(e) => setJogSpeed(Number(e.target.value))}
+                className="program-jog-speed-slider"
+                title="Adjust default jog speed for this editing session"
+              />
+              <div className="speed-slider-legend">
+                <span className="legend-slow">Slow</span>
+                <span className="legend-fast">Fast</span>
+              </div>
+            </div>
+
             {jogHint && (
               <div className="jog-mode-banner">
                 <span className="jog-icon">⇄</span>
@@ -1390,6 +1417,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
           patternCode={pendingStep?.pattern ?? 0}
           stepNumber={pendingStep?.stepNumber ?? 0}
           lastFeedback={lastAxisFeedback}
+          jogSpeed={jogSpeed}
         />
       </div>
     </div>

@@ -343,11 +343,19 @@ export async function writeBoolTag(tag, value) {
 }
 
 // Pulse a momentary boolean tag (true, wait, then false)
-export async function pulseBoolTag(tag, durationMs = 150) {
+// If speedPercent provided (10-100), calculates durationMs: 50 + (150 * speedPercent/100)
+// At 10%: 65ms, At 100%: 200ms
+export async function pulseBoolTag(tag, durationMs = 150, speedPercent = null) {
+  // If speedPercent provided, calculate durationMs from speed
+  let finalDuration = durationMs;
+  if (speedPercent !== null && speedPercent !== undefined) {
+    finalDuration = 50 + (150 * speedPercent / 100);
+  }
+  
   const res = await fetch(`${API_BASE}/pulse-bool`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tag, durationMs })
+    body: JSON.stringify({ tag, durationMs: finalDuration })
   });
   const data = await res.json();
   if (!data.success) throw new Error(data.error || 'Failed to pulse boolean tag');

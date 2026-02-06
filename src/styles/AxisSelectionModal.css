@@ -97,3 +97,77 @@
   color: #ff6b5b;
   border: 1px solid #8b4038;
 }
+
+/* Jog Speed Slider */
+.axis-speed-slider-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  border: 1px solid #3a6a9f;
+}
+
+.speed-slider-label {
+  color: #88c0ff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.axis-speed-slider {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #1a3a6b, #2a5a8f);
+  outline: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+
+.axis-speed-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #5a9aff;
+  cursor: pointer;
+  border: 2px solid #88c0ff;
+  box-shadow: 0 0 8px rgba(88, 154, 255, 0.5);
+  transition: all 0.2s ease;
+}
+
+.axis-speed-slider::-webkit-slider-thumb:hover {
+  width: 20px;
+  height: 20px;
+  background: #7ab3ff;
+  box-shadow: 0 0 12px rgba(88, 154, 255, 0.8);
+}
+
+.axis-speed-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #5a9aff;
+  cursor: pointer;
+  border: 2px solid #88c0ff;
+  box-shadow: 0 0 8px rgba(88, 154, 255, 0.5);
+  transition: all 0.2s ease;
+}
+
+.axis-speed-slider::-moz-range-thumb:hover {
+  width: 20px;
+  height: 20px;
+  background: #7ab3ff;
+  box-shadow: 0 0 12px rgba(88, 154, 255, 0.8);
+}
+
+.speed-slider-legend {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: #5a9aff;
+  font-weight: 500;
+}

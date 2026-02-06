@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import ModernDialog from './ModernDialog';
 import '../styles/AxisSelectionModal.css';
 
@@ -11,9 +11,11 @@ export default function AxisSelectionModal({
   stepNumber,
   lastFeedback = [], // Receive feedback from parent
   onAxisClick = null, // Callback when axis button clicked (for immediate pulse)
+  jogSpeed = 100, // Speed percentage (10-100), default 100%
 }) {
   const [enabledAxis, setEnabledAxis] = useState(null); // 'id' or 'od'
   const [enabling, setEnabling] = useState(false); // Track if currently enabling
+  const [localSpeed, setLocalSpeed] = useState(jogSpeed); // Local speed override
 
   const axes = useMemo(() => {
     const code = Number(patternCode);
@@ -31,6 +33,11 @@ export default function AxisSelectionModal({
         return 'both';
     }
   }, [patternCode]);
+
+  // Sync local speed with prop when jogSpeed changes
+  useEffect(() => {
+    setLocalSpeed(jogSpeed);
+  }, [jogSpeed, isOpen]);
 
   const showID = axes === 'id' || axes === 'both';
   const showOD = axes === 'od' || axes === 'both';
@@ -70,7 +77,7 @@ export default function AxisSelectionModal({
     try {
       // Call parent to pulse and enable the axis (same as Step 1 Enable button)
       if (onAxisClick) {
-        await onAxisClick(axis);
+        await onAxisClick(axis, localSpeed);
       }
       setEnabledAxis(axis);
       // console.log('[AxisSelectionModal] Axis enable completed for:', axis);
@@ -117,6 +124,27 @@ export default function AxisSelectionModal({
               <div className="axis-label">{enabling && enabledAxis === 'od' ? '⏳ Enabling...' : enabledAxis === 'od' ? '✓ OD' : '📍 OD'}</div>
             </button>
           )}
+        </div>
+        {/* Jog Speed Slider */}
+        <div className="axis-speed-slider-container">
+          <label htmlFor="axis-speed-slider" className="speed-slider-label">
+            Jog Speed: {localSpeed}%
+          </label>
+          <input
+            id="axis-speed-slider"
+            type="range"
+            min="10"
+            max="100"
+            step="5"
+            value={localSpeed}
+            onChange={(e) => setLocalSpeed(Number(e.target.value))}
+            className="axis-speed-slider"
+            title="Adjust jog speed for this movement (10% = slow, 100% = fast)"
+          />
+          <div className="speed-slider-legend">
+            <span className="legend-slow">Slow</span>
+            <span className="legend-fast">Fast</span>
+          </div>
         </div>
         {/* Clear axis condition label to mirror right/left head behavior */}
         <div className="axis-condition-label">
