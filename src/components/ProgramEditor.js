@@ -174,6 +174,22 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
     }
   }, [program?.name, program?.side]); // Only reload when program name/side changes, not the steps object itself
 
+  // Auto-enable jog mode when axis modal is shown for teaching
+  useEffect(() => {
+    const enableJogForTeaching = async () => {
+      if (showAxisModal && !jogMode && program?.side) {
+        console.log(`[ProgramEditor] Auto-enabling jog mode for ${program.side} side (teaching step)`);
+        try {
+          await writePLCVar({ command: 'enableJog', side: program.side });
+          setJogMode(true);
+        } catch (err) {
+          console.error('[ProgramEditor] Failed to auto-enable jog mode:', err.message);
+        }
+      }
+    };
+    enableJogForTeaching();
+  }, [showAxisModal, jogMode, program?.side]);
+
   // Poll jog mode feedback from PLC
   useEffect(() => {
     if (!jogMode || !program?.side) return;
