@@ -1314,6 +1314,7 @@ export default function MainHMI() {
     ioPageOpen,
     showProgramEditor,
     showEditProgramSideSelector,
+    programToEdit,
     currentProgram,
     currentStep,
     autoTeachOpen,
@@ -2117,6 +2118,7 @@ export default function MainHMI() {
     setAutoTeachOpen(false);
     setAutoTeachSide(null);
     setAutoTeachProgramName('');
+    setCurrentScreen(SCREEN_INDEX.MAIN_CONTROL);
   };
 
   // Duplicate handleSelectSideForEdit removed to fix redeclaration error
@@ -2287,6 +2289,7 @@ export default function MainHMI() {
 
     setShowProgramEditor(false);
     setProgramToEdit(null);
+    setCurrentScreen(SCREEN_INDEX.MAIN_CONTROL);
   };
 
   const handleJogModeSideSwitch = useCallback((newSide) => {
