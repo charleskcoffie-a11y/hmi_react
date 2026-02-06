@@ -743,8 +743,8 @@ function createServer() {
 
       const errors = [];
 
-      // Write each step (1-10)
-      for (let stepNum = 1; stepNum <= 10; stepNum++) {
+      // Write each step (1-20)
+      for (let stepNum = 1; stepNum <= 20; stepNum++) {
         const step = program.steps[stepNum];
 
         if (!step) {
@@ -783,7 +783,7 @@ function createServer() {
           await writeTagValue(`${gvlPrefix}.a${headPrefix}RepeatEna[${stepNum}]`, pattern.repeat);
 
           // Write positions (machine mapping: Red = OD, Exp = ID)
-          // NOTE: Step 1 uses different variable structure than steps 2-10
+          // NOTE: Step 1 uses different variable structure than steps 2-20
           if (step.positions) {
             if (stepNum === 1) {
               // Step 1: uses lRightPosStep1 / lLeftPosStep1 with fixed indices
@@ -800,7 +800,7 @@ function createServer() {
                 await writeTagValue(tag, step.positions.axis2Cmd);
               }
             } else {
-              // Steps 2-10: use 2D arrays ARRAY[2..10, 0..1] OF LREAL
+              // Steps 2-20: use 2D arrays ARRAY[2..20, 0..1] OF LREAL
               // [step,0] = Retract pos, [step,1] = Extend pos
               // axis1Cmd = ID (Exp), axis2Cmd = OD (Red)
               if (step.positions.axis1Cmd !== undefined) {
