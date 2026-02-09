@@ -192,16 +192,25 @@ function decodeMachineStatus(bits) {
 }
 
 export default function MainHMI() {
-  // Load jog speed from localStorage (default 100%)
-  const [jogSpeed, setJogSpeed] = useState(() => {
-    const saved = localStorage.getItem('jogSpeed');
+  // Load jog speeds from localStorage - separate for left and right (default 100%)
+  const [jogSpeedLeft, setJogSpeedLeft] = useState(() => {
+    const saved = localStorage.getItem('jogSpeedLeft');
     return saved ? parseInt(saved, 10) : 100;
   });
 
-  // Persist jog speed to localStorage when it changes
+  const [jogSpeedRight, setJogSpeedRight] = useState(() => {
+    const saved = localStorage.getItem('jogSpeedRight');
+    return saved ? parseInt(saved, 10) : 100;
+  });
+
+  // Persist jog speeds to localStorage when they change
   useEffect(() => {
-    localStorage.setItem('jogSpeed', jogSpeed.toString());
-  }, [jogSpeed]);
+    localStorage.setItem('jogSpeedLeft', jogSpeedLeft.toString());
+  }, [jogSpeedLeft]);
+
+  useEffect(() => {
+    localStorage.setItem('jogSpeedRight', jogSpeedRight.toString());
+  }, [jogSpeedRight]);
 
   const [currentUser, setCurrentUser] = useState('operator');
   
@@ -3043,8 +3052,8 @@ export default function MainHMI() {
         onSaveProgram={handleSaveProgramChanges}
         onWriteToPLC={handlePLCWrite}
         unitSystem={unitSystem}
-        jogSpeed={jogSpeed}
-        onJogSpeedChange={setJogSpeed}
+        jogSpeed={programToEdit?.side === 'left' ? jogSpeedLeft : jogSpeedRight}
+        onJogSpeedChange={programToEdit?.side === 'left' ? setJogSpeedLeft : setJogSpeedRight}
       />
 
       <AutoAdjustProgram
@@ -3158,8 +3167,8 @@ export default function MainHMI() {
           parameters={currentParameters}
           onSaveProgram={handleSaveAutoTeachProgram}
           onWriteToPLC={handlePLCWrite}
-          jogSpeed={jogSpeed}
-          onJogSpeedChange={setJogSpeed}
+          jogSpeed={autoTeachSide === 'left' ? jogSpeedLeft : jogSpeedRight}
+          onJogSpeedChange={autoTeachSide === 'left' ? setJogSpeedLeft : setJogSpeedRight}
         />
 
         {/* Jog Mode Dialog */}
@@ -3173,8 +3182,8 @@ export default function MainHMI() {
             strokes={jogStrokeMemo}
             onClose={handleJogDialogClose}
             onSwitchSide={handleJogModeSideSwitch}
-            jogSpeed={jogSpeed}
-            onJogSpeedChange={setJogSpeed}
+            jogSpeed={jogActiveSide === 'left' ? jogSpeedLeft : jogSpeedRight}
+            onJogSpeedChange={jogActiveSide === 'left' ? setJogSpeedLeft : setJogSpeedRight}
           />
         )}
       </>
