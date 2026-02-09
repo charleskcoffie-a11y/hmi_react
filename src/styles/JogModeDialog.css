@@ -341,6 +341,15 @@
   cursor: not-allowed;
 }
 
+/* Container for side-by-side axis positions and speed control */
+.axis-speed-container {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  width: 100%;
+  align-items: stretch;
+}
+
 .axis-position-display {
   background: rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(156, 39, 176, 0.3);
@@ -349,6 +358,7 @@
   display: flex;
   justify-content: space-around;
   gap: 12px;
+  flex: 1;
 }
 
 .axis-info {
@@ -442,8 +452,10 @@
   padding: 12px;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 8px;
-  margin-top: 8px;
+  min-width: 180px;
+  max-width: 220px;
 }
 
 .jog-speed-control .speed-label {
@@ -473,8 +485,8 @@
 .jog-speed-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 24px;
-  height: 24px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: #fff;
   cursor: pointer;
@@ -483,8 +495,8 @@
 }
 
 .jog-speed-slider::-moz-range-thumb {
-  width: 24px;
-  height: 24px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: #fff;
   cursor: pointer;
@@ -521,6 +533,7 @@
   letter-spacing: 0.5px;
   align-self: center;
   min-width: 120px;
+  margin-top: 16px;
 }
 
 .jog-close-btn:hover {
