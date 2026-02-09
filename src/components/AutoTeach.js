@@ -15,6 +15,8 @@ export default function AutoTeach({
   parameters,
   onSaveProgram,
   onWriteToPLC,
+  jogSpeed = 100,
+  onJogSpeedChange = () => {},
 }) {
   const safeActualPositions = actualPositions ?? { axis1: 0, axis2: 0 };
 
@@ -67,7 +69,6 @@ export default function AutoTeach({
   const [axesEnabled, setAxesEnabled] = useState(false); // ID/OD axes must be manually enabled
   const [enablingAxes, setEnablingAxes] = useState(false);
   const [lastAxisFeedback, setLastAxisFeedback] = useState([]); // Track last feedback read values for ID/OD
-  const [jogSpeed, setJogSpeed] = useState(100); // Jog speed percentage (10-100), default 100%
   const activeCardRef = useRef(null);
 
   const activeStepNumber = Math.min(recordedSteps.length + 1, 20);
@@ -1418,7 +1419,7 @@ export default function AutoTeach({
                   max="100"
                   step="5"
                   value={jogSpeed}
-                  onChange={(e) => setJogSpeed(Number(e.target.value))}
+                  onChange={(e) => onJogSpeedChange(Number(e.target.value))}
                   className="speed-modal-slider"
                   title="Adjust jog speed (10% = slow, 100% = fast)"
                 />

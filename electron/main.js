@@ -44,8 +44,8 @@ function clearOldAppData() {
   const toDelete = new Set();
   try {
     // DO NOT delete 'CNC Dual head' folder - it contains recipe data that should persist
-    // Only clear userData (session/cache data) and old app names
-    toDelete.add(app.getPath('userData'));
+    // DO NOT delete userData - it contains localStorage with passwords, recipes, and settings
+    // Only clear old app names from previous installations
     toDelete.add(path.join(app.getPath('appData'), 'hmi-electron'));
     // LOCALAPPDATA mirrors appData on Windows; guard env presence
     const localAppData = process.env.LOCALAPPDATA;
@@ -180,9 +180,45 @@ ipcMain.handle('save-net-id', async (event, netId) => {
   return { success: true, netId };
 });
 
+// IPC handler to get saved user passwords from config
+ipcMain.handle('get-passwords', async () => {
+  console.log('[electron] IPC: get-passwords called');
+  const config = loadConfig();
+  const passwords = config.userPasswords || null;
+  console.log('[electron] IPC: returning passwords:', passwords ? '(saved passwords found)' : '(no saved passwords)');
+  return passwords;
+});
+
+// IPC handler to save user passwords to config
+ipcMain.handle('save-passwords', async (event, passwords) => {
+  console.log('[electron] IPC: save-passwords called:', passwords);
+  const config = loadConfig();
+  config.userPasswords = passwords;
+  saveConfig(config);
+  console.log('[electron] IPC: passwords saved to config file');
+  return { success: true, passwords };
+});
+
 app.whenReady().then(async () => {
   try {
+    // Log userData and localStorage paths
+    const userDataPath = app.getPath('userData');
+    const localStoragePath = path.join(userDataPath, 'Local Storage');
+    console.log('[electron] userData path:', userDataPath);
+    console.log('[electron] Expected localStorage path:', localStoragePath);
+    console.log('[electron] userData exists:', fs.existsSync(userDataPath));
+    if (fs.existsSync(localStoragePath)) {
+      console.log('[electron] localStorage folder contents:', fs.readdirSync(localStoragePath));
+    }
+    
     clearOldAppData();
+    
+    // Log again after cleanup
+    console.log('[electron] After cleanup - userData exists:', fs.existsSync(userDataPath));
+    if (fs.existsSync(localStoragePath)) {
+      console.log('[electron] After cleanup - localStorage folder contents:', fs.readdirSync(localStoragePath));
+    }
+    
     backendServer = await startServer();
   } catch (err) {
     console.error('Failed to start PLC backend:', err.message);

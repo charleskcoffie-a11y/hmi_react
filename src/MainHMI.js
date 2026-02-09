@@ -192,13 +192,106 @@ function decodeMachineStatus(bits) {
 }
 
 export default function MainHMI() {
-  const [currentUser, setCurrentUser] = useState('operator');
-  const [userPasswords, setUserPasswords] = useState({
-    admin: '5771',
-    operator: '1234',
-    setup: '5678',
-    engineering: '9999'
+  // Load jog speeds from localStorage - separate for left and right (default 100%)
+  const [jogSpeedLeft, setJogSpeedLeft] = useState(() => {
+    const saved = localStorage.getItem('jogSpeedLeft');
+    return saved ? parseInt(saved, 10) : 100;
   });
+
+  const [jogSpeedRight, setJogSpeedRight] = useState(() => {
+    const saved = localStorage.getItem('jogSpeedRight');
+    return saved ? parseInt(saved, 10) : 100;
+  });
+
+  // Persist jog speeds to localStorage when they change
+  useEffect(() => {
+    localStorage.setItem('jogSpeedLeft', jogSpeedLeft.toString());
+  }, [jogSpeedLeft]);
+
+  useEffect(() => {
+    localStorage.setItem('jogSpeedRight', jogSpeedRight.toString());
+  }, [jogSpeedRight]);
+
+  const [currentUser, setCurrentUser] = useState('operator');
+  
+  // Load user passwords from localStorage and Electron config (with defaults)
+  const [userPasswords, setUserPasswords] = useState(() => {
+    // Try localStorage first
+    const saved = localStorage.getItem('userPasswords');
+    console.log('[MainHMI] Initializing passwords from localStorage, saved value:', saved);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        console.log('[MainHMI] Successfully parsed saved passwords from localStorage:', parsed);
+        return parsed;
+      } catch (e) {
+        console.warn('[MainHMI] Failed to parse saved passwords, using defaults', e);
+      }
+    }
+    console.log('[MainHMI] Using default passwords');
+    return {
+      admin: '5771',
+      operator: '1234',
+      setup: '5678',
+      engineering: '9999'
+    };
+  });
+
+  // Persist user passwords to localStorage when they change
+  useEffect(() => {
+    console.log('[MainHMI] userPasswords changed, saving to localStorage:', userPasswords);
+    try {
+      localStorage.setItem('userPasswords', JSON.stringify(userPasswords));
+      console.log('[MainHMI] Successfully saved passwords to localStorage');
+      // Verify the save
+      const verify = localStorage.getItem('userPasswords');
+      console.log('[MainHMI] Verification - localStorage now contains:', verify);
+    } catch (err) {
+      console.error('[MainHMI] Failed to save passwords to localStorage:', err);
+    }
+    
+    // Also save to Electron config file as backup
+    if (window.electron && window.electron.savePasswords) {
+      console.log('[MainHMI] Saving passwords to Electron config file');
+      window.electron.savePasswords(userPasswords)
+        .then(() => {
+          console.log('[MainHMI] Successfully saved passwords to Electron config');
+        })
+        .catch((err) => {
+          console.error('[MainHMI] Failed to save passwords to Electron config:', err);
+        });
+    }
+  }, [userPasswords]);
+
+  // Try to load passwords from Electron config file on app startup (as backup/recovery)
+  useEffect(() => {
+    const tryLoadPasswordsFromElectron = async () => {
+      if (window.electron && window.electron.getPasswords) {
+        try {
+          console.log('[MainHMI] Attempting to load passwords from Electron config file');
+          const savedPasswords = await window.electron.getPasswords();
+          if (savedPasswords && Object.keys(savedPasswords).length > 0) {
+            console.log('[MainHMI] Found passwords in Electron config:', savedPasswords);
+            // If localStorage is empty, sync from Electron config
+            const localStorageSaved = localStorage.getItem('userPasswords');
+            if (!localStorageSaved) {
+              console.log('[MainHMI] localStorage is empty, syncing from Electron config');
+              setUserPasswords(savedPasswords);
+            } else {
+              console.log('[MainHMI] localStorage already has passwords, keeping those');
+            }
+          } else {
+            console.log('[MainHMI] No saved passwords in Electron config');
+          }
+        } catch (err) {
+          console.error('[MainHMI] Failed to load passwords from Electron config:', err);
+        }
+      }
+    };
+    
+    tryLoadPasswordsFromElectron();
+  }, []); // Run only on mount
+
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [recipeOpen, setRecipeOpen] = useState(false);
   const [recipeSideSelectorOpen, setRecipeSideSelectorOpen] = useState(false);
@@ -3014,6 +3107,8 @@ export default function MainHMI() {
         onSaveProgram={handleSaveProgramChanges}
         onWriteToPLC={handlePLCWrite}
         unitSystem={unitSystem}
+        jogSpeed={programToEdit?.side === 'left' ? jogSpeedLeft : jogSpeedRight}
+        onJogSpeedChange={programToEdit?.side === 'left' ? setJogSpeedLeft : setJogSpeedRight}
       />
 
       <AutoAdjustProgram
@@ -3127,6 +3222,8 @@ export default function MainHMI() {
           parameters={currentParameters}
           onSaveProgram={handleSaveAutoTeachProgram}
           onWriteToPLC={handlePLCWrite}
+          jogSpeed={autoTeachSide === 'left' ? jogSpeedLeft : jogSpeedRight}
+          onJogSpeedChange={autoTeachSide === 'left' ? setJogSpeedLeft : setJogSpeedRight}
         />
 
         {/* Jog Mode Dialog */}
@@ -3140,6 +3237,8 @@ export default function MainHMI() {
             strokes={jogStrokeMemo}
             onClose={handleJogDialogClose}
             onSwitchSide={handleJogModeSideSwitch}
+            jogSpeed={jogActiveSide === 'left' ? jogSpeedLeft : jogSpeedRight}
+            onJogSpeedChange={jogActiveSide === 'left' ? setJogSpeedLeft : setJogSpeedRight}
           />
         )}
       </>

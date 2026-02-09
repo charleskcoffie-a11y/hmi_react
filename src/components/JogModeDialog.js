@@ -14,9 +14,29 @@ function JogModeDialog({
   strokes = { id: 0, od: 0 },
   modeFeedback = { runMode: false, jogMode: false }, // Add PLC feedback status
   onClose = () => {},
-  onSwitchSide = () => {}
+  onSwitchSide = () => {},
+  jogSpeed = 100,
+  onJogSpeedChange = () => {}
 }) {
   const [selectedMode, setSelectedMode] = useState(null); // 'id', 'od', or null
+
+  // Write jog speed to PLC when it changes (per-side variable)
+  useEffect(() => {
+    const writeJogSpeed = async () => {
+      try {
+        const speedTag = side === 'left' ? 'GLEFTHEAD.lHmileftJogSpd' : 'GRIGHTHEAD.lHmiRightJogSpd';
+        await fetch('http://localhost:3001/write', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tag: speedTag, value: jogSpeed })
+        });
+        console.log(`[JogModeDialog] Wrote jog speed ${jogSpeed}% to ${speedTag}`);
+      } catch (err) {
+        console.warn('[JogModeDialog] Failed to write jog speed to PLC:', err.message);
+      }
+    };
+    if (isActive) writeJogSpeed();
+  }, [jogSpeed, side, isActive]);
 
   // Log when side prop changes
   useEffect(() => {
@@ -220,15 +240,36 @@ function JogModeDialog({
           )}
         </div>
 
-        {/* Axis Position Display */}
-        <div className="axis-position-display">
-          <div className="axis-info">
-            <span className="axis-label">Axis 1 Pos:</span>
-            <span className="axis-value">{axisDisplay1}</span>
+        {/* Axis Position Display and Jog Speed Control - Side by Side */}
+        <div className="axis-speed-container">
+          <div className="axis-position-display">
+            <div className="axis-info">
+              <span className="axis-label">Axis 1 Pos:</span>
+              <span className="axis-value">{axisDisplay1}</span>
+            </div>
+            <div className="axis-info">
+              <span className="axis-label">Axis 2 Pos:</span>
+              <span className="axis-value">{axisDisplay2}</span>
+            </div>
           </div>
-          <div className="axis-info">
-            <span className="axis-label">Axis 2 Pos:</span>
-            <span className="axis-value">{axisDisplay2}</span>
+
+          {/* Jog Speed Control */}
+          <div className="jog-speed-control">
+            <div className="speed-label">⚡ Speed: {jogSpeed}%</div>
+            <input
+              type="range"
+              min="10"
+              max="100"
+              step="5"
+              value={jogSpeed}
+              onChange={(e) => onJogSpeedChange(Number(e.target.value))}
+              className="jog-speed-slider"
+              title="Adjust jog speed (10% = slow, 100% = fast)"
+            />
+            <div className="speed-legend">
+              <span className="legend-slow">10%</span>
+              <span className="legend-fast">100%</span>
+            </div>
           </div>
         </div>
 
