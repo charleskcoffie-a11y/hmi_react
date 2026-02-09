@@ -19,6 +19,14 @@
   ; Clean app cache after installation
   RMDir /r "${APPDATA_CACHE}"
   RMDir /r "${LOCALAPPDATA_CACHE}"
+  
+  ; Explicitly create desktop shortcut
+  CreateDirectory "$DESKTOP"
+  CreateShortCut "$DESKTOP\CNC Dual head.lnk" "$INSTDIR\CNC Dual head.exe" "" "$INSTDIR\CNC Dual head.exe" 0
+  
+  ; Create Start Menu shortcut
+  CreateDirectory "$SMPROGRAMS\CNC Dual head"
+  CreateShortCut "$SMPROGRAMS\CNC Dual head\CNC Dual head.lnk" "$INSTDIR\CNC Dual head.exe" "" "$INSTDIR\CNC Dual head.exe" 0
 !macroend
 
 !macro customUnInstall
@@ -26,4 +34,8 @@
   RMDir /r "${APPDATA_CACHE}"
   RMDir /r "${LOCALAPPDATA_CACHE}"
   RMDir /r "$APPDATA\electron"
+  
+  ; Remove shortcuts
+  Delete "$DESKTOP\CNC Dual head.lnk"
+  RMDir /r "$SMPROGRAMS\CNC Dual head"
 !macroend

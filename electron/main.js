@@ -44,8 +44,8 @@ function clearOldAppData() {
   const toDelete = new Set();
   try {
     // DO NOT delete 'CNC Dual head' folder - it contains recipe data that should persist
-    // Only clear userData (session/cache data) and old app names
-    toDelete.add(app.getPath('userData'));
+    // DO NOT delete userData - it contains localStorage with passwords, recipes, and settings
+    // Only clear old app names from previous installations
     toDelete.add(path.join(app.getPath('appData'), 'hmi-electron'));
     // LOCALAPPDATA mirrors appData on Windows; guard env presence
     const localAppData = process.env.LOCALAPPDATA;
