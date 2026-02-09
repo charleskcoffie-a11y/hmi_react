@@ -214,16 +214,21 @@ export default function MainHMI() {
 
   const [currentUser, setCurrentUser] = useState('operator');
   
-  // Load user passwords from localStorage (with defaults)
+  // Load user passwords from localStorage and Electron config (with defaults)
   const [userPasswords, setUserPasswords] = useState(() => {
+    // Try localStorage first
     const saved = localStorage.getItem('userPasswords');
+    console.log('[MainHMI] Initializing passwords from localStorage, saved value:', saved);
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        console.log('[MainHMI] Successfully parsed saved passwords from localStorage:', parsed);
+        return parsed;
       } catch (e) {
-        console.warn('[MainHMI] Failed to parse saved passwords, using defaults');
+        console.warn('[MainHMI] Failed to parse saved passwords, using defaults', e);
       }
     }
+    console.log('[MainHMI] Using default passwords');
     return {
       admin: '5771',
       operator: '1234',
@@ -234,8 +239,58 @@ export default function MainHMI() {
 
   // Persist user passwords to localStorage when they change
   useEffect(() => {
-    localStorage.setItem('userPasswords', JSON.stringify(userPasswords));
+    console.log('[MainHMI] userPasswords changed, saving to localStorage:', userPasswords);
+    try {
+      localStorage.setItem('userPasswords', JSON.stringify(userPasswords));
+      console.log('[MainHMI] Successfully saved passwords to localStorage');
+      // Verify the save
+      const verify = localStorage.getItem('userPasswords');
+      console.log('[MainHMI] Verification - localStorage now contains:', verify);
+    } catch (err) {
+      console.error('[MainHMI] Failed to save passwords to localStorage:', err);
+    }
+    
+    // Also save to Electron config file as backup
+    if (window.electron && window.electron.savePasswords) {
+      console.log('[MainHMI] Saving passwords to Electron config file');
+      window.electron.savePasswords(userPasswords)
+        .then(() => {
+          console.log('[MainHMI] Successfully saved passwords to Electron config');
+        })
+        .catch((err) => {
+          console.error('[MainHMI] Failed to save passwords to Electron config:', err);
+        });
+    }
   }, [userPasswords]);
+
+  // Try to load passwords from Electron config file on app startup (as backup/recovery)
+  useEffect(() => {
+    const tryLoadPasswordsFromElectron = async () => {
+      if (window.electron && window.electron.getPasswords) {
+        try {
+          console.log('[MainHMI] Attempting to load passwords from Electron config file');
+          const savedPasswords = await window.electron.getPasswords();
+          if (savedPasswords && Object.keys(savedPasswords).length > 0) {
+            console.log('[MainHMI] Found passwords in Electron config:', savedPasswords);
+            // If localStorage is empty, sync from Electron config
+            const localStorageSaved = localStorage.getItem('userPasswords');
+            if (!localStorageSaved) {
+              console.log('[MainHMI] localStorage is empty, syncing from Electron config');
+              setUserPasswords(savedPasswords);
+            } else {
+              console.log('[MainHMI] localStorage already has passwords, keeping those');
+            }
+          } else {
+            console.log('[MainHMI] No saved passwords in Electron config');
+          }
+        } catch (err) {
+          console.error('[MainHMI] Failed to load passwords from Electron config:', err);
+        }
+      }
+    };
+    
+    tryLoadPasswordsFromElectron();
+  }, []); // Run only on mount
 
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [recipeOpen, setRecipeOpen] = useState(false);

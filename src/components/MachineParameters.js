@@ -149,7 +149,12 @@ export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknow
   const handlePasswordSave = (role) => {
     if (!onUpdatePasswords) return;
     const updated = { ...(userPasswords || {}), [role]: passwordEdits[role] || '' };
+    console.log('[MachineParameters] handlePasswordSave called for role:', role);
+    console.log('[MachineParameters] Old passwords:', userPasswords);
+    console.log('[MachineParameters] New password value:', passwordEdits[role]);
+    console.log('[MachineParameters] Updated object:', updated);
     onUpdatePasswords(updated);
+    console.log('[MachineParameters] onUpdatePasswords callback invoked');
   };
 
   if (!isOpen) return null;
