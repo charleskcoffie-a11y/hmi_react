@@ -5,7 +5,7 @@ import '../styles/ProgramEditor.css';
 import NumericKeypad from './NumericKeypad';
 import { readAxisPositions, writePLCVar } from '../services/plcApiService';
 
-export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram, onWriteToPLC, unitSystem }) {
+export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram, onWriteToPLC, unitSystem, jogSpeed = 100, onJogSpeedChange = () => {} }) {
   const [dialog, setDialog] = useState({ open: false, title: '', message: '' });
   const [editedSteps, setEditedSteps] = useState([]);
   const [currentPage, setCurrentPage] = useState(1); // Page 1 = steps 1-10, Page 2 = steps 11-20
@@ -36,7 +36,6 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
   const jogFeedbackDebounceRef = useRef({ candidate: null, since: 0 });
   const [lastAxisFeedback, setLastAxisFeedback] = useState([]); // Track PLC feedback for axis selection
   const [enablingAxis, setEnablingAxis] = useState(false); // Track if currently enabling axis
-  const [jogSpeed, setJogSpeed] = useState(100); // Jog speed percentage (10-100), default 100%
 
   const INCH_TO_MM = 25.4;
   const MM_TO_INCH = 0.0393701;
@@ -1449,7 +1448,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
               max="100"
               step="5"
               value={jogSpeed}
-              onChange={(e) => setJogSpeed(Number(e.target.value))}
+              onChange={(e) => onJogSpeedChange(Number(e.target.value))}
               className="speed-modal-slider"
               title="Adjust jog speed (10% = slow, 100% = fast)"
             />

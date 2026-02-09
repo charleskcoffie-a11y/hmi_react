@@ -192,13 +192,42 @@ function decodeMachineStatus(bits) {
 }
 
 export default function MainHMI() {
-  const [currentUser, setCurrentUser] = useState('operator');
-  const [userPasswords, setUserPasswords] = useState({
-    admin: '5771',
-    operator: '1234',
-    setup: '5678',
-    engineering: '9999'
+  // Load jog speed from localStorage (default 100%)
+  const [jogSpeed, setJogSpeed] = useState(() => {
+    const saved = localStorage.getItem('jogSpeed');
+    return saved ? parseInt(saved, 10) : 100;
   });
+
+  // Persist jog speed to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('jogSpeed', jogSpeed.toString());
+  }, [jogSpeed]);
+
+  const [currentUser, setCurrentUser] = useState('operator');
+  
+  // Load user passwords from localStorage (with defaults)
+  const [userPasswords, setUserPasswords] = useState(() => {
+    const saved = localStorage.getItem('userPasswords');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.warn('[MainHMI] Failed to parse saved passwords, using defaults');
+      }
+    }
+    return {
+      admin: '5771',
+      operator: '1234',
+      setup: '5678',
+      engineering: '9999'
+    };
+  });
+
+  // Persist user passwords to localStorage when they change
+  useEffect(() => {
+    localStorage.setItem('userPasswords', JSON.stringify(userPasswords));
+  }, [userPasswords]);
+
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [recipeOpen, setRecipeOpen] = useState(false);
   const [recipeSideSelectorOpen, setRecipeSideSelectorOpen] = useState(false);
@@ -3014,6 +3043,8 @@ export default function MainHMI() {
         onSaveProgram={handleSaveProgramChanges}
         onWriteToPLC={handlePLCWrite}
         unitSystem={unitSystem}
+        jogSpeed={jogSpeed}
+        onJogSpeedChange={setJogSpeed}
       />
 
       <AutoAdjustProgram
@@ -3127,6 +3158,8 @@ export default function MainHMI() {
           parameters={currentParameters}
           onSaveProgram={handleSaveAutoTeachProgram}
           onWriteToPLC={handlePLCWrite}
+          jogSpeed={jogSpeed}
+          onJogSpeedChange={setJogSpeed}
         />
 
         {/* Jog Mode Dialog */}
@@ -3140,6 +3173,8 @@ export default function MainHMI() {
             strokes={jogStrokeMemo}
             onClose={handleJogDialogClose}
             onSwitchSide={handleJogModeSideSwitch}
+            jogSpeed={jogSpeed}
+            onJogSpeedChange={setJogSpeed}
           />
         )}
       </>
