@@ -784,38 +784,45 @@ function createServer() {
 
           // Write positions (machine mapping: Red = OD, Exp = ID)
           // NOTE: Step 1 uses different variable structure than steps 2-20
+          // IMPORTANT: Right side uses axis1/axis2, Left side uses axis3/axis4
           if (step.positions) {
+            // Determine which axis commands to read based on side
+            const idAxisCmd = side === 'left' ? step.positions.axis3Cmd : step.positions.axis1Cmd;
+            const odAxisCmd = side === 'left' ? step.positions.axis4Cmd : step.positions.axis2Cmd;
+            
             if (stepNum === 1) {
               // Step 1: uses lRightPosStep1 / lLeftPosStep1 with fixed indices
               // [0] = OD (Red), [2] = ID (Exp)
-              // axis1Cmd = ID (Exp), axis2Cmd = OD (Red)
-              if (step.positions.axis1Cmd !== undefined) {
+              // Right: axis1Cmd = ID (Exp), axis2Cmd = OD (Red)
+              // Left: axis3Cmd = ID (Exp), axis4Cmd = OD (Red)
+              if (idAxisCmd !== undefined) {
                 const tag = `${gvlPrefix}.l${headPrefix}PosStep1[2]`;
-                console.log(`[plc-server] Step 1: Writing ID position (ExpPos) = ${step.positions.axis1Cmd}`);
-                await writeTagValue(tag, step.positions.axis1Cmd);
+                console.log(`[plc-server] ${side} Step 1: Writing ID position (ExpPos) = ${idAxisCmd}`);
+                await writeTagValue(tag, idAxisCmd);
               }
-              if (step.positions.axis2Cmd !== undefined) {
+              if (odAxisCmd !== undefined) {
                 const tag = `${gvlPrefix}.l${headPrefix}PosStep1[0]`;
-                console.log(`[plc-server] Step 1: Writing OD position (RedPos) = ${step.positions.axis2Cmd}`);
-                await writeTagValue(tag, step.positions.axis2Cmd);
+                console.log(`[plc-server] ${side} Step 1: Writing OD position (RedPos) = ${odAxisCmd}`);
+                await writeTagValue(tag, odAxisCmd);
               }
             } else {
               // Steps 2-20: use 2D arrays ARRAY[2..20, 0..1] OF LREAL
               // [step,0] = Retract pos, [step,1] = Extend pos
-              // axis1Cmd = ID (Exp), axis2Cmd = OD (Red)
-              if (step.positions.axis1Cmd !== undefined) {
+              // Right: axis1Cmd = ID (Exp), axis2Cmd = OD (Red)
+              // Left: axis3Cmd = ID (Exp), axis4Cmd = OD (Red)
+              if (idAxisCmd !== undefined) {
                 // Determine Exp (ID) index: 0=retract, 1=extend
                 const expIdx = (pattern.expExt) ? 1 : 0;
                 const tag = `${gvlPrefix}.a${headPrefix}ExpPos[${stepNum},${expIdx}]`;
-                console.log(`[plc-server] Step ${stepNum}: Writing ID position (ExpPos[${stepNum},${expIdx}]) = ${step.positions.axis1Cmd}`);
-                await writeTagValue(tag, step.positions.axis1Cmd);
+                console.log(`[plc-server] ${side} Step ${stepNum}: Writing ID position (ExpPos[${stepNum},${expIdx}]) = ${idAxisCmd}`);
+                await writeTagValue(tag, idAxisCmd);
               }
-              if (step.positions.axis2Cmd !== undefined) {
+              if (odAxisCmd !== undefined) {
                 // Determine Red (OD) index: 0=retract, 1=extend
                 const redIdx = (pattern.redExt) ? 1 : 0;
                 const tag = `${gvlPrefix}.a${headPrefix}RedPos[${stepNum},${redIdx}]`;
-                console.log(`[plc-server] Step ${stepNum}: Writing OD position (RedPos[${stepNum},${redIdx}]) = ${step.positions.axis2Cmd}`);
-                await writeTagValue(tag, step.positions.axis2Cmd);
+                console.log(`[plc-server] ${side} Step ${stepNum}: Writing OD position (RedPos[${stepNum},${redIdx}]) = ${odAxisCmd}`);
+                await writeTagValue(tag, odAxisCmd);
               }
             }
           }
