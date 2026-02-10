@@ -1116,7 +1116,8 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
             }
             const curStorage = toStorageUnits(cur);
             const desStorage = toStorageUnits(des);
-            const delta = desStorage - curStorage;
+            const diameterDelta = desStorage - curStorage;
+            const radiusDelta = diameterDelta / 2; // Convert diameter change to radius change
             const isRightSide = program.side === 'right';
             const extendPatterns = new Set([0, 2, 6]); // Red Ext, Exp Ext, RedExt+ExpExt
             const updated = editedSteps.map((s) => {
@@ -1128,10 +1129,10 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
               axes.forEach((ax) => {
                 const field = isRightSide
                   ? (ax === 'axis1' ? 'axis1Cmd' : 'axis2Cmd')
-                  : (ax === 'axis1' ? (s.positions.axis3Cmd !== undefined ? 'axis3Cmd' : 'axis1Cmd') : (s.positions.axis4Cmd !== undefined ? 'axis4Cmd' : 'axis2Cmd'));
+                  : (ax === 'axis1' ? 'axis3Cmd' : 'axis4Cmd');
                 const val = parseFloat(next.positions[field]);
                 if (!isNaN(val)) {
-                  next.positions[field] = parseFloat((val + delta).toFixed(3));
+                  next.positions[field] = parseFloat((val + radiusDelta).toFixed(3));
                 }
               });
               return next;
