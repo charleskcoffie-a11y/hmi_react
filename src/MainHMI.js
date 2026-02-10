@@ -1915,17 +1915,29 @@ export default function MainHMI() {
     const recipeName = typeof recipe === 'string' ? recipe : recipe?.name;
     if (!side || !recipeName) return;
 
-    // Delete from filesystem
-    await deleteRecipeFile(recipeName, side);
+    try {
+      // Delete from filesystem and localStorage
+      const deleted = await deleteRecipeFile(recipeName, side);
+      
+      if (!deleted) {
+        showMessage('Delete Failed', `Failed to delete recipe "${recipeName}". Check logs for details.`, 'error');
+        return;
+      }
 
-    if (side === 'right') {
-      setRecipesRight((prev) => prev.filter((r) => r.name !== recipeName));
-      setCurrentRecipe((prev) => ({ ...prev, right: prev.right === recipeName ? null : prev.right }));
-    } else {
-      setRecipesLeft((prev) => prev.filter((r) => r.name !== recipeName));
-      setCurrentRecipe((prev) => ({ ...prev, left: prev.left === recipeName ? null : prev.left }));
+      // Update state after successful file deletion
+      if (side === 'right') {
+        setRecipesRight((prev) => prev.filter((r) => r.name !== recipeName));
+        setCurrentRecipe((prev) => ({ ...prev, right: prev.right === recipeName ? null : prev.right }));
+      } else {
+        setRecipesLeft((prev) => prev.filter((r) => r.name !== recipeName));
+        setCurrentRecipe((prev) => ({ ...prev, left: prev.left === recipeName ? null : prev.left }));
+      }
+      
+      showMessage('Recipe Deleted', `Recipe "${recipeName}" deleted successfully`, 'success');
+    } catch (err) {
+      console.error('[MainHMI] Error deleting recipe:', err);
+      showMessage('Delete Error', `Error deleting recipe: ${err.message}`, 'error');
     }
-    showMessage('Recipe Deleted', `Recipe "${recipeName}" deleted`, 'success');
   };
 
   const handleCopyRecipeToOtherSide = (recipe, sourceSide) => {

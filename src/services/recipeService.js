@@ -91,23 +91,41 @@ export const saveRecipeToFile = async (recipe, side) => {
 };
 
 export const deleteRecipeFile = async (recipeName, side) => {
-  if (!recipeName || !side) return;
+  if (!recipeName || !side) {
+    console.error('[recipeService] Missing recipeName or side for deletion');
+    return false;
+  }
+  
+  let fileDeleted = false;
   
   // Delete from Electron filesystem if available
   if (isElectron() && window.electron && window.electron.deleteRecipe) {
     try {
       const result = await window.electron.deleteRecipe(recipeName, side);
       if (result.success) {
-        console.log(`[recipeService] Deleted recipe "${recipeName}" for ${side} from file system`);
+        console.log(`[recipeService] Deleted recipe file "${recipeName}" for ${side} side`);
+        fileDeleted = true;
+      } else {
+        console.error(`[recipeService] Failed to delete recipe file: ${result.error}`);
+        return false;
       }
     } catch (err) {
-      console.warn('[recipeService] Failed to delete recipe from file system:', err);
+      console.error('[recipeService] Error deleting recipe from file system:', err.message);
+      return false;
     }
   }
   
   // Also remove from localStorage cache
-  const recipes = readStore(side).filter((r) => r.name !== recipeName);
-  writeStore(side, recipes);
+  try {
+    const recipes = readStore(side).filter((r) => r.name !== recipeName);
+    writeStore(side, recipes);
+    console.log(`[recipeService] Removed recipe "${recipeName}" from localStorage`);
+  } catch (err) {
+    console.error('[recipeService] Error removing recipe from localStorage:', err.message);
+    // Don't return false here - localStorage deletion is secondary
+  }
+  
+  return fileDeleted;
 };
 
 export const getLastRecipe = async () => {
