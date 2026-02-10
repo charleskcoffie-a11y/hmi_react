@@ -589,15 +589,23 @@ export default function AutoTeach({
       const getPageDisplay = (step) => step <= 10 ? '' : ` (Page 2)`;
       const defaultStepName = stepNumberToRecord === 1 ? 'Start Position' : `Step ${stepNumberToRecord}${getPageDisplay(stepNumberToRecord)}`;
 
+      // Copy positions from Step 1 based on side
+      // Right side: axis1 (ID), axis2 (OD)
+      // Left side: axis3 (ID), axis4 (OD)
       const newStep = {
         step: stepNumberToRecord,
         stepName: defaultStepName,
         pattern: patternCode,
         needsReteach: false,
-        positions: {
-          axis1Cmd: step1.positions.axis1Cmd,
-          axis2Cmd: step1.positions.axis2Cmd,
-        },
+        positions: side === 'left' 
+          ? {
+              axis3Cmd: step1.positions.axis3Cmd || 0,
+              axis4Cmd: step1.positions.axis4Cmd || 0,
+            }
+          : {
+              axis1Cmd: step1.positions.axis1Cmd || 0,
+              axis2Cmd: step1.positions.axis2Cmd || 0,
+            },
         dwell: 0,
         enabledAxis: null, // Auto-copy doesn't need axis selection
       };

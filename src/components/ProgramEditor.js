@@ -888,14 +888,21 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
               
               // Pattern 5 (Repeat) or Return patterns - auto-copy Step 1 positions
               if (pattern === 5 || returnPatterns.has(pattern)) {
-                // For return patterns, copy Step 1 positions
+                // For return patterns, copy Step 1 positions based on side
                 if (returnPatterns.has(pattern)) {
                   const step1 = editedSteps.find(s => s.stepNumber === 1);
                   if (step1) {
-                    newStep.positions = {
-                      axis1Cmd: Number(step1.positions?.axis1Cmd) || 0,
-                      axis2Cmd: Number(step1.positions?.axis2Cmd) || 0
-                    };
+                    // Right side: axis1 (ID), axis2 (OD)
+                    // Left side: axis3 (ID), axis4 (OD)
+                    newStep.positions = program.side === 'left'
+                      ? {
+                          axis3Cmd: Number(step1.positions?.axis3Cmd) || 0,
+                          axis4Cmd: Number(step1.positions?.axis4Cmd) || 0
+                        }
+                      : {
+                          axis1Cmd: Number(step1.positions?.axis1Cmd) || 0,
+                          axis2Cmd: Number(step1.positions?.axis2Cmd) || 0
+                        };
                   }
                 }
                 const merged = [...editedSteps];
