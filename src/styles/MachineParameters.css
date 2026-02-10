@@ -437,6 +437,79 @@
   background: linear-gradient(135deg, #00ddaa 0%, #00bb88 100%);
 }
 
+/* Edit Lock Override Section */
+.edit-lock-override-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  border: 2px solid rgba(255, 150, 0, 0.5);
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(255, 150, 0, 0.15) 0%, rgba(0, 0, 0, 0.4) 100%);
+  margin-bottom: 26px;
+  box-shadow: 0 10px 25px rgba(255, 150, 0, 0.25);
+}
+
+.override-title {
+  margin: 0;
+  font-size: 16px;
+  color: #ffd480;
+  font-weight: 700;
+}
+
+.override-note {
+  margin: 4px 0;
+  font-size: 13px;
+  color: #ffcc66;
+  font-weight: 600;
+}
+
+.override-warning {
+  margin: 4px 0 0 0;
+  font-size: 11px;
+  color: #ffaa44;
+  font-style: italic;
+}
+
+.override-toggle-btn {
+  padding: 10px 18px;
+  border: 1px solid;
+  border-radius: 8px;
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  white-space: nowrap;
+  min-width: 140px;
+}
+
+.override-toggle-btn.enabled {
+  background: linear-gradient(135deg, #00cc66 0%, #00aa44 100%);
+  border-color: #00dd77;
+  box-shadow: 0 8px 24px rgba(0, 200, 100, 0.4);
+}
+
+.override-toggle-btn.enabled:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(0, 200, 100, 0.5);
+  background: linear-gradient(135deg, #00dd77 0%, #00bb55 100%);
+}
+
+.override-toggle-btn.disabled {
+  background: linear-gradient(135deg, #cc3333 0%, #aa2222 100%);
+  border-color: #dd4444;
+  box-shadow: 0 8px 24px rgba(200, 50, 50, 0.4);
+}
+
+.override-toggle-btn.disabled:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(200, 50, 50, 0.5);
+  background: linear-gradient(135deg, #dd4444 0%, #bb3333 100%);
+}
+
 .passwords-open-btn:not(:disabled):hover {
   transform: translateY(-2px);
   box-shadow: 0 10px 28px rgba(124, 93, 255, 0.5);

@@ -405,6 +405,276 @@
   box-shadow: 0 2px 8px rgba(0, 200, 83, 0.35);
 }
 
+/* Pump Motor Status Banner */
+.pump-status-banner {
+  position: relative;
+  width: calc(100% - 24px);
+  margin: 4px auto 4px;
+  padding: 8px 16px;
+  height: 38px;
+  border-radius: 12px;
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 4;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 2px solid;
+  overflow: hidden;
+}
+
+.pump-status-banner::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    45deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.1) 50%,
+    transparent 70%
+  );
+  transform: rotate(45deg);
+  transition: all 0.6s ease;
+}
+
+.pump-status-banner.running {
+  background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 30%, #43a047 50%, #2e7d32 70%, #1b5e20 100%);
+  background-size: 200% 200%;
+  border-color: rgba(129, 199, 132, 0.9);
+  box-shadow: 
+    0 4px 20px rgba(76, 175, 80, 0.5),
+    0 0 30px rgba(76, 175, 80, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+  animation: pump-banner-glow 2s ease-in-out infinite;
+}
+
+.pump-status-banner.running::before {
+  animation: pump-shine 3s linear infinite;
+}
+
+@keyframes pump-banner-glow {
+  0%, 100% {
+    box-shadow: 
+      0 4px 20px rgba(76, 175, 80, 0.5),
+      0 0 30px rgba(76, 175, 80, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+    border-color: rgba(129, 199, 132, 0.9);
+  }
+  50% {
+    box-shadow: 
+      0 6px 30px rgba(76, 175, 80, 0.7),
+      0 0 50px rgba(76, 175, 80, 0.5),
+      0 0 70px rgba(76, 175, 80, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+    border-color: rgba(165, 214, 167, 1);
+  }
+}
+
+@keyframes pump-shine {
+  0% {
+    transform: translateX(-100%) translateY(-100%) rotate(45deg);
+  }
+  100% {
+    transform: translateX(100%) translateY(100%) rotate(45deg);
+  }
+}
+
+.pump-status-banner.stopped {
+  background: linear-gradient(135deg, #37474f 0%, #546e7a 50%, #37474f 100%);
+  border-color: rgba(120, 144, 156, 0.6);
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+}
+
+.pump-status-content {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.6),
+    0 1px 2px rgba(0, 0, 0, 0.4);
+  z-index: 1;
+}
+
+.pump-icon {
+  font-size: 22px;
+  opacity: 0.75;
+  transition: all 0.4s ease;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+}
+
+.pump-icon.active {
+  opacity: 1;
+  filter: 
+    drop-shadow(0 0 8px rgba(129, 199, 132, 0.8))
+    drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+  animation: pump-rotate 2.5s linear infinite;
+}
+
+@keyframes pump-rotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.pump-status-text {
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.pump-status-text strong {
+  font-weight: 900;
+  font-size: 15px;
+  margin-left: 6px;
+  text-shadow: 
+    0 2px 6px rgba(0, 0, 0, 0.7),
+    0 0 10px rgba(129, 199, 132, 0.5);
+}
+
+.pump-status-banner.running .pump-status-text strong {
+  animation: pump-text-glow 2s ease-in-out infinite;
+}
+
+@keyframes pump-text-glow {
+  0%, 100% {
+    text-shadow: 
+      0 2px 6px rgba(0, 0, 0, 0.7),
+      0 0 10px rgba(129, 199, 132, 0.5);
+  }
+  50% {
+    text-shadow: 
+      0 2px 8px rgba(0, 0, 0, 0.8),
+      0 0 15px rgba(165, 214, 167, 0.8),
+      0 0 25px rgba(129, 199, 132, 0.4);
+  }
+}
+
+.pump-indicator-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  box-shadow: 
+    0 0 8px rgba(0, 0, 0, 0.5),
+    inset 0 1px 2px rgba(255, 255, 255, 0.3);
+  transition: all 0.4s ease;
+}
+
+.pump-indicator-dot.active {
+  background: radial-gradient(circle at 30% 30%, #a5d6a7, #66bb6a, #43a047);
+  box-shadow: 
+    0 0 15px rgba(129, 199, 132, 1),
+    0 0 25px rgba(76, 175, 80, 0.6),
+    inset 0 1px 3px rgba(255, 255, 255, 0.6),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.3);
+  animation: pump-dot-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pump-dot-pulse {
+  0%, 100% { 
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 
+      0 0 15px rgba(129, 199, 132, 1),
+      0 0 25px rgba(76, 175, 80, 0.6),
+      inset 0 1px 3px rgba(255, 255, 255, 0.6),
+      inset 0 -1px 2px rgba(0, 0, 0, 0.3);
+  }
+  50% { 
+    opacity: 0.9;
+    transform: scale(1.2);
+    box-shadow: 
+      0 0 25px rgba(165, 214, 167, 1),
+      0 0 40px rgba(129, 199, 132, 0.8),
+      0 0 60px rgba(76, 175, 80, 0.4),
+      inset 0 1px 3px rgba(255, 255, 255, 0.8),
+      inset 0 -1px 2px rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* Program Validity Warning Banner */
+.program-warning-banner {
+  position: relative;
+  width: calc(100% - 24px);
+  margin: 4px auto 4px;
+  padding: 8px 16px;
+  height: 36px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #d32f2f 0%, #f44336 50%, #d32f2f 100%);
+  border: 2px solid rgba(255, 87, 34, 0.8);
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    0 0 12px rgba(244, 67, 54, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 4;
+  animation: warning-pulse 2s ease-in-out infinite;
+}
+
+@keyframes warning-pulse {
+  0%, 100% {
+    box-shadow: 
+      0 2px 8px rgba(0, 0, 0, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.15),
+      0 0 12px rgba(244, 67, 54, 0.35);
+  }
+  50% {
+    box-shadow: 
+      0 2px 10px rgba(0, 0, 0, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2),
+      0 0 20px rgba(244, 67, 54, 0.6);
+  }
+}
+
+.program-warning-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.program-warning-content .warning-icon {
+  font-size: 20px;
+  animation: warning-shake 0.5s ease-in-out infinite;
+}
+
+@keyframes warning-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px) rotate(-5deg); }
+  75% { transform: translateX(3px) rotate(5deg); }
+}
+
+.program-warning-content .warning-text {
+  font-size: 13px;
+  text-transform: uppercase;
+}
+
+.program-warning-content .warning-text strong {
+  font-weight: 900;
+  margin-right: 4px;
+}
+
 /* Machine Status Banner - compact/expandable */
 .machine-status-banner {
   position: relative;

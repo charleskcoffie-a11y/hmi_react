@@ -7,7 +7,8 @@ import '../styles/RecipeTextarea.css';
 
 export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRecipe, onCreateRecipe, onEditRecipe, onDeleteRecipe, onCopyToOtherSide, onTeachRecipe, userRole, editLockEnabled }) {
   const isOperator = userRole === 'operator';
-  const isEditLocked = !editLockEnabled; // True when edit lock is disabled
+  const isAdmin = userRole === 'admin';
+  const isEditLocked = !editLockEnabled && !isAdmin; // Admin bypasses edit lock
     // Auto-close modal if isOpen becomes false (e.g., navigation)
     useEffect(() => {
       if (!isOpen) {

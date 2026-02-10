@@ -443,6 +443,15 @@ export default function MainHMI() {
   // Edit lock status from PLC (GIO.bEditLock - index 106)
   const [editLockEnabled, setEditLockEnabled] = useState(false);
   
+  // Edit lock manual override for testing (admin only)
+  const [editLockOverride, setEditLockOverride] = useState(() => {
+    const saved = localStorage.getItem('editLockOverride');
+    return saved === 'true';
+  });
+  
+  // Combined edit lock status (PLC value OR manual override)
+  const effectiveEditLock = editLockEnabled || editLockOverride;
+  
   // Current screen tracking for PLC
   const [currentScreen, setCurrentScreen] = useState(SCREEN_INDEX.MAIN_CONTROL);
   
@@ -1216,9 +1225,11 @@ export default function MainHMI() {
                 });
                 
                 console.log(`[MainHMI] Successfully auto-loaded right recipe program steps to PLC`);
+                setProgramValid(prev => ({ ...prev, right: true }));
               }
             } catch (err) {
               console.warn(`[MainHMI] Failed to auto-load right recipe to PLC:`, err);
+              setProgramValid(prev => ({ ...prev, right: false }));
             }
           }
         }
@@ -1252,9 +1263,11 @@ export default function MainHMI() {
                 });
                 
                 console.log(`[MainHMI] Successfully auto-loaded left recipe program steps to PLC`);
+                setProgramValid(prev => ({ ...prev, left: true }));
               }
             } catch (err) {
               console.warn(`[MainHMI] Failed to auto-load left recipe to PLC:`, err);
+              setProgramValid(prev => ({ ...prev, left: false }));
             }
           }
         }
@@ -1330,8 +1343,20 @@ export default function MainHMI() {
   const [autoTeachProgramName, setAutoTeachProgramName] = useState('');
   const [showAutoTeachSelector, setShowAutoTeachSelector] = useState(false);
   const [showAutoTeachNameModal, setShowAutoTeachNameModal] = useState(false);
+  const [programValid, setProgramValid] = useState({ left: false, right: false }); // Track if valid program loaded
+  const [showCancelConfirmDialog, setShowCancelConfirmDialog] = useState(false);
+  const [autoTeachRecordedSteps, setAutoTeachRecordedSteps] = useState(0);
 
   const [showEditProgramSideSelector, setShowEditProgramSideSelector] = useState(false);
+
+  // Duplicate program name detection for create/import/AutoTeach
+  const [programDuplicateDialog, setProgramDuplicateDialog] = useState({
+    isOpen: false,
+    type: null, // 'create', 'import', 'autoteach'
+    programName: '',
+    side: null,
+    pendingData: null // Store pending program/recipe data
+  });
   const [showProgramEditor, setShowProgramEditor] = useState(false);
   const [programToEdit, setProgramToEdit] = useState(null);
   const [showDownloadModal, setShowDownloadModal] = useState(false);
@@ -1543,6 +1568,7 @@ export default function MainHMI() {
             parameters: parameters || undefined
           });
           
+          setProgramValid(prev => ({ ...prev, [side]: true }));
           showMessage('Recipe Loaded', `Recipe "${recipeName}" with program loaded and sent to ${side} side`, 'success');
         } else if (parameters) {
           showMessage('Recipe Loaded', `Recipe "${recipeName}" parameters sent to ${side} side`, 'success');
@@ -1551,6 +1577,7 @@ export default function MainHMI() {
         }
       } catch (error) {
         console.error('[MainHMI] Recipe load error:', error.message);
+        setProgramValid(prev => ({ ...prev, [side]: false }));
         showMessage('Recipe Loaded (PLC Error)', `Recipe loaded but failed to sync PLC: ${error.message}`, 'warning');
       }
     })();
@@ -1578,6 +1605,31 @@ export default function MainHMI() {
       return;
     }
     
+    console.log('[MainHMI] handleCreateRecipe called:', { recipeName, side, hasFullRecipe: !!fullRecipe });
+    
+    // Check if recipe with same name already exists on this side
+    const existingRecipes = side === 'right' ? recipesRight : recipesLeft;
+    console.log('[MainHMI] Existing recipes on', side, ':', existingRecipes.map(r => r.name));
+    const isDuplicate = existingRecipes.some(r => r.name === recipeName);
+    console.log('[MainHMI] Is duplicate?', isDuplicate, 'Has fullRecipe?', !!fullRecipe);
+    
+    if (isDuplicate && fullRecipe) {
+      // Import case: Show duplicate dialog
+      setProgramDuplicateDialog({
+        isOpen: true,
+        type: 'import',
+        programName: recipeName,
+        side: side,
+        pendingData: { recipeName, recipeDescription, side, fullRecipe, options }
+      });
+      return; // Stop here - user will decide via dialog
+    }
+    
+    // Proceed with recipe creation
+    proceedWithRecipeCreation(recipeName, recipeDescription, side, fullRecipe, options);
+  };
+
+  const proceedWithRecipeCreation = (recipeName, recipeDescription, side, fullRecipe = null, options = {}) => {
     // If fullRecipe is provided (import case), use it directly
     const newRecipe = fullRecipe || {
       name: recipeName,
@@ -1604,9 +1656,15 @@ export default function MainHMI() {
     // Track as last used recipe
     setLastRecipe(side, newRecipe.name);
     
+    // Check if recipe already exists to determine if we're overriding
+    const existingRecipes = side === 'right' ? recipesRight : recipesLeft;
+    const isOverriding = existingRecipes.some(r => r.name === recipeName);
+    
     if (side === 'right') {
       setRecipesRight(prev => {
-        const updated = [...prev, newRecipe];
+        const updated = isOverriding 
+          ? prev.map(r => r.name === recipeName ? newRecipe : r)
+          : [...prev, newRecipe];
         setCurrentRecipe(cr => ({ ...cr, right: newRecipe.name }));
         if (options.autoLoad !== false) {
           setTimeout(() => handleLoadRecipe(newRecipe, 'right'), 0);
@@ -1615,7 +1673,9 @@ export default function MainHMI() {
       });
     } else {
       setRecipesLeft(prev => {
-        const updated = [...prev, newRecipe];
+        const updated = isOverriding
+          ? prev.map(r => r.name === recipeName ? newRecipe : r)
+          : [...prev, newRecipe];
         setCurrentRecipe(cr => ({ ...cr, left: newRecipe.name }));
         if (options.autoLoad !== false) {
           setTimeout(() => handleLoadRecipe(newRecipe, 'left'), 0);
@@ -1746,11 +1806,32 @@ export default function MainHMI() {
   const handleProgramNameConfirm = async (name) => {
     const programName = name?.trim() ? name.trim() : 'New Program';
     
+    // Check if program/recipe with same name already exists on this side
+    const existingRecipes = selectedSide === 'right' ? recipesRight : recipesLeft;
+    const isDuplicate = existingRecipes.some(r => r.name === programName);
+    
+    if (isDuplicate) {
+      // Show duplicate name dialog
+      setProgramDuplicateDialog({
+        isOpen: true,
+        type: 'create',
+        programName: programName,
+        side: selectedSide,
+        pendingData: null
+      });
+      return; // Stop here - user will decide via dialog
+    }
+    
+    // Proceed with program creation
+    proceedWithProgramCreation(programName, selectedSide);
+  };
+
+  const proceedWithProgramCreation = async (programName, side) => {
     // Reset all PLC recipe variables to zero/defaults when starting new program
     try {
       console.log('[MainHMI] Resetting PLC recipe variables for new program');
-      const sidePrefix = selectedSide === 'left' ? 'GLEFTHEAD' : 'GRIGHTHEAD';
-      const headSuffix = selectedSide === 'left' ? 'Left' : 'Right';
+      const sidePrefix = side === 'left' ? 'GLEFTHEAD' : 'GRIGHTHEAD';
+      const headSuffix = side === 'left' ? 'Left' : 'Right';
       
       const resetVariables = [
         { tag: `${sidePrefix}.iHmi${headSuffix}Speed`, value: 100 },
@@ -1808,7 +1889,7 @@ export default function MainHMI() {
       // Don't fail the program creation, just warn
     }
     
-    setCurrentProgram({ name: programName, side: selectedSide, steps: {} });
+    setCurrentProgram({ name: programName, side: side, steps: {} });
     setProgramSteps({});
     setCurrentStep(1);
     setShowProgramNameModal(false);
@@ -1913,26 +1994,45 @@ export default function MainHMI() {
     }
     const side = sideParam ?? recipeSide;
     const recipeName = typeof recipe === 'string' ? recipe : recipe?.name;
-    if (!side || !recipeName) return;
+    if (!side || !recipeName) {
+      console.error('[MainHMI] Cannot delete recipe - missing side or name:', { side, recipeName });
+      showMessage('Delete Failed', 'Missing recipe name or side information.', 'error');
+      return;
+    }
+    
+    console.log('[MainHMI] Deleting recipe:', recipeName, 'from side:', side);
 
     try {
       // Delete from filesystem and localStorage
       const deleted = await deleteRecipeFile(recipeName, side);
       
       if (!deleted) {
-        showMessage('Delete Failed', `Failed to delete recipe "${recipeName}". Check logs for details.`, 'error');
-        return;
+        console.warn('[MainHMI] File deletion failed, but will still update state for UI consistency');
+        showMessage('Delete Warning', `Recipe "${recipeName}" removed from UI. File deletion may have failed.`, 'warning');
+        // Continue to update state anyway for UI consistency
       }
 
-      // Update state after successful file deletion
+      // Update state regardless of file deletion result (for UI consistency)
+      console.log('[MainHMI] Updating state for side:', side, 'deleted:', deleted);
       if (side === 'right') {
-        setRecipesRight((prev) => prev.filter((r) => r.name !== recipeName));
+        setRecipesRight((prev) => {
+          console.log('[MainHMI] Previous right recipes:', prev.map(r => r.name));
+          const filtered = prev.filter((r) => r.name !== recipeName);
+          console.log('[MainHMI] Filtered right recipes:', filtered.map(r => r.name));
+          return filtered;
+        });
         setCurrentRecipe((prev) => ({ ...prev, right: prev.right === recipeName ? null : prev.right }));
       } else {
-        setRecipesLeft((prev) => prev.filter((r) => r.name !== recipeName));
+        setRecipesLeft((prev) => {
+          console.log('[MainHMI] Previous left recipes:', prev.map(r => r.name));
+          const filtered = prev.filter((r) => r.name !== recipeName);
+          console.log('[MainHMI] Filtered left recipes:', filtered.map(r => r.name));
+          return filtered;
+        });
         setCurrentRecipe((prev) => ({ ...prev, left: prev.left === recipeName ? null : prev.left }));
       }
       
+      console.log('[MainHMI] Delete complete, showing success message');
       showMessage('Recipe Deleted', `Recipe "${recipeName}" deleted successfully`, 'success');
     } catch (err) {
       console.error('[MainHMI] Error deleting recipe:', err);
@@ -2081,11 +2181,35 @@ export default function MainHMI() {
   const handleAutoTeachProgramNameConfirm = async (name) => {
     const programName = name?.trim() ? name.trim() : 'AutoTeach Program';
     
+    // Check if program/recipe with same name already exists on this side
+    const existingRecipes = autoTeachSide === 'right' ? recipesRight : recipesLeft;
+    const isDuplicate = existingRecipes.some(r => r.name === programName);
+    
+    if (isDuplicate) {
+      // Show duplicate name dialog
+      setProgramDuplicateDialog({
+        isOpen: true,
+        type: 'autoteach',
+        programName: programName,
+        side: autoTeachSide,
+        pendingData: null
+      });
+      return; // Stop here - user will decide via dialog
+    }
+    
+    // Proceed with AutoTeach
+    proceedWithAutoTeach(programName, autoTeachSide);
+  };
+
+  const proceedWithAutoTeach = async (programName, side) => {
+    // Mark program as invalid since we're starting fresh
+    setProgramValid(prev => ({ ...prev, [side]: false }));
+    
     // Reset all PLC recipe variables to zero/defaults when starting new AutoTeach program
     try {
       console.log('[MainHMI] Resetting PLC recipe variables for AutoTeach');
-      const sidePrefix = autoTeachSide === 'left' ? 'GLEFTHEAD' : 'GRIGHTHEAD';
-      const headSuffix = autoTeachSide === 'left' ? 'Left' : 'Right';
+      const sidePrefix = side === 'left' ? 'GLEFTHEAD' : 'GRIGHTHEAD';
+      const headSuffix = side === 'left' ? 'Left' : 'Right';
       
       const resetVariables = [
         { tag: `${sidePrefix}.iHmi${headSuffix}Speed`, value: 100 },
@@ -2146,7 +2270,7 @@ export default function MainHMI() {
     setShowAutoTeachNameModal(false);
     setAutoTeachOpen(true);
     // Set screen index based on side
-    const screenIndex = autoTeachSide === 'left' ? SCREEN_INDEX.AUTO_TEACH_LEFT : SCREEN_INDEX.AUTO_TEACH_RIGHT;
+    const screenIndex = side === 'left' ? SCREEN_INDEX.AUTO_TEACH_LEFT : SCREEN_INDEX.AUTO_TEACH_RIGHT;
     setCurrentScreen(screenIndex);
   };
 
@@ -2219,6 +2343,9 @@ export default function MainHMI() {
       setCurrentRecipe(cr => ({ ...cr, left: autoTeachProgramName }));
     }
 
+    // Mark program as valid since we successfully saved and loaded it
+    setProgramValid(prev => ({ ...prev, [autoTeachSide]: true }));
+    
     showMessage('Auto Teach Saved', `Program "${program.name}" saved and loaded as active recipe`, 'success');
     if (autoTeachSide) {
       setPlcDirty(prev => ({ ...prev, [autoTeachSide]: false }));
@@ -2228,7 +2355,53 @@ export default function MainHMI() {
     setAutoTeachOpen(false);
     setAutoTeachSide(null);
     setAutoTeachProgramName('');
+    setAutoTeachRecordedSteps(0);
     setCurrentScreen(SCREEN_INDEX.MAIN_CONTROL);
+  };
+
+  const handleAutoTeachCancel = async (stepsRecorded) => {
+    console.log(`[MainHMI] handleAutoTeachCancel - steps recorded: ${stepsRecorded}`);
+    
+    // If user has recorded any steps, show confirmation
+    if (stepsRecorded > 0) {
+      setAutoTeachRecordedSteps(stepsRecorded);
+      setShowCancelConfirmDialog(true);
+    } else {
+      // No steps recorded, just close and clear PLC
+      await clearPLCProgram(autoTeachSide);
+      setAutoTeachOpen(false);
+      setAutoTeachSide(null);
+      setAutoTeachProgramName('');
+      setAutoTeachRecordedSteps(0);
+      setCurrentScreen(SCREEN_INDEX.MAIN_CONTROL);
+      await writeScreenIndex(SCREEN_INDEX.MAIN_CONTROL);
+    }
+  };
+
+  const handleCancelConfirmYes = async () => {
+    console.log('[MainHMI] User confirmed cancel - clearing PLC and closing AutoTeach');
+    setShowCancelConfirmDialog(false);
+    
+    try {
+      // Clear PLC program for this side
+      await clearPLCProgram(autoTeachSide);
+      showMessage('Program Cancelled', `AutoTeach cancelled. PLC data cleared for ${autoTeachSide} side.`, 'info');
+    } catch (err) {
+      showMessage('Warning', `AutoTeach cancelled but PLC clear failed. Please reload a valid program before running.`, 'warning');
+    }
+    
+    // Close AutoTeach
+    setAutoTeachOpen(false);
+    setAutoTeachSide(null);
+    setAutoTeachProgramName('');
+    setAutoTeachRecordedSteps(0);
+    setCurrentScreen(SCREEN_INDEX.MAIN_CONTROL);
+    await writeScreenIndex(SCREEN_INDEX.MAIN_CONTROL);
+  };
+
+  const handleCancelConfirmNo = () => {
+    console.log('[MainHMI] User declined cancel - returning to AutoTeach');
+    setShowCancelConfirmDialog(false);
   };
 
   // Duplicate handleSelectSideForEdit removed to fix redeclaration error
@@ -2398,9 +2571,11 @@ export default function MainHMI() {
           parameters: currentParameters || undefined
         });
 
+        setProgramValid(prev => ({ ...prev, [updatedProgram.side]: true }));
         showMessage('Program Saved & Downloaded', `Program "${updatedProgram.name}" saved and sent to ${updatedProgram.side} side`, 'success');
       } catch (err) {
         console.error('[MainHMI] Auto-download failed after save:', err.message);
+        setProgramValid(prev => ({ ...prev, [updatedProgram.side]: false }));
         showMessage('Program Saved (PLC sync failed)', `Program "${updatedProgram.name}" saved locally, but PLC sync failed: ${err.message}`, 'warning');
       }
     })();
@@ -2444,6 +2619,13 @@ export default function MainHMI() {
 
   const handleStartPosition = async (side) => {
     console.log(`[MainHMI] handleStartPosition called - side: ${side}`);
+    
+    // Check if valid program loaded for this side
+    if (!programValid[side]) {
+      showMessage('No Program Loaded', `Cannot move to start position. No valid program loaded for ${side} side. Please create or load a program first.`, 'warning');
+      return;
+    }
+    
     try {
       console.log(`[MainHMI] Calling writePLCVar with startPosition command`);
       await writePLCVar({ command: 'startPosition', side });
@@ -2486,7 +2668,74 @@ export default function MainHMI() {
       showMessage('Error', `Failed to enable jog: ${error.message}`, 'error');
     }
   };
+
+  const clearPLCProgram = async (side) => {
+    console.log(`[MainHMI] Clearing PLC program for ${side} side`);
+    try {
+      const sidePrefix = side === 'left' ? 'GLEFTHEAD' : 'GRIGHTHEAD';
+      const headSuffix = side === 'left' ? 'Left' : 'Right';
+      
+      const clearVariables = [
+        // Reset Step 1 positions (index 0=OD, 2=ID)
+        { tag: `${sidePrefix}.l${headSuffix}PosStep1[0]`, value: 0.0 },
+        { tag: `${sidePrefix}.l${headSuffix}PosStep1[2]`, value: 0.0 }
+      ];
+
+      // Add Steps 2-10 position arrays (2D arrays: [step, retract/extend])
+      for (let step = 2; step <= 10; step++) {
+        clearVariables.push({ tag: `${sidePrefix}.a${headSuffix}RedPos[${step},0]`, value: 0.0 });
+        clearVariables.push({ tag: `${sidePrefix}.a${headSuffix}RedPos[${step},1]`, value: 0.0 });
+        clearVariables.push({ tag: `${sidePrefix}.a${headSuffix}ExpPos[${step},0]`, value: 0.0 });
+        clearVariables.push({ tag: `${sidePrefix}.a${headSuffix}ExpPos[${step},1]`, value: 0.0 });
+      }
+
+      // Add step enable variables for all 10 steps
+      for (let step = 1; step <= 10; step++) {
+        clearVariables.push({ tag: `${sidePrefix}.aHmi${headSuffix}StepEna[${step}]`, value: false });
+        clearVariables.push({ tag: `${sidePrefix}.a${headSuffix}RedExtEna[${step}]`, value: false });
+        clearVariables.push({ tag: `${sidePrefix}.a${headSuffix}RedRetEna[${step}]`, value: false });
+        clearVariables.push({ tag: `${sidePrefix}.a${headSuffix}ExpExtEna[${step}]`, value: false });
+        clearVariables.push({ tag: `${sidePrefix}.a${headSuffix}ExpRetEna[${step}]`, value: false });
+        clearVariables.push({ tag: `${sidePrefix}.a${headSuffix}RepeatEna[${step}]`, value: false });
+      }
+      
+      // Fire all writes in parallel
+      const writePromises = clearVariables.map(variable =>
+        fetch('http://localhost:3001/write', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tag: variable.tag, value: variable.value })
+        }).catch(err => console.warn(`[MainHMI] Failed to clear ${variable.tag}:`, err.message))
+      );
+
+      await Promise.all(writePromises);
+      console.log(`[MainHMI] PLC program cleared for ${side} side - ${clearVariables.length} variables`);
+      
+      // Mark program as invalid
+      setProgramValid(prev => ({ ...prev, [side]: false }));
+    } catch (err) {
+      console.error(`[MainHMI] Error clearing PLC program for ${side}:`, err.message);
+      throw err;
+    }
+  };
+
   const handleRunSideSelect = async (side) => {
+    // Check if valid program loaded for this side
+    if (side === 'both') {
+      // For both sides, check that both left AND right have valid programs
+      if (!programValid.left || !programValid.right) {
+        const invalidSides = [];
+        if (!programValid.left) invalidSides.push('left');
+        if (!programValid.right) invalidSides.push('right');
+        const sidesText = invalidSides.join(' and ');
+        showMessage('No Program Loaded', `Cannot run both sides. No valid program loaded on ${sidesText} side. Please create or load programs first.`, 'warning');
+        return;
+      }
+    } else if (!programValid[side]) {
+      showMessage('No Program Loaded', `Cannot run ${side} side. No valid program loaded. Please create or load a program first.`, 'warning');
+      return;
+    }
+    
     try {
       await writePLCVar({ command: 'run', side });
       setRunMode(side);
@@ -2674,6 +2923,31 @@ export default function MainHMI() {
         </div>
       </div>
 
+      {/* Pump Motor Status Banner */}
+      <div className={`pump-status-banner ${pumpEnabled ? 'running' : 'stopped'}`}>
+        <div className="pump-status-content">
+          <span className={`pump-icon ${pumpEnabled ? 'active' : ''}`}>⚙</span>
+          <span className="pump-status-text">
+            PUMP: <strong>{pumpEnabled ? 'RUNNING' : 'STOPPED'}</strong>
+          </span>
+          <span className={`pump-indicator-dot ${pumpEnabled ? 'active' : ''}`} />
+        </div>
+      </div>
+
+      {/* Program Validity Warning Banner */}
+      {(!programValid.left || !programValid.right) && (
+        <div className="program-warning-banner">
+          <div className="program-warning-content">
+            <span className="warning-icon">⚠</span>
+            <span className="warning-text">
+              <strong>NO PROGRAM LOADED:</strong>
+              {!programValid.left && !programValid.right ? ' LEFT & RIGHT' : !programValid.left ? ' LEFT' : ' RIGHT'}
+              {' - Create or load a program before running'}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Machine Status Banner - compact with toggle expand */}
       <div className={`machine-status-banner ${statusBannerExpanded ? 'expanded' : 'compact'}`}>
         <div className="machine-status-content">
@@ -2841,7 +3115,7 @@ export default function MainHMI() {
           homedSides={homedSides}
           atStartPos={atStartPos}
           modeFeedback={modeFeedback}
-          editLockEnabled={editLockEnabled}
+          editLockEnabled={effectiveEditLock}
         />
       </div>
  
@@ -2862,7 +3136,7 @@ export default function MainHMI() {
         onCopyToOtherSide={handleCopyRecipeToOtherSide}
         onTeachRecipe={handleOpenRecipeEditor}
         userRole={currentUser}
-        editLockEnabled={editLockEnabled}
+        editLockEnabled={effectiveEditLock}
       />
 
       <MachineParameters
@@ -2888,6 +3162,11 @@ export default function MainHMI() {
         onOpenLubePage={() => setLubePageOpen(true)}
         onOpenNetIdSettings={() => setNetIdSettingsOpen(true)}
         onCloseNetIdSettings={() => setNetIdSettingsOpen(false)}
+        editLockOverride={editLockOverride}
+        onEditLockOverrideChange={(enabled) => {
+          setEditLockOverride(enabled);
+          localStorage.setItem('editLockOverride', enabled.toString());
+        }}
       />
 
       <DigitalIOPage
@@ -2982,6 +3261,19 @@ export default function MainHMI() {
         onClose={closeMessage}
       />
 
+      {/* AutoTeach Cancel Confirmation Dialog */}
+      {showCancelConfirmDialog && (
+        <ModernDialog
+          open={showCancelConfirmDialog}
+          title="⚠ Cancel Auto Teach?"
+          message={`You have recorded ${autoTeachRecordedSteps} step${autoTeachRecordedSteps > 1 ? 's' : ''}. Cancelling will clear all PLC data for the ${autoTeachSide} side. This will prevent the machine from running until a valid program is loaded.\n\nDo you want to proceed?`}
+          confirmText="Yes, Cancel"
+          cancelText="No, Continue Teaching"
+          onConfirm={handleCancelConfirmYes}
+          onCancel={handleCancelConfirmNo}
+        />
+      )}
+
       {/* Copy Recipe Override Confirmation Dialog */}
       {copyRecipeConfirm.isOpen && (
         <div className="modal-overlay">
@@ -3059,6 +3351,80 @@ export default function MainHMI() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Duplicate Program Name Dialog */}
+      {programDuplicateDialog.isOpen && (
+        <ModernDialog
+          isOpen={programDuplicateDialog.isOpen}
+          onClose={() => setProgramDuplicateDialog({ isOpen: false, type: null, programName: '', side: null, pendingData: null })}
+          width="450px"
+        >
+          <div className="dialog-content">
+            <div className="dialog-header">
+              <h3>Program Already Exists</h3>
+            </div>
+            <div className="dialog-body" style={{ padding: '20px', textAlign: 'center' }}>
+              <p style={{ fontSize: '16px', marginBottom: '20px' }}>
+                A program named "<strong>{programDuplicateDialog.programName}</strong>" already exists on the <strong>{programDuplicateDialog.side}</strong> side.
+              </p>
+              <p style={{ fontSize: '15px', color: '#666' }}>
+                Do you want to override the existing program or choose a different name?
+              </p>
+            </div>
+            <div className="dialog-actions" style={{ display: 'flex', gap: '10px', justifyContent: 'center', padding: '0 20px 20px' }}>
+              <button
+                className="secondary-btn"
+                onClick={() => {
+                  setProgramDuplicateDialog({ isOpen: false, type: null, programName: '', side: null, pendingData: null });
+                }}
+                style={{ flex: 1 }}
+              >
+                Cancel
+              </button>
+              <button
+                className="primary-btn"
+                onClick={() => {
+                  const { type, programName, side, pendingData } = programDuplicateDialog;
+                  setProgramDuplicateDialog({ isOpen: false, type: null, programName: '', side: null, pendingData: null });
+                  
+                  // Reopen name modal for user to enter new name
+                  if (type === 'create') {
+                    setShowProgramNameModal(true);
+                  } else if (type === 'autoteach') {
+                    setShowAutoTeachNameModal(true);
+                  } else if (type === 'import') {
+                    // For import, just show message - user must import with different name via file
+                    showMessage('Import Cancelled', 'Please rename the recipe in the JSON file and import again.', 'info');
+                  }
+                }}
+                style={{ flex: 1 }}
+              >
+                Change Name
+              </button>
+              <button
+                className="warning-btn"
+                onClick={() => {
+                  const { type, programName, side, pendingData } = programDuplicateDialog;
+                  setProgramDuplicateDialog({ isOpen: false, type: null, programName: '', side: null, pendingData: null });
+                  
+                  // Override existing program
+                  if (type === 'create') {
+                    proceedWithProgramCreation(programName, side);
+                  } else if (type === 'autoteach') {
+                    proceedWithAutoTeach(programName, side);
+                  } else if (type === 'import') {
+                    const { recipeName, recipeDescription, side, fullRecipe, options } = pendingData;
+                    proceedWithRecipeCreation(recipeName, recipeDescription, side, fullRecipe, options);
+                  }
+                }}
+                style={{ flex: 1, backgroundColor: '#ff9800', color: 'white' }}
+              >
+                Override
+              </button>
+            </div>
+          </div>
+        </ModernDialog>
       )}
 
       <RecipeParameters
@@ -3196,8 +3562,10 @@ export default function MainHMI() {
                 program: programToDownload,
                 parameters: currentParameters || undefined
               });
+              setProgramValid(prev => ({ ...prev, [programToDownload.side]: true }));
               showMessage('Program Downloaded', `Program "${programToDownload.name}" downloaded to ${programToDownload.side} side`, 'success');
             } catch (e) {
+              setProgramValid(prev => ({ ...prev, [programToDownload.side]: false }));
               showMessage('Download Failed', `Failed to download program "${programToDownload.name}"`, 'error');
             }
             setShowDownloadModal(false);
@@ -3233,14 +3601,7 @@ export default function MainHMI() {
 
         <AutoTeach
           isOpen={autoTeachOpen}
-          onClose={async () => {
-            setAutoTeachOpen(false);
-            setAutoTeachSide(null);
-            setAutoTeachProgramName('');
-            setCurrentScreen(SCREEN_INDEX.MAIN_CONTROL);
-            // Explicitly write screen index to PLC on close
-            await writeScreenIndex(SCREEN_INDEX.MAIN_CONTROL);
-          }}
+          onClose={(stepsRecorded) => handleAutoTeachCancel(stepsRecorded)}
           programName={autoTeachProgramName}
           side={autoTeachSide}
           actualPositions={autoTeachSide === 'right' ? actualPositions.right : actualPositions.left}

@@ -5,15 +5,15 @@ export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach,
   // Role-based access control
   const isAdmin = userRole === 'admin';
   const isInRunMode = modeFeedback?.left?.runMode || modeFeedback?.right?.runMode;
-  const canAutoTeach = !isInRunMode && (isAdmin || ((userRole !== 'operator') && pumpEnabled)) && editLockEnabled; // Disable Auto Teach when in run mode or edit lock disabled
-  const canEditProgram = (userRole !== 'operator' || isAdmin) && editLockEnabled; // Disable Edit Program when edit lock disabled
+  const canAutoTeach = !isInRunMode && (isAdmin || ((userRole !== 'operator') && pumpEnabled)) && (editLockEnabled || isAdmin); // Admin bypasses edit lock
+  const canEditProgram = (userRole !== 'operator' || isAdmin) && (editLockEnabled || isAdmin); // Admin bypasses edit lock
   const canMachineParams = userRole === 'engineering' || isAdmin;
   // Start position enable condition: pump running AND axis homed AND axis NOT at start position
   const leftStartReady = pumpEnabled && homedSides?.left && !atStartPos?.left;
   const rightStartReady = pumpEnabled && homedSides?.right && !atStartPos?.right;
   const leftStartActive = Boolean(startPosFeedback?.left);
   const rightStartActive = Boolean(startPosFeedback?.right);
-  const canPartParameters = editLockEnabled; // Disable Part Parameters when edit lock disabled
+  const canPartParameters = editLockEnabled || isAdmin; // Admin bypasses edit lock
 
   return (
     <>
@@ -48,7 +48,9 @@ export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach,
             onClick={onAutoTeach}
             disabled={!canAutoTeach}
             title={
-              !editLockEnabled 
+              isAdmin && !canAutoTeach && isInRunMode
+                ? 'Auto Teach disabled during run mode'
+                : (!editLockEnabled && !isAdmin)
                 ? 'Enable edit lock switch to modify programs' 
                 : isInRunMode 
                   ? 'Auto Teach disabled during run mode' 
@@ -67,8 +69,8 @@ export default function ControlPanel({ onEditProgram, onParameters, onAutoTeach,
             onClick={onEditProgram}
             disabled={!canEditProgram}
             title={
-              !editLockEnabled 
-                ? 'Enable edit lock switch to modify programs' 
+              (!editLockEnabled && !isAdmin)
+                ? 'Enable edit lock switch to modify programs (Admin bypasses this)' 
                 : canEditProgram 
                   ? 'Edit program' 
                   : 'Operators cannot edit programs'

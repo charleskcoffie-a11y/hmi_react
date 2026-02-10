@@ -5,7 +5,7 @@ import NetIDSettings from './NetIDSettings';
 import PasswordKeypad from './PasswordKeypad';
 import '../styles/MachineParameters.css';
 
-export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknown', unitSystem = 'mm', onUnitChange, userRole = 'operator', userPasswords = { admin: '5771', operator: 'op123', setup: 'setup123', engineering: 'eng123' }, onUpdatePasswords, onOpenDebug = () => {}, homingTimeout = 60, onHomingTimeoutChange = () => {}, onOpenLubePage = () => {}, onOpenNetIdSettings = () => {}, onCloseNetIdSettings = () => {} }) {
+export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknown', unitSystem = 'mm', onUnitChange, userRole = 'operator', userPasswords = { admin: '5771', operator: 'op123', setup: 'setup123', engineering: 'eng123' }, onUpdatePasswords, onOpenDebug = () => {}, homingTimeout = 60, onHomingTimeoutChange = () => {}, onOpenLubePage = () => {}, onOpenNetIdSettings = () => {}, onCloseNetIdSettings = () => {}, editLockOverride = false, onEditLockOverrideChange = () => {} }) {
   const [parameters, setParameters] = useState(() => {
     // Load from localStorage if available
     const saved = localStorage.getItem('machineParameters');
@@ -179,6 +179,18 @@ export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknow
         <div className="params-header">
             <div>
               <h2>Machine Parameters</h2>
+              <div style={{ 
+                marginBottom: '10px', 
+                padding: '8px 12px', 
+                background: isAdmin ? 'linear-gradient(135deg, #00cc66 0%, #00aa44 100%)' : 'linear-gradient(135deg, #cc6600 0%, #aa4400 100%)',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                color: 'white',
+                textAlign: 'center'
+              }}>
+                👤 Current User: {userRole.toUpperCase()} {isAdmin ? '(Can access Edit Lock Override)' : '(Login as ADMIN to see Edit Lock Override)'}
+              </div>
               <div className="plc-connection-line">
                 <span className={`status-dot ${actualConnectionStatus}`}></span>
                 <span className="plc-connection-text">
@@ -367,6 +379,58 @@ export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknow
 
             {/* Right Column */}
             <div className="params-column">
+              {/* Show current user role */}
+              <div className="current-user-indicator">
+                <span className="user-badge" style={{
+                  background: isAdmin ? 'linear-gradient(135deg, #00cc66 0%, #00aa44 100%)' : 'linear-gradient(135deg, #666 0%, #444 100%)',
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  fontWeight: 'bold',
+                  color: 'white',
+                  display: 'inline-block',
+                  marginBottom: '12px'
+                }}>
+                  👤 Logged in as: {userRole.toUpperCase()}
+                </span>
+              </div>
+
+              {/* Edit Lock Override - Admin Only - TOP POSITION */}
+              {isAdmin && (
+                <div className="edit-lock-override-section" style={{ marginBottom: '26px' }}>
+                  <div>
+                    <h3 className="override-title">🔓 Edit Lock Override (Testing)</h3>
+                    <p className="override-note">
+                      {editLockOverride 
+                        ? '✅ Edit features enabled without physical key switch'
+                        : '⚠️ Edit features require physical key switch when disabled'}
+                    </p>
+                    <p className="override-warning">Admin Only: Bypass physical edit lock for testing</p>
+                  </div>
+                  <button
+                    className={`override-toggle-btn ${editLockOverride ? 'enabled' : 'disabled'}`}
+                    onClick={() => onEditLockOverrideChange(!editLockOverride)}
+                    title={editLockOverride ? 'Click to disable edit lock override' : 'Click to enable edit lock override'}
+                  >
+                    {editLockOverride ? '🔓 Override ON' : '🔒 Override OFF'}
+                  </button>
+                </div>
+              )}
+
+              {!isAdmin && (
+                <div className="user-warning" style={{
+                  padding: '14px',
+                  background: 'rgba(255, 150, 0, 0.2)',
+                  border: '1px solid rgba(255, 150, 0, 0.5)',
+                  borderRadius: '8px',
+                  marginBottom: '20px',
+                  color: '#ffcc66',
+                  fontSize: '13px'
+                }}>
+                  ⚠️ <strong>Edit Lock Override</strong> is only available to admin users. Please log in as admin to access testing features.
+                </div>
+              )}
+
               <div className="parameters-list">
                 {parameterConfigs.slice(5).map(config => (
                   <div key={config.key} className="parameter-row">

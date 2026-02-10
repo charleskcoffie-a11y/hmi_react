@@ -518,6 +518,15 @@ export default function AutoTeach({
     const getPageDisplay = (step) => step <= 10 ? '' : ` (Page 2)`;
     const defaultStepName = stepNumberToRecord === 1 ? 'Start Position' : `Step ${stepNumberToRecord}${getPageDisplay(stepNumberToRecord)}`;
     const defaultDwell = 0;
+    
+    // DEBUG: Log the positions being recorded
+    console.log(`[AutoTeach] Recording Step ${stepNumberToRecord}:`, {
+      side,
+      safeActualPositions,
+      enabledAxis,
+      pattern: patternToRecord
+    });
+    
     const newStep = {
       step: stepNumberToRecord,
       stepName: stepName?.trim() ? stepName.trim() : defaultStepName,
@@ -541,6 +550,9 @@ export default function AutoTeach({
           }
         : {}),
     };
+    
+    // DEBUG: Log the final step positions before sending to PLC
+    console.log(`[AutoTeach] Step ${stepNumberToRecord} positions to be recorded:`, newStep.positions);
 
     setRecordedSteps((prev) => {
       const next = [...prev, newStep];
@@ -946,7 +958,7 @@ export default function AutoTeach({
         onCancel={dialog.cancel}
       />
 
-      <div className="auto-teach-overlay" onClick={onClose}>
+      <div className="auto-teach-overlay" onClick={() => onClose(recordedSteps.length)}>
         <div className="auto-teach-modal" onClick={(e) => e.stopPropagation()}>
           <div className="auto-teach-header">
             <h2 className="auto-teach-title-h2">🎯 Auto Mode</h2>
@@ -962,7 +974,7 @@ export default function AutoTeach({
               </div>
               <div className="progress-text">{recordedSteps.length}/20</div>
             </div>
-            <button className="close-btn" onClick={onClose}>✕</button>
+            <button className="close-btn" onClick={() => onClose(recordedSteps.length)}>✕</button>
           </div>
 
           <div className="auto-teach-content">

@@ -723,6 +723,13 @@ function createServer() {
         return res.status(400).json({ success: false, error: 'Missing side or program data' });
       }
 
+      console.log(`[plc-server] /write-program called with:`, {
+        side,
+        programName: program.name,
+        numSteps: Object.keys(program.steps).length,
+        stepNumbers: Object.keys(program.steps).sort((a, b) => Number(a) - Number(b))
+      });
+
       const gvlPrefix = side === 'left' ? 'GLEFTHEAD' : 'GRIGHTHEAD';
       const headPrefix = side === 'left' ? 'Left' : 'Right';
 
@@ -790,6 +797,17 @@ function createServer() {
             const idAxisCmd = side === 'left' ? step.positions.axis3Cmd : step.positions.axis1Cmd;
             const odAxisCmd = side === 'left' ? step.positions.axis4Cmd : step.positions.axis2Cmd;
             
+            // DEBUG: Log what positions we're about to write
+            console.log(`[plc-server] Step ${stepNum} - Position data:`, {
+              side,
+              stepNumber: stepNum,
+              receivedPositions: step.positions,
+              extractedIdAxisCmd: idAxisCmd,
+              extractedOdAxisCmd: odAxisCmd,
+              pattern: step.pattern,
+              patternSettings: pattern
+            });
+            
             if (stepNum === 1) {
               // Step 1: uses lRightPosStep1 / lLeftPosStep1 with fixed indices
               // [0] = OD (Red), [2] = ID (Exp)
@@ -810,19 +828,33 @@ function createServer() {
               // [step,0] = Retract pos, [step,1] = Extend pos
               // Right: axis1Cmd = ID (Exp), axis2Cmd = OD (Red)
               // Left: axis3Cmd = ID (Exp), axis4Cmd = OD (Red)
-              if (idAxisCmd !== undefined) {
+              if (idAxisCmd !== undefined && idAxisCmd !== null) {
                 // Determine Exp (ID) index: 0=retract, 1=extend
                 const expIdx = (pattern.expExt) ? 1 : 0;
                 const tag = `${gvlPrefix}.a${headPrefix}ExpPos[${stepNum},${expIdx}]`;
                 console.log(`[plc-server] ${side} Step ${stepNum}: Writing ID position (ExpPos[${stepNum},${expIdx}]) = ${idAxisCmd}`);
-                await writeTagValue(tag, idAxisCmd);
+                try {
+                  await writeTagValue(tag, idAxisCmd);
+                  console.log(`[plc-server] SUCCESS: ${tag} = ${idAxisCmd}`);
+                } catch (writeErr) {
+                  console.error(`[plc-server] FAILED to write ${tag}:`, writeErr.message);
+                }
+              } else {
+                console.warn(`[plc-server] Step ${stepNum}: ID axis is undefined/null, skipping write`);
               }
-              if (odAxisCmd !== undefined) {
+              if (odAxisCmd !== undefined && odAxisCmd !== null) {
                 // Determine Red (OD) index: 0=retract, 1=extend
                 const redIdx = (pattern.redExt) ? 1 : 0;
                 const tag = `${gvlPrefix}.a${headPrefix}RedPos[${stepNum},${redIdx}]`;
                 console.log(`[plc-server] ${side} Step ${stepNum}: Writing OD position (RedPos[${stepNum},${redIdx}]) = ${odAxisCmd}`);
-                await writeTagValue(tag, odAxisCmd);
+                try {
+                  await writeTagValue(tag, odAxisCmd);
+                  console.log(`[plc-server] SUCCESS: ${tag} = ${odAxisCmd}`);
+                } catch (writeErr) {
+                  console.error(`[plc-server] FAILED to write ${tag}:`, writeErr.message);
+                }
+              } else {
+                console.warn(`[plc-server] Step ${stepNum}: OD axis is undefined/null, skipping write`);
               }
             }
           }

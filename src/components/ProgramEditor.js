@@ -20,6 +20,8 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
   const [autoEditDialog, setAutoEditDialog] = useState({ open: false, currentDiameter: '', desiredDiameter: '' });
   const [dwellDialog, setDwellDialog] = useState({ open: false });
   const [patternDialog, setPatternDialog] = useState({ open: false, selectedStep: null });
+  const [reteachDialog, setReteachDialog] = useState({ open: false, stepNumber: '' });
+  const [reteachPatternDialog, setReteachPatternDialog] = useState({ open: false, stepNumber: null, pattern: 0 });
   const [teachDialog, setTeachDialog] = useState({ open: false, stepNumber: null, jogMode: false });
   const [currentTeachPositions, setCurrentTeachPositions] = useState({ axis1Cmd: 0, axis2Cmd: 0 });
   const [jogHint, setJogHint] = useState(false);
@@ -29,6 +31,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
   const [showAxisModal, setShowAxisModal] = useState(false);
   const [showSpeedModal, setShowSpeedModal] = useState(false);
   const [pendingStep, setPendingStep] = useState(null); // Store step data while waiting for axis selection
+  const [reteachTarget, setReteachTarget] = useState(null); // Store step data while reteaching
   const [jogMode, setJogMode] = useState(false); // Jog mode local UI state
   const [jogModeActive, setJogModeActive] = useState(false); // PLC feedback for jog mode
   const [selectedJogAxis, setSelectedJogAxis] = useState(null); // Selected axis for jog
@@ -400,7 +403,19 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
 
     if (keypadTarget.type === 'repeatTargetStep') {
       const parsed = parseInt(value, 10);
-      setRepeatDialog((prev) => ({ ...prev, repeatTargetStep: isNaN(parsed) ? '' : parsed }));
+      const stepNumber = repeatDialog.stepNumber;
+      const safeTarget = isNaN(parsed) ? 1 : Math.max(1, Math.min(parsed, stepNumber - 1));
+      
+      // Update editedSteps with the new repeat target
+      const updatedSteps = editedSteps.map(step => {
+        if (step.stepNumber === stepNumber) {
+          return { ...step, repeatTargetStep: safeTarget };
+        }
+        return step;
+      });
+      setEditedSteps(updatedSteps);
+      
+      setRepeatDialog((prev) => ({ ...prev, repeatTargetStep: safeTarget }));
       setKeypadOpen(false);
       setKeypadTarget(null);
       return;
@@ -408,7 +423,27 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
 
     if (keypadTarget.type === 'repeatCount') {
       const parsed = parseInt(value, 10);
-      setRepeatDialog((prev) => ({ ...prev, repeatCount: isNaN(parsed) ? '' : parsed }));
+      const stepNumber = repeatDialog.stepNumber;
+      const safeCount = isNaN(parsed) ? 1 : Math.max(1, Math.min(parsed, 999));
+      
+      // Update editedSteps with the new repeat count
+      const updatedSteps = editedSteps.map(step => {
+        if (step.stepNumber === stepNumber) {
+          return { ...step, repeatCount: safeCount };
+        }
+        return step;
+      });
+      setEditedSteps(updatedSteps);
+      
+      setRepeatDialog((prev) => ({ ...prev, repeatCount: safeCount }));
+      setKeypadOpen(false);
+      setKeypadTarget(null);
+      return;
+    }
+
+    if (keypadTarget.type === 'reteachStep') {
+      const parsed = parseInt(value, 10);
+      setReteachDialog((prev) => ({ ...prev, stepNumber: isNaN(parsed) ? '' : parsed }));
       setKeypadOpen(false);
       setKeypadTarget(null);
       return;
@@ -456,11 +491,15 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
     setKeypadTarget(null);
   };
 
+  const getForbiddenPatterns = (stepNumber) => new Set(
+    stepNumber === 2 ? [1, 3, 4, 5, 8] : stepNumber === 10 ? [0, 2, 6] : []
+  );
+
+  const returnPatterns = new Set([1, 3, 4, 7]); // Red Ret, Exp Ret, Both Ret, RedExt+ExpRet
+
   const handleEditPattern = (stepNumber, newPattern) => {
     // Enforce pattern restrictions: Step 2 disallow 1,3,4,5,8; Step 10 disallow 0,2,6
-    const forbidden = new Set(
-      stepNumber === 2 ? [1, 3, 4, 5, 8] : stepNumber === 10 ? [0, 2, 6] : []
-    );
+    const forbidden = getForbiddenPatterns(stepNumber);
     if (forbidden.has(Number(newPattern))) {
       setDialog({
         open: true,
@@ -496,6 +535,92 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
       return step;
     });
     setEditedSteps(updatedSteps);
+  };
+
+  const applyReturnCopy = (stepNumber, patternOverride = null) => {
+    const step1 = editedSteps.find((s) => s.stepNumber === 1);
+    if (!step1) {
+      setDialog({ open: true, title: 'Missing Step 1', message: 'Cannot auto-copy return positions without Step 1.' });
+      return;
+    }
+    const idPos = program.side === 'left'
+      ? Number(step1.positions?.axis3Cmd ?? step1.positions?.axis1Cmd ?? 0)
+      : Number(step1.positions?.axis1Cmd ?? step1.positions?.axis3Cmd ?? 0);
+    const odPos = program.side === 'left'
+      ? Number(step1.positions?.axis4Cmd ?? step1.positions?.axis2Cmd ?? 0)
+      : Number(step1.positions?.axis2Cmd ?? step1.positions?.axis4Cmd ?? 0);
+
+    const updated = editedSteps.map((step) => {
+      if (step.stepNumber !== stepNumber) return step;
+      const nextPositions = program.side === 'left'
+        ? {
+            ...step.positions,
+            axis3Cmd: idPos,
+            axis4Cmd: odPos
+          }
+        : {
+            ...step.positions,
+            axis1Cmd: idPos,
+            axis2Cmd: odPos
+          };
+      return {
+        ...step,
+        pattern: patternOverride ?? step.pattern,
+        positions: nextPositions
+      };
+    });
+    setEditedSteps(updated);
+  };
+
+  const handleReteachStart = (stepNumber, patternOverride = null) => {
+    const targetStep = editedSteps.find((s) => s.stepNumber === stepNumber);
+    if (!targetStep) {
+      setDialog({ open: true, title: 'Step Not Found', message: `Step ${stepNumber} does not exist.` });
+      return;
+    }
+
+    const nextPattern = patternOverride ?? targetStep.pattern;
+    const forbidden = getForbiddenPatterns(stepNumber);
+    if (forbidden.has(Number(nextPattern))) {
+      setDialog({
+        open: true,
+        title: 'Pattern Not Allowed',
+        message:
+          stepNumber === 2
+            ? 'Selected pattern is not allowed for Step 2.'
+            : 'Selected pattern is not allowed for Step 10.'
+      });
+      return;
+    }
+
+    if (Number(nextPattern) === 5) {
+      // Open repeat configuration dialog for repeat pattern steps
+      const eligibleTargets = editedSteps
+        .filter(s => s.stepNumber < stepNumber && s.stepNumber >= 1)
+        .map(s => s.stepNumber);
+      const fallbackTarget = eligibleTargets.length > 0 ? Math.max(...eligibleTargets) : 1;
+      
+      setRepeatDialog({
+        open: true,
+        stepNumber: stepNumber,
+        repeatTargetStep: targetStep.repeatTargetStep || fallbackTarget,
+        repeatCount: targetStep.repeatCount || 1
+      });
+      return;
+    }
+
+    if (returnPatterns.has(Number(nextPattern))) {
+      applyReturnCopy(stepNumber, nextPattern);
+      return;
+    }
+
+    setReteachTarget({
+      stepNumber,
+      pattern: nextPattern,
+      axesPattern: stepNumber === 1 ? 6 : nextPattern
+    });
+    setShowAxisModal(true);
+    setJogHint(true);
   };
 
   const handleSave = () => {
@@ -605,6 +730,12 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
               <button className="step-action-btn delete" onClick={() => setStepDialog({ open: true, mode: 'delete', stepNumber: '', pattern: 0, repeatTargetStep: 1, repeatCount: 1 })}>
                 🗑 Delete Step
               </button>
+              <button
+                className="step-action-btn reteach"
+                onClick={() => setReteachDialog({ open: true, stepNumber: '' })}
+              >
+                ↺ Reteach
+              </button>
             </div>
             <div className="program-actions-group">
               <button className="auto-edit-btn" onClick={() => setAutoEditDialog({ open: true, currentDiameter: '', desiredDiameter: '' })}>
@@ -672,9 +803,28 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                 <div className="steps-grid">
                   {displaySteps.map((step) => {
                   const patternName = patternOptions.find((p) => p.code === step.pattern)?.name || `Pattern ${step.pattern}`;
+                  const canReteachHeader = true; // All steps can be clicked - repeat opens config dialog
+                  const headerTitle = step.pattern === 5 
+                    ? 'Click to edit repeat settings' 
+                    : 'Click to reteach this step';
                   return (
                   <div key={step.stepNumber} className="step-editor-card">
-                    <div className="step-card-header">
+                    <div
+                      className={`step-card-header ${canReteachHeader ? 'reteach-enabled' : 'reteach-disabled'}`}
+                      onClick={() => {
+                        if (canReteachHeader) handleReteachStart(step.stepNumber);
+                      }}
+                      onKeyDown={(e) => {
+                        if (!canReteachHeader) return;
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handleReteachStart(step.stepNumber);
+                        }
+                      }}
+                      role="button"
+                      tabIndex={canReteachHeader ? 0 : -1}
+                      title={headerTitle}
+                    >
                       <span className="step-number">Step {step.stepNumber} - {patternName}</span>
                       <span className="step-name">{step.stepName}</span>
                     </div>
@@ -730,13 +880,39 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                           <>
                             <div className="settings-row">
                               <label>Repeat Step:</label>
-                              <div className="setting-value">
+                              <div 
+                                className="setting-value editable"
+                                onClick={() => {
+                                  setKeypadTarget({ type: 'repeatTargetStep' });
+                                  setKeypadValue(String(step.repeatTargetStep || 1));
+                                  setRepeatDialog({
+                                    open: false,
+                                    stepNumber: step.stepNumber,
+                                    repeatTargetStep: step.repeatTargetStep || 1,
+                                    repeatCount: step.repeatCount || 1
+                                  });
+                                  setKeypadOpen(true);
+                                }}
+                              >
                                 {step.repeatTargetStep || 1}
                               </div>
                             </div>
                             <div className="settings-row">
                               <label>Repeat Count:</label>
-                              <div className="setting-value">
+                              <div 
+                                className="setting-value editable"
+                                onClick={() => {
+                                  setKeypadTarget({ type: 'repeatCount' });
+                                  setKeypadValue(String(step.repeatCount || 1));
+                                  setRepeatDialog({
+                                    open: false,
+                                    stepNumber: step.stepNumber,
+                                    repeatTargetStep: step.repeatTargetStep || 1,
+                                    repeatCount: step.repeatCount || 1
+                                  });
+                                  setKeypadOpen(true);
+                                }}
+                              >
                                 {step.repeatCount || 1}
                               </div>
                             </div>
@@ -758,6 +934,8 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
           title={
             keypadTarget?.type === 'deleteStep'
               ? 'Delete Step Number'
+              : keypadTarget?.type === 'reteachStep'
+              ? 'Reteach Step Number'
               : keypadTarget?.type === 'repeatTargetStep'
               ? 'Repeat: Target Step'
               : keypadTarget?.type === 'repeatCount'
@@ -778,6 +956,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
           }
           unit={
             keypadTarget?.type === 'deleteStep' ? '' :
+            keypadTarget?.type === 'reteachStep' ? '' :
             keypadTarget?.type === 'repeatTargetStep' ? '' :
             keypadTarget?.type === 'repeatCount' ? '' :
             keypadTarget?.type === 'autoCurrentDiameter' ? (unitSystem === 'inch' ? 'in' : 'mm') :
@@ -789,7 +968,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
           initialValue={keypadValue}
           decimals={keypadTarget?.type === 'position' || keypadTarget?.type === 'autoCurrentDiameter' || keypadTarget?.type === 'autoDesiredDiameter' ? 3 : 0}
           allowNegative={false}
-          allowAddSub={!(keypadTarget?.type === 'deleteStep' || keypadTarget?.type === 'repeatTargetStep' || keypadTarget?.type === 'repeatCount')}
+          allowAddSub={!(keypadTarget?.type === 'deleteStep' || keypadTarget?.type === 'reteachStep' || keypadTarget?.type === 'repeatTargetStep' || keypadTarget?.type === 'repeatCount')}
           onSubmit={(val) => {
             handleKeypadSubmit(val);
           }}
@@ -883,7 +1062,6 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
               };
               
               const pattern = Number(stepDialog.pattern ?? 0);
-              const returnPatterns = new Set([1, 3, 4, 7]); // Red Ret, Exp Ret, Both Ret, RedExt+ExpRet
               
               setPendingStep(newStep);
               setStepDialog({ open: false, mode: 'add', stepNumber: '', pattern: 0, repeatTargetStep: 1, repeatCount: 1 });
@@ -1016,6 +1194,122 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                 <div className="dialog-hint accent">After adding, jog mode will be active to teach the new step.</div>
               </>
             )}
+          </div>
+        </ModernDialog>
+
+        <ModernDialog
+          isOpen={reteachDialog.open}
+          title="↺ Reteach Step"
+          onCancel={() => setReteachDialog({ open: false, stepNumber: '' })}
+          onConfirm={() => {
+            const target = parseInt(reteachDialog.stepNumber, 10);
+            if (isNaN(target) || target < 1 || target > editedSteps.length) {
+              setDialog({ open: true, title: 'Invalid Step', message: 'Please enter a valid step number to reteach.' });
+              return;
+            }
+            handleReteachStart(target);
+            setReteachDialog({ open: false, stepNumber: '' });
+          }}
+          confirmText="Reteach"
+          cancelText="Cancel"
+        >
+          <div className="step-dialog-modern reteach-dialog">
+            <div className="dialog-header-row">
+              <div className="dialog-icon">↺</div>
+              <div className="dialog-heading">
+                <div className="dialog-title-text">Reteach a step</div>
+                <div className="dialog-subtitle">Select a step to reteach positions</div>
+              </div>
+              <div className="dialog-pill">{editedSteps.length}/20 steps</div>
+            </div>
+
+            <div className="step-dialog-section two-col">
+              <div>
+                <label className="dialog-label">Step to reteach</label>
+                <input
+                  type="number"
+                  min="1"
+                  max={editedSteps.length}
+                  value={reteachDialog.stepNumber}
+                  onChange={(e) => setReteachDialog((prev) => ({ ...prev, stepNumber: e.target.value }))}
+                  onClick={() => {
+                    setKeypadTarget({ type: 'reteachStep' });
+                    setKeypadValue(reteachDialog.stepNumber || '');
+                    setKeypadOpen(true);
+                  }}
+                  readOnly
+                  className="step-dialog-input modern"
+                  style={{ cursor: 'pointer' }}
+                />
+                <div className="dialog-hint">Range 1 - {editedSteps.length}</div>
+              </div>
+              <div>
+                <label className="dialog-label">Pattern</label>
+                <div className="dialog-value-chip">
+                  {(() => {
+                    const target = parseInt(reteachDialog.stepNumber, 10);
+                    const step = editedSteps.find((s) => s.stepNumber === target);
+                    const label = patternOptions.find((p) => p.code === step?.pattern)?.name;
+                    return label || (step ? `Pattern ${step.pattern}` : 'Select a step');
+                  })()}
+                </div>
+                <button
+                  className="reteach-change-pattern-btn"
+                  onClick={() => {
+                    const target = parseInt(reteachDialog.stepNumber, 10);
+                    if (isNaN(target)) {
+                      setDialog({ open: true, title: 'Select Step', message: 'Choose a step before changing the pattern.' });
+                      return;
+                    }
+                    const step = editedSteps.find((s) => s.stepNumber === target);
+                    if (!step) return;
+                    setReteachPatternDialog({ open: true, stepNumber: target, pattern: step.pattern ?? 0 });
+                  }}
+                >
+                  Change Pattern
+                </button>
+              </div>
+            </div>
+            <div className="dialog-hint accent">Return patterns auto-copy Step 1 positions. Repeat steps cannot be re-taught.</div>
+          </div>
+        </ModernDialog>
+
+        <ModernDialog
+          isOpen={reteachPatternDialog.open}
+          title={`Change Pattern${reteachPatternDialog.stepNumber ? ` (Step ${reteachPatternDialog.stepNumber})` : ''}`}
+          onCancel={() => setReteachPatternDialog({ open: false, stepNumber: null, pattern: 0 })}
+          onConfirm={() => {
+            if (!reteachPatternDialog.stepNumber) {
+              setReteachPatternDialog({ open: false, stepNumber: null, pattern: 0 });
+              return;
+            }
+            handleReteachStart(reteachPatternDialog.stepNumber, reteachPatternDialog.pattern);
+            setReteachPatternDialog({ open: false, stepNumber: null, pattern: 0 });
+            setReteachDialog({ open: false, stepNumber: '' });
+          }}
+          confirmText="Reteach"
+          cancelText="Cancel"
+        >
+          <div className="step-dialog-modern reteach-pattern-dialog">
+            <div className="step-dialog-section">
+              <label className="dialog-label">Select new pattern</label>
+              <select
+                className="step-dialog-select modern"
+                value={reteachPatternDialog.pattern}
+                onChange={(e) => setReteachPatternDialog((prev) => ({ ...prev, pattern: parseInt(e.target.value, 10) }))}
+              >
+                {patternOptions.map((opt) => {
+                  const forbidden = getForbiddenPatterns(reteachPatternDialog.stepNumber);
+                  const disableRepeat = opt.code === 5;
+                  return (
+                    <option key={opt.code} value={opt.code} disabled={forbidden.has(opt.code) || disableRepeat}>
+                      {opt.code} - {opt.name}{disableRepeat ? ' (not allowed)' : ''}
+                    </option>
+                  );
+                })}
+              </select>
+              <div className="dialog-hint">After confirming, the reteach dialog will open for positions.</div>
+            </div>
           </div>
         </ModernDialog>
 
@@ -1268,9 +1562,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                   className="pattern-select-dialog"
                 >
                   {patternOptions.map(opt => {
-                    const forbidden = new Set(
-                      patternDialog.selectedStep === 2 ? [1, 3, 4, 5, 8] : patternDialog.selectedStep === 20 ? [0, 2, 6] : []
-                    );
+                    const forbidden = getForbiddenPatterns(patternDialog.selectedStep);
                     return (
                       <option key={opt.code} value={opt.code} disabled={forbidden.has(opt.code)}>
                         {opt.code} - {opt.name}
@@ -1396,9 +1688,47 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
           onClose={() => {
             setShowAxisModal(false);
             setPendingStep(null);
+            setReteachTarget(null);
             setLastAxisFeedback([]);
           }}
           onSelectAxis={async (axis) => {
+            if (reteachTarget) {
+              try {
+                const posData = await readAxisPositions();
+                const sidePositions = program.side === 'right' ? posData.actualPositions.right : posData.actualPositions.left;
+                const positions = program.side === 'left'
+                  ? {
+                      axis3Cmd: Number(sidePositions?.axis1) || 0,
+                      axis4Cmd: Number(sidePositions?.axis2) || 0
+                    }
+                  : {
+                      axis1Cmd: Number(sidePositions?.axis1) || 0,
+                      axis2Cmd: Number(sidePositions?.axis2) || 0
+                    };
+
+                const updated = editedSteps.map((step) => {
+                  if (step.stepNumber !== reteachTarget.stepNumber) return step;
+                  return {
+                    ...step,
+                    pattern: reteachTarget.pattern,
+                    positions: { ...step.positions, ...positions }
+                  };
+                });
+                setEditedSteps(updated);
+                setReteachTarget(null);
+                setShowAxisModal(false);
+                setLastAxisFeedback([]);
+              } catch (err) {
+                console.error('[ProgramEditor] Error reading positions for reteach:', err.message);
+                setDialog({
+                  open: true,
+                  title: 'Position Read Failed',
+                  message: `Failed to read current axis positions: ${err.message}`
+                });
+              }
+              return;
+            }
+
             if (pendingStep) {
               try {
                 // Read current PLC positions and populate the step
@@ -1442,8 +1772,8 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
           }}
           onAxisClick={handleEnableAxis}
           side={program.side}
-          patternCode={pendingStep?.pattern ?? 0}
-          stepNumber={pendingStep?.stepNumber ?? 0}
+          patternCode={reteachTarget?.axesPattern ?? pendingStep?.pattern ?? 0}
+          stepNumber={reteachTarget?.stepNumber ?? pendingStep?.stepNumber ?? 0}
           lastFeedback={lastAxisFeedback}
           jogSpeed={jogSpeed}
         />
