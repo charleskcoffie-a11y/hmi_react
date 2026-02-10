@@ -523,10 +523,15 @@ export default function AutoTeach({
       stepName: stepName?.trim() ? stepName.trim() : defaultStepName,
       pattern: patternToRecord,
       needsReteach: false,
-      positions: {
-        axis1Cmd: Number(safeActualPositions.axis1) || 0,
-        axis2Cmd: Number(safeActualPositions.axis2) || 0,
-      },
+      positions: side === 'left'
+        ? {
+            axis3Cmd: Number(safeActualPositions.axis1) || 0,
+            axis4Cmd: Number(safeActualPositions.axis2) || 0,
+          }
+        : {
+            axis1Cmd: Number(safeActualPositions.axis1) || 0,
+            axis2Cmd: Number(safeActualPositions.axis2) || 0,
+          },
       dwell: defaultDwell,
       enabledAxis: enabledAxis, // Track which axis was enabled
       ...(patternToRecord === 5
@@ -599,12 +604,12 @@ export default function AutoTeach({
         needsReteach: false,
         positions: side === 'left' 
           ? {
-              axis3Cmd: step1.positions.axis3Cmd || 0,
-              axis4Cmd: step1.positions.axis4Cmd || 0,
+              axis3Cmd: step1.positions?.axis3Cmd || 0,
+              axis4Cmd: step1.positions?.axis4Cmd || 0,
             }
           : {
-              axis1Cmd: step1.positions.axis1Cmd || 0,
-              axis2Cmd: step1.positions.axis2Cmd || 0,
+              axis1Cmd: step1.positions?.axis1Cmd || 0,
+              axis2Cmd: step1.positions?.axis2Cmd || 0,
             },
         dwell: 0,
         enabledAxis: null, // Auto-copy doesn't need axis selection
@@ -631,10 +636,15 @@ export default function AutoTeach({
           stepName: defaultStepName,
           pattern: patternCode,
           needsReteach: false,
-          positions: {
-            axis1Cmd: Number(safeActualPositions.axis1) || 0,
-            axis2Cmd: Number(safeActualPositions.axis2) || 0,
-          },
+          positions: side === 'left'
+            ? {
+                axis3Cmd: Number(safeActualPositions.axis1) || 0,
+                axis4Cmd: Number(safeActualPositions.axis2) || 0,
+              }
+            : {
+                axis1Cmd: Number(safeActualPositions.axis1) || 0,
+                axis2Cmd: Number(safeActualPositions.axis2) || 0,
+              },
           dwell: 0,
           enabledAxis: null,
         };
@@ -771,10 +781,15 @@ export default function AutoTeach({
       stepName: defaultStepName,
       pattern: pendingPattern ?? pattern,
       needsReteach: false,
-      positions: {
-        axis1Cmd: Number(safeActualPositions.axis1) || 0,
-        axis2Cmd: Number(safeActualPositions.axis2) || 0,
-      },
+      positions: side === 'left'
+        ? {
+            axis3Cmd: Number(safeActualPositions.axis1) || 0,
+            axis4Cmd: Number(safeActualPositions.axis2) || 0,
+          }
+        : {
+            axis1Cmd: Number(safeActualPositions.axis1) || 0,
+            axis2Cmd: Number(safeActualPositions.axis2) || 0,
+          },
       dwell: 0,
       enabledAxis: axis,
     };
