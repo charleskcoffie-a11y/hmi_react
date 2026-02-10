@@ -787,7 +787,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
             'ms'
           }
           initialValue={keypadValue}
-          decimals={keypadTarget?.type === 'position' ? 3 : 0}
+          decimals={keypadTarget?.type === 'position' || keypadTarget?.type === 'autoCurrentDiameter' || keypadTarget?.type === 'autoDesiredDiameter' ? 3 : 0}
           allowNegative={false}
           allowAddSub={!(keypadTarget?.type === 'deleteStep' || keypadTarget?.type === 'repeatTargetStep' || keypadTarget?.type === 'repeatCount')}
           onSubmit={(val) => {
