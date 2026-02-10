@@ -1472,11 +1472,12 @@ export default function MainHMI() {
   const sendRecipeParametersToPLC = async (parameters, side) => {
     if (!parameters || !side) return false;
     try {
+      console.log(`[MainHMI] Sending recipe parameters to PLC for ${side} side:`, parameters);
       await writePLCVar({
         command: 'setRecipeParameters',
         side,
         parameters: {
-          speed: parameters.recipeSpeed || 100,
+          speed: parameters.recipeSpeed || 100,  // Map recipeSpeed to speed for backend
           stepDelay: parameters.stepDelay || 500,
           tubeID: parameters.tubeID || 0,
           tubeOD: parameters.tubeOD || 0,
@@ -1487,10 +1488,10 @@ export default function MainHMI() {
           depth: parameters.depth || 0
         }
       });
-      console.log(`Recipe parameters sent to PLC for ${side} side`);
+      console.log(`[MainHMI] Recipe parameters sent successfully to PLC for ${side} side`);
       return true;
     } catch (error) {
-      console.error(`Failed to send recipe parameters to PLC: ${error.message}`);
+      console.error(`[MainHMI] Failed to send recipe parameters to PLC for ${side} side:`, error.message);
       return false;
     }
   };
