@@ -868,7 +868,9 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
               const newStep = {
                 stepNumber: insertAt,
                 stepName: `Step ${insertAt}`,
-                positions: { axis1Cmd: 0, axis2Cmd: 0 },
+                positions: program.side === 'left'
+                  ? { axis3Cmd: 0, axis4Cmd: 0 }
+                  : { axis1Cmd: 0, axis2Cmd: 0 },
                 pattern: stepDialog.pattern ?? 0,
                 dwell: [1, 3, 4].includes(Number(stepDialog.pattern)) ? 0 : programDwell,
                 speed: programSpeed,
@@ -1405,10 +1407,15 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                 
                 const updatedStep = {
                   ...pendingStep,
-                  positions: {
-                    axis1Cmd: Number(sidePositions?.axis1) || 0,
-                    axis2Cmd: Number(sidePositions?.axis2) || 0
-                  }
+                  positions: program.side === 'left'
+                    ? {
+                        axis3Cmd: Number(sidePositions?.axis1) || 0,
+                        axis4Cmd: Number(sidePositions?.axis2) || 0
+                      }
+                    : {
+                        axis1Cmd: Number(sidePositions?.axis1) || 0,
+                        axis2Cmd: Number(sidePositions?.axis2) || 0
+                      }
                 };
                 
                 const merged = [...editedSteps];
