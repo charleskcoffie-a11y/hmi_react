@@ -1526,13 +1526,15 @@ export default function MainHMI() {
         }
         
         // Send program steps if available in recipe
-        if (recipeObj?.steps) {
+        // Check for steps in both locations: recipeObj.steps (direct) or recipeObj.program.steps (AutoTeach format)
+        const steps = recipeObj?.steps || recipeObj?.program?.steps;
+        if (steps) {
           const program = {
             name: recipeName,
             side: side,
-            steps: recipeObj.steps,
-            speed: recipeObj.speed,
-            dwell: recipeObj.dwell
+            steps: steps,
+            speed: recipeObj.speed || recipeObj.program?.speed,
+            dwell: recipeObj.dwell || recipeObj.program?.dwell
           };
           
           await writePLCVar({
@@ -1984,10 +1986,12 @@ export default function MainHMI() {
     };
     
     // Transform program steps if they exist (swap axis assignments between sides)
-    if (sourceRecipe.steps) {
+    // Check for steps in both locations: recipe.steps (direct) or recipe.program.steps (AutoTeach format)
+    const sourceSteps = sourceRecipe.steps || sourceRecipe.program?.steps;
+    if (sourceSteps) {
       const transformedSteps = {};
-      Object.keys(sourceRecipe.steps).forEach(stepKey => {
-        const sourceStep = sourceRecipe.steps[stepKey];
+      Object.keys(sourceSteps).forEach(stepKey => {
+        const sourceStep = sourceSteps[stepKey];
         const transformedStep = { 
           ...sourceStep,
           // Explicitly preserve step-level dwell time
@@ -2237,8 +2241,16 @@ export default function MainHMI() {
     const preferredProgram = (() => {
       const recipe = recipes.find((r) => r.name === recipeName);
       // Check if recipe has program data (steps, speed, dwell)
-      if (recipe && recipe.steps) {
-        return { ...recipe, name: recipe.name, side };
+      // Support both recipe.steps and recipe.program.steps (AutoTeach format)
+      if (recipe && (recipe.steps || recipe.program?.steps)) {
+        return { 
+          ...recipe, 
+          name: recipe.name, 
+          side,
+          steps: recipe.steps || recipe.program.steps,
+          speed: recipe.speed || recipe.program?.speed,
+          dwell: recipe.dwell || recipe.program?.dwell
+        };
       }
       // Fallback to createdPrograms if recipe doesn't have program data
       const namedProgram = createdPrograms.find((p) => p.side === side && p.name === recipeName);
