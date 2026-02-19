@@ -32,8 +32,8 @@ RequestExecutionLevel admin
 !macroend
 
 !macro customUnInstall
-  ; Clean up all app data on uninstall
-  RMDir /r "${APPDATA_CACHE}"
+  ; DO NOT delete "${APPDATA_CACHE}" - it contains recipes and config that should persist
+  ; Only clean up cache and electron remnants, preserve recipes
   RMDir /r "${LOCALAPPDATA_CACHE}"
   RMDir /r "$APPDATA\electron"
   

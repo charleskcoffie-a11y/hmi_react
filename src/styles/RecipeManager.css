@@ -584,6 +584,62 @@
   background: #0088ff;
 }
 
+/* Recipe Selection Controls */
+.recipe-select-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 10px 0;
+  padding: 8px 10px;
+  background: rgba(0, 102, 204, 0.1);
+  border-radius: 6px;
+  border: 1px solid #0066cc;
+}
+
+.selection-count {
+  color: #0088ff;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Recipe Checkbox */
+.recipe-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #0088ff;
+  margin-right: 8px;
+}
+
+.recipe-checkbox:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.recipe-item.checked {
+  border-color: #0088ff;
+  background: rgba(0, 136, 255, 0.15);
+}
+
+.recipe-item-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+/* Export Selected Button */
+.export-selected-btn {
+  background: linear-gradient(135deg, #1a5f9e 0%, #0d3a5c 100%);
+  color: white;
+  border: 1px solid #0066cc;
+}
+
+.export-selected-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2a7fbe 0%, #1d4a7c 100%);
+  box-shadow: 0 0 15px rgba(0, 136, 255, 0.5);
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .recipe-modal {

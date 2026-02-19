@@ -129,30 +129,60 @@ export default function MachineParameters({ isOpen, onClose, plcStatus = 'unknow
   };
 
   const handlePasswordChange = (role, value) => {
-    setPasswordEdits(prev => ({ ...prev, [role]: value }));
+    console.log('[MachineParameters] handlePasswordChange - role:', role, 'value:', value);
+    setPasswordEdits(prev => {
+      const updated = { ...prev, [role]: value };
+      console.log('[MachineParameters] passwordEdits updated:', updated);
+      return updated;
+    });
   };
 
   const openPasswordKeypad = (role) => {
     if (!canChangePasswords) return;
+    console.log('[MachineParameters] openPasswordKeypad for role:', role);
     setEditingPasswordRole(role);
     setPasswordKeypadOpen(true);
   };
 
   const handlePasswordKeypadEnter = () => {
+    console.log('[MachineParameters] handlePasswordKeypadEnter - editingPasswordRole:', editingPasswordRole);
     setPasswordKeypadOpen(false);
     if (editingPasswordRole) {
-      handlePasswordSave(editingPasswordRole);
-      setEditingPasswordRole(null);
+      // Use setTimeout to ensure state has updated before saving
+      setTimeout(() => {
+        handlePasswordSave(editingPasswordRole);
+        setEditingPasswordRole(null);
+      }, 0);
     }
   };
 
   const handlePasswordSave = (role) => {
-    if (!onUpdatePasswords) return;
-    const updated = { ...(userPasswords || {}), [role]: passwordEdits[role] || '' };
     console.log('[MachineParameters] handlePasswordSave called for role:', role);
+    console.log('[MachineParameters] Current passwordEdits state:', passwordEdits);
+    console.log('[MachineParameters] Current userPasswords prop:', userPasswords);
+    
+    if (!onUpdatePasswords) {
+      console.error('[MachineParameters] onUpdatePasswords is not defined!');
+      return;
+    }
+    
+    // Get the current password value - use passwordEdits as source of truth
+    const newPasswordValue = passwordEdits[role];
+    if (newPasswordValue === undefined || newPasswordValue === null) {
+      console.warn('[MachineParameters] No password value found for role:', role);
+      return;
+    }
+    
+    // Create updated object with all existing passwords plus the new one
+    const updated = { 
+      ...(userPasswords || {}), 
+      [role]: newPasswordValue 
+    };
+    
     console.log('[MachineParameters] Old passwords:', userPasswords);
-    console.log('[MachineParameters] New password value:', passwordEdits[role]);
-    console.log('[MachineParameters] Updated object:', updated);
+    console.log('[MachineParameters] New password value for', role, ':', newPasswordValue);
+    console.log('[MachineParameters] Complete updated object:', updated);
+    
     onUpdatePasswords(updated);
     console.log('[MachineParameters] onUpdatePasswords callback invoked');
   };

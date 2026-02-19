@@ -12,6 +12,7 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
   
   // State declarations first
   const [selectedRecipe, setSelectedRecipe] = useState(recipes && recipes.length > 5 ? recipes[5] : recipes?.[0] || null);
+  const [selectedRecipes, setSelectedRecipes] = useState([]); // For multi-export
   const [searchInput, setSearchInput] = useState('');
   const [searchKeypadOpen, setSearchKeypadOpen] = useState(false);
   const [editorKeypadOpen, setEditorKeypadOpen] = useState(false);
@@ -176,7 +177,7 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
   // Export selected recipe as JSON file
   const handleExport = () => {
     if (!selectedRecipe) return;
-    if (isOperator) return;
+    if (!isAdmin) return;
     const recipeObj = typeof selectedRecipe === 'object' ? selectedRecipe : recipes.find(r => r.name === selectedRecipe);
     if (!recipeObj) return;
     const directSteps = recipeObj.steps;
@@ -205,19 +206,90 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
     URL.revokeObjectURL(url);
   };
 
+  // Export multiple selected recipes as JSON files
+  const handleExportSelected = () => {
+    if (selectedRecipes.length === 0 || !isAdmin) return;
+    
+    selectedRecipes.forEach((recipeName) => {
+      const recipeObj = recipes.find(r => {
+        const name = typeof r === 'string' ? r : r.name;
+        return name === recipeName;
+      });
+      
+      if (!recipeObj) return;
+      
+      const recipe = typeof recipeObj === 'object' ? recipeObj : { name: recipeObj };
+      const directSteps = recipe.steps;
+      const programSteps = recipe.program?.steps;
+      const hasDirectSteps = Array.isArray(directSteps)
+        ? directSteps.length > 0
+        : directSteps && Object.keys(directSteps).length > 0;
+      const hasProgramSteps = Array.isArray(programSteps)
+        ? programSteps.length > 0
+        : programSteps && Object.keys(programSteps).length > 0;
+
+      const exportRecipe = {
+        ...recipe,
+        steps: hasProgramSteps ? programSteps : hasDirectSteps ? directSteps : recipe.steps
+      };
+
+      const dataStr = JSON.stringify(exportRecipe, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${recipe.name || 'recipe'}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      // Small delay between downloads to avoid browser blocking
+      if (selectedRecipes.length > 1) {
+        const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+        delay(100);
+      }
+    });
+    
+    setDialog({ 
+      open: true, 
+      title: 'Export Successful', 
+      message: `Exported ${selectedRecipes.length} recipe${selectedRecipes.length > 1 ? 's' : ''} successfully.`, 
+      mode: 'info' 
+    });
+  };
+
+  // Toggle recipe selection for multi-export
+  const toggleRecipeSelection = (recipeName) => {
+    setSelectedRecipes(prev => {
+      if (prev.includes(recipeName)) {
+        return prev.filter(name => name !== recipeName);
+      } else {
+        return [...prev, recipeName];
+      }
+    });
+  };
+
   // Trigger file input for import
   const handleImportClick = () => {
-    if (isOperator) return;
+    if (!isAdmin) return;
     if (fileInputRef.current) fileInputRef.current.value = null;
     fileInputRef.current?.click();
   };
 
-  // Import recipe from JSON file
+  // Import multiple recipes from JSON files
   const handleImport = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
+    const files = Array.from(e.target.files);
+    if (!files || files.length === 0) return;
+    
+    let successCount = 0;
+    let errorCount = 0;
+    const errors = [];
+    
+    const processFile = (file, index) => {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
       try {
         const importedRecipe = JSON.parse(event.target.result);
         
@@ -276,15 +348,52 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
           onCreateRecipe(completeRecipe.name, completeRecipe.description, side, completeRecipe);
         }
         
-        setSelectedRecipe(completeRecipe);
-        setAction(null);
-        // Don't show dialog here - MainHMI will show the success message
-        // This prevents the dialog from staying open after import
-      } catch (err) {
-        setDialog({ open: true, title: 'Invalid Recipe', message: 'The selected file is not a valid recipe file.', mode: 'info' });
-      }
+          setSelectedRecipe(completeRecipe);
+          setAction(null);
+          successCount++;
+          resolve({ success: true, name: completeRecipe.name });
+        } catch (err) {
+          errorCount++;
+          errors.push({ file: file.name, error: err.message });
+          resolve({ success: false, file: file.name });
+        }
+      };
+      reader.onerror = () => {
+        errorCount++;
+        errors.push({ file: file.name, error: 'Failed to read file' });
+        resolve({ success: false, file: file.name });
+      };
+      reader.readAsText(file);
+      });
     };
-    reader.readAsText(file);
+    
+    // Process all files
+    Promise.all(files.map((file, index) => processFile(file, index)))
+      .then((results) => {
+        // Show summary dialog
+        if (successCount > 0 && errorCount === 0) {
+          setDialog({ 
+            open: true, 
+            title: 'Import Successful', 
+            message: `Successfully imported ${successCount} recipe${successCount > 1 ? 's' : ''}.`, 
+            mode: 'info' 
+          });
+        } else if (successCount > 0 && errorCount > 0) {
+          setDialog({ 
+            open: true, 
+            title: 'Partial Import', 
+            message: `Imported ${successCount} recipe${successCount > 1 ? 's' : ''}.\n${errorCount} file${errorCount > 1 ? 's' : ''} failed.`, 
+            mode: 'info' 
+          });
+        } else {
+          setDialog({ 
+            open: true, 
+            title: 'Import Failed', 
+            message: `Failed to import ${errorCount} file${errorCount > 1 ? 's' : ''}. Please check the file format.`, 
+            mode: 'info' 
+          });
+        }
+      });
   };
 
   const handleKeypadInput = (value) => {
@@ -397,6 +506,14 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
               </div>
             )}
             
+            {selectedRecipes.length > 0 && (
+              <div className="recipe-select-controls">
+                <span className="selection-count">
+                  {selectedRecipes.length} recipe{selectedRecipes.length > 1 ? 's' : ''} selected
+                </span>
+              </div>
+            )}
+            
             <div className="recipe-listbox">
               {recipes && recipes.length > 0 ? (
                 (recipes.filter((r) => {
@@ -407,16 +524,30 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
                   const recipeDesc = typeof recipe === 'object' ? recipe.description : '';
                   const selectedName = typeof selectedRecipe === 'string' ? selectedRecipe : selectedRecipe?.name;
                   const isSelected = recipeName === selectedName;
+                  const isChecked = selectedRecipes.includes(recipeName);
                   return (
                     <div
                       key={recipeName || index}
-                      className={`recipe-item ${isSelected ? 'selected' : ''}`}
-                      onClick={() => {
-                        setSelectedRecipe(recipe);
-                        setSearchKeypadOpen(false);
-                      }}
+                      className={`recipe-item ${isSelected ? 'selected' : ''} ${isChecked ? 'checked' : ''}`}
                     >
-                      <div className="recipe-item-header">
+                      <div 
+                        className="recipe-item-header"
+                        onClick={() => {
+                          setSelectedRecipe(recipe);
+                          setSearchKeypadOpen(false);
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          className="recipe-checkbox"
+                          checked={isChecked}
+                          disabled={!isAdmin}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            toggleRecipeSelection(recipeName);
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        />
                         <span className="recipe-icon">📄</span>
                         <span className="recipe-name">{recipeName}</span>
                       </div>
@@ -519,18 +650,26 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
               <button
                 className="recipe-action-btn export-btn"
                 onClick={handleExport}
-                disabled={!selectedRecipe || isOperator}
-                title={isOperator ? 'Operators cannot export recipes' : 'Export recipe'}
+                disabled={!selectedRecipe || !isAdmin}
+                title={!isAdmin ? 'Only Admin can export recipes' : 'Export recipe'}
               >
                 ⬇ Export
               </button>
               <button
                 className="recipe-action-btn import-btn"
                 onClick={handleImportClick}
-                disabled={isOperator}
-                title={isOperator ? 'Operators cannot import recipes' : 'Import recipe'}
+                disabled={!isAdmin}
+                title={!isAdmin ? 'Only Admin can import recipes' : 'Import recipe'}
               >
                 ⬆ Import
+              </button>
+              <button
+                className="recipe-action-btn export-selected-btn"
+                onClick={handleExportSelected}
+                disabled={selectedRecipes.length === 0 || !isAdmin}
+                title={!isAdmin ? 'Only Admin can export recipes' : selectedRecipes.length === 0 ? 'Select recipes to export' : `Export ${selectedRecipes.length} selected recipe${selectedRecipes.length > 1 ? 's' : ''}`}
+              >
+                ⬇ Export {selectedRecipes.length > 0 ? `(${selectedRecipes.length})` : 'Selected'}
               </button>
               <input
                 type="file"
@@ -538,6 +677,7 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
                 ref={fileInputRef}
                 style={{ display: 'none' }}
                 onChange={handleImport}
+                multiple
               />
             </div>
           </div>

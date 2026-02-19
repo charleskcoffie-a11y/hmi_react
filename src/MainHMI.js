@@ -240,13 +240,25 @@ export default function MainHMI() {
 
   // Persist user passwords to localStorage when they change
   useEffect(() => {
-    console.log('[MainHMI] userPasswords changed, saving to localStorage:', userPasswords);
+    console.log('[MainHMI] ======= PASSWORD SAVE TRIGGERED =======');
+    console.log('[MainHMI] userPasswords changed, saving to localStorage:', JSON.stringify(userPasswords));
     try {
-      localStorage.setItem('userPasswords', JSON.stringify(userPasswords));
+      const jsonString = JSON.stringify(userPasswords);
+      localStorage.setItem('userPasswords', jsonString);
       console.log('[MainHMI] Successfully saved passwords to localStorage');
+      
       // Verify the save
       const verify = localStorage.getItem('userPasswords');
       console.log('[MainHMI] Verification - localStorage now contains:', verify);
+      
+      // Double-check they match
+      if (verify === jsonString) {
+        console.log('[MainHMI] ✓ Verification successful - passwords match');
+      } else {
+        console.error('[MainHMI] ✗ Verification failed - passwords do not match!');
+        console.error('[MainHMI] Expected:', jsonString);
+        console.error('[MainHMI] Got:', verify);
+      }
     } catch (err) {
       console.error('[MainHMI] Failed to save passwords to localStorage:', err);
     }
@@ -256,12 +268,15 @@ export default function MainHMI() {
       console.log('[MainHMI] Saving passwords to Electron config file');
       window.electron.savePasswords(userPasswords)
         .then(() => {
-          console.log('[MainHMI] Successfully saved passwords to Electron config');
+          console.log('[MainHMI] ✓ Successfully saved passwords to Electron config');
         })
         .catch((err) => {
-          console.error('[MainHMI] Failed to save passwords to Electron config:', err);
+          console.error('[MainHMI] ✗ Failed to save passwords to Electron config:', err);
         });
+    } else {
+      console.log('[MainHMI] Electron API not available, skipping Electron config save');
     }
+    console.log('[MainHMI] ======= PASSWORD SAVE COMPLETE =======');
   }, [userPasswords]);
 
   // Try to load passwords from Electron config file on app startup (as backup/recovery)

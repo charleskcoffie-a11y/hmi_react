@@ -251,11 +251,12 @@ const lastRecipePath = path.join(app.getPath('appData'), 'CNC Dual head', 'last-
 
 ipcMain.handle('save-recipe', async (event, recipe, side) => {
   try {
-    if (!fs.existsSync(recipesDir)) {
-      fs.mkdirSync(recipesDir, { recursive: true });
+    const sideDir = path.join(recipesDir, side);
+    if (!fs.existsSync(sideDir)) {
+      fs.mkdirSync(sideDir, { recursive: true });
     }
-    const fileName = `${side}_${recipe.name.replace(/[^a-zA-Z0-9_-]/g, '_')}.json`;
-    const filePath = path.join(recipesDir, fileName);
+    const fileName = `${recipe.name.replace(/[^a-zA-Z0-9_-]/g, '_')}.json`;
+    const filePath = path.join(sideDir, fileName);
     fs.writeFileSync(filePath, JSON.stringify(recipe, null, 2));
     console.log(`[electron] Recipe saved: ${filePath}`);
     return { success: true };
@@ -267,15 +268,16 @@ ipcMain.handle('save-recipe', async (event, recipe, side) => {
 
 ipcMain.handle('load-recipes', async (event, side) => {
   try {
-    if (!fs.existsSync(recipesDir)) {
-      console.log(`[electron] Recipes directory not found, creating: ${recipesDir}`);
-      fs.mkdirSync(recipesDir, { recursive: true });
+    const sideDir = path.join(recipesDir, side);
+    if (!fs.existsSync(sideDir)) {
+      console.log(`[electron] Recipes directory not found, creating: ${sideDir}`);
+      fs.mkdirSync(sideDir, { recursive: true });
       return [];
     }
-    const files = fs.readdirSync(recipesDir).filter(f => f.startsWith(side));
-    console.log(`[electron] Loading ${files.length} recipes for ${side} side from: ${recipesDir}`);
+    const files = fs.readdirSync(sideDir).filter(f => f.endsWith('.json'));
+    console.log(`[electron] Loading ${files.length} recipes for ${side} side from: ${sideDir}`);
     return files.map(f => {
-      const content = fs.readFileSync(path.join(recipesDir, f));
+      const content = fs.readFileSync(path.join(sideDir, f));
       return JSON.parse(content);
     });
   } catch (err) {
@@ -287,8 +289,9 @@ ipcMain.handle('load-recipes', async (event, side) => {
 ipcMain.handle('delete-recipe', async (event, recipeName, side) => {
   try {
     console.log(`[electron] DELETE-RECIPE received - name: "${recipeName}", side: "${side}"`);
-    const fileName = `${side}_${recipeName.replace(/[^a-zA-Z0-9_-]/g, '_')}.json`;
-    const filePath = path.join(recipesDir, fileName);
+    const sideDir = path.join(recipesDir, side);
+    const fileName = `${recipeName.replace(/[^a-zA-Z0-9_-]/g, '_')}.json`;
+    const filePath = path.join(sideDir, fileName);
     console.log(`[electron] Looking for file: ${filePath}`);
     console.log(`[electron] File exists: ${fs.existsSync(filePath)}`);
     
@@ -298,15 +301,18 @@ ipcMain.handle('delete-recipe', async (event, recipeName, side) => {
       return { success: true };
     }
 
-    // Fallback: find by recipe name inside files (handles legacy filenames)
-    const files = fs.existsSync(recipesDir) ? fs.readdirSync(recipesDir) : [];
-    const sideFiles = files.filter((f) => f.startsWith(`${side}_`));
-    for (const f of sideFiles) {
+    // Fallback: find by recipe name inside files
+    if (!fs.existsSync(sideDir)) {
+      console.log(`[electron] Side directory not found: ${sideDir}`);
+      return { success: false, error: 'Directory not found' };
+    }
+    const files = fs.readdirSync(sideDir).filter(f => f.endsWith('.json'));
+    for (const f of files) {
       try {
-        const content = fs.readFileSync(path.join(recipesDir, f), 'utf8');
+        const content = fs.readFileSync(path.join(sideDir, f), 'utf8');
         const parsed = JSON.parse(content);
         if (parsed?.name === recipeName) {
-          fs.unlinkSync(path.join(recipesDir, f));
+          fs.unlinkSync(path.join(sideDir, f));
           console.log(`[electron] SUCCESS - Recipe deleted by name match: ${f}`);
           return { success: true };
         }
