@@ -49,8 +49,8 @@ export default function ProgramCreationStep1({ programName, side, onPositionReco
   };
 
   const sideLabel = side === 'right' ? 'Right Side' : 'Left Side';
-  const axis1Name = side === 'right' ? 'Axis 1 (ID)' : 'Axis 3 (ID)';
-  const axis2Name = side === 'right' ? 'Axis 2 (OD)' : 'Axis 4 (OD)';
+  const axis1Name = 'ID';
+  const axis2Name = 'OD';
 
   const handleAxis1Jog = (direction) => {
     const increment = direction === 'up' ? 1 : -1;

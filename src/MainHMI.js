@@ -27,6 +27,7 @@ import './styles/MainHMI.css';
 import { readPLCVar, writePLCVar, readAxisPositions, pulseBoolTag, writeScreenIndex } from './services/plcApiService';
 import { saveRecipeToFile, loadRecipesFromFolder, deleteRecipeFile, getLastRecipe, setLastRecipe } from './services/recipeService';
 import { initializeBackendNetId } from './services/netIdService';
+import { convertToInches, convertPositionsToInches, convertRecipeParametersToInches } from './services/unitConversionService';
 import packageJson from '../package.json';
 
 // Define step configurations
@@ -1497,23 +1498,27 @@ export default function MainHMI() {
   const sendRecipeParametersToPLC = async (parameters, side) => {
     if (!parameters || !side) return false;
     try {
-      console.log(`[MainHMI] Sending recipe parameters to PLC for ${side} side:`, parameters);
+      console.log(`[MainHMI] Sending recipe parameters to PLC for ${side} side (unitSystem: ${unitSystem}):`, parameters);
+      
+      // Convert recipe parameters from mm to inches if needed
+      const convertedParams = convertRecipeParametersToInches(parameters, unitSystem);
+      
       await writePLCVar({
         command: 'setRecipeParameters',
         side,
         parameters: {
-          speed: parameters.recipeSpeed || 100,  // Map recipeSpeed to speed for backend
-          stepDelay: parameters.stepDelay || 500,
-          tubeID: parameters.tubeID || 0,
-          tubeOD: parameters.tubeOD || 0,
-          finalSize: parameters.finalSize || 0,
-          sizeType: parameters.sizeType || 'OD',
-          tubeLength: parameters.tubeLength || 0,
-          idFingerRadius: parameters.idFingerRadius || 0,
-          depth: parameters.depth || 0
+          speed: convertedParams.recipeSpeed || 100,  // Map recipeSpeed to speed for backend
+          stepDelay: convertedParams.stepDelay || 500,
+          tubeID: convertedParams.tubeID || 0,
+          tubeOD: convertedParams.tubeOD || 0,
+          finalSize: convertedParams.finalSize || 0,
+          sizeType: convertedParams.sizeType || 'OD',
+          tubeLength: convertedParams.tubeLength || 0,
+          idFingerRadius: convertedParams.idFingerRadius || 0,
+          depth: convertedParams.depth || 0
         }
       });
-      console.log(`[MainHMI] Recipe parameters sent successfully to PLC for ${side} side`);
+      console.log(`[MainHMI] Recipe parameters sent successfully to PLC for ${side} side (converted to inches)`);
       return true;
     } catch (error) {
       console.error(`[MainHMI] Failed to send recipe parameters to PLC for ${side} side:`, error.message);
@@ -1847,8 +1852,8 @@ export default function MainHMI() {
         { tag: `${sidePrefix}.l${headSuffix}PosStep1[2]`, value: 0.0 }
       ];
 
-      // Add Steps 2-10 position arrays (2D arrays: [step, retract/extend])
-      for (let step = 2; step <= 10; step++) {
+      // Add Steps 2-20 position arrays (2D arrays: [step, retract/extend])
+      for (let step = 2; step <= 20; step++) {
         // Red (OD) positions: retract and extend
         resetVariables.push({ tag: `${sidePrefix}.a${headSuffix}RedPos[${step},0]`, value: 0.0 });
         resetVariables.push({ tag: `${sidePrefix}.a${headSuffix}RedPos[${step},1]`, value: 0.0 });
@@ -1857,8 +1862,8 @@ export default function MainHMI() {
         resetVariables.push({ tag: `${sidePrefix}.a${headSuffix}ExpPos[${step},1]`, value: 0.0 });
       }
 
-      // Add step enable variables for all 10 steps
-      for (let step = 1; step <= 10; step++) {
+      // Add step enable variables for all 20 steps
+      for (let step = 1; step <= 20; step++) {
         resetVariables.push({ tag: `${sidePrefix}.aHmi${headSuffix}StepEna[${step}]`, value: false });
         resetVariables.push({ tag: `${sidePrefix}.a${headSuffix}RedExtEna[${step}]`, value: false });
         resetVariables.push({ tag: `${sidePrefix}.a${headSuffix}RedRetEna[${step}]`, value: false });
@@ -1895,16 +1900,45 @@ export default function MainHMI() {
     setShowProgramNameModal(false);
   };
 
+  const normalizeStepPositions = (positions, side) => {
+    if (!positions || !side) return positions;
+    const hasCmdKeys = ['axis1Cmd', 'axis2Cmd', 'axis3Cmd', 'axis4Cmd']
+      .some((key) => Object.prototype.hasOwnProperty.call(positions, key));
+    if (hasCmdKeys) return positions;
+
+    const isLeft = side === 'left';
+    const idKey = isLeft ? 'Axis 3 (ID)' : 'Axis 1 (ID)';
+    const odKey = isLeft ? 'Axis 4 (OD)' : 'Axis 2 (OD)';
+    const idVal = positions[idKey];
+    const odVal = positions[odKey];
+    if (idVal === undefined && odVal === undefined) return positions;
+
+    return isLeft
+      ? {
+          axis3Cmd: Number(idVal) || 0,
+          axis4Cmd: Number(odVal) || 0,
+        }
+      : {
+          axis1Cmd: Number(idVal) || 0,
+          axis2Cmd: Number(odVal) || 0,
+        };
+  };
+
   const handleStepComplete = (stepData) => {
     if (!currentProgram) return;
-    setProgramSteps((prev) => ({ ...prev, [currentStep]: stepData }));
+    const stepSide = stepData?.side || currentProgram.side;
+    const normalizedStepData = {
+      ...stepData,
+      positions: normalizeStepPositions(stepData?.positions, stepSide)
+    };
+    setProgramSteps((prev) => ({ ...prev, [currentStep]: normalizedStepData }));
     setCurrentProgram((prev) => {
       if (!prev) return prev;
-      return { ...prev, steps: { ...(prev.steps || {}), [currentStep]: stepData } };
+      return { ...prev, steps: { ...(prev.steps || {}), [currentStep]: normalizedStepData } };
     });
 
-    if (currentStep >= 10) {
-      setCreatedPrograms((prev) => [...prev, { ...currentProgram, steps: { ...(currentProgram.steps || {}), [currentStep]: stepData } }]);
+    if (currentStep >= 20) {
+      setCreatedPrograms((prev) => [...prev, { ...currentProgram, steps: { ...(currentProgram.steps || {}), [currentStep]: normalizedStepData } }]);
       setCurrentRecipe(prev => ({ ...prev, [currentProgram.side]: currentProgram.name }));
       showMessage('Program Created', `Program "${currentProgram.name}" saved`, 'success');
       setCurrentProgram(null);
@@ -1999,12 +2033,17 @@ export default function MainHMI() {
       showMessage('Delete Failed', 'Missing recipe name or side information.', 'error');
       return;
     }
+    const wasCurrentRecipe = currentRecipe?.[side] === recipeName;
     
-    console.log('[MainHMI] Deleting recipe:', recipeName, 'from side:', side);
+    console.log('[MainHMI] ========== DELETE RECIPE HANDLER ==========');
+    console.log('[MainHMI] Recipe Name:', recipeName);
+    console.log('[MainHMI] Side:', side);
+    console.log('[MainHMI] Calling deleteRecipeFile...');
 
     try {
       // Delete from filesystem and localStorage
       const deleted = await deleteRecipeFile(recipeName, side);
+      console.log('[MainHMI] deleteRecipeFile returned:', deleted);
       
       if (!deleted) {
         console.warn('[MainHMI] File deletion failed, but will still update state for UI consistency');
@@ -2016,27 +2055,50 @@ export default function MainHMI() {
       console.log('[MainHMI] Updating state for side:', side, 'deleted:', deleted);
       if (side === 'right') {
         setRecipesRight((prev) => {
-          console.log('[MainHMI] Previous right recipes:', prev.map(r => r.name));
+          console.log('[MainHMI] Setting recipesRight - removing:', recipeName);
+          console.log('[MainHMI] Previous recipesRight:', prev.map(r => r.name || r));
           const filtered = prev.filter((r) => r.name !== recipeName);
-          console.log('[MainHMI] Filtered right recipes:', filtered.map(r => r.name));
+          console.log('[MainHMI] New recipesRight count:', filtered.length);
+          console.log('[MainHMI] New recipesRight names:', filtered.map(r => r.name || r));
           return filtered;
         });
         setCurrentRecipe((prev) => ({ ...prev, right: prev.right === recipeName ? null : prev.right }));
       } else {
         setRecipesLeft((prev) => {
-          console.log('[MainHMI] Previous left recipes:', prev.map(r => r.name));
+          console.log('[MainHMI] Setting recipesLeft - removing:', recipeName);
+          console.log('[MainHMI] Previous recipesLeft:', prev.map(r => r.name || r));
           const filtered = prev.filter((r) => r.name !== recipeName);
-          console.log('[MainHMI] Filtered left recipes:', filtered.map(r => r.name));
+          console.log('[MainHMI] New recipesLeft count:', filtered.length);
+          console.log('[MainHMI] New recipesLeft names:', filtered.map(r => r.name || r));
           return filtered;
         });
         setCurrentRecipe((prev) => ({ ...prev, left: prev.left === recipeName ? null : prev.left }));
       }
       
-      console.log('[MainHMI] Delete complete, showing success message');
+      console.log('[MainHMI] Delete complete - showing success message');
+      
+      // CRITICAL: Reload recipes from filesystem to ensure consistency
+      console.log('[MainHMI] Reloading recipes from filesystem after delete...');
+      try {
+        const freshRecipes = await loadRecipesFromFolder(side);
+        console.log('[MainHMI] Fresh recipes loaded:', freshRecipes.length);
+        if (side === 'right') {
+          setRecipesRight(freshRecipes);
+        } else {
+          setRecipesLeft(freshRecipes);
+        }
+      } catch (reloadErr) {
+        console.error('[MainHMI] Failed to reload recipes:', reloadErr);
+      }
+
+      if (wasCurrentRecipe) {
+        setLastRecipe(side, null);
+      }
+      
       showMessage('Recipe Deleted', `Recipe "${recipeName}" deleted successfully`, 'success');
     } catch (err) {
-      console.error('[MainHMI] Error deleting recipe:', err);
-      showMessage('Delete Error', `Error deleting recipe: ${err.message}`, 'error');
+      console.error('[MainHMI] ❌ Error deleting recipe:', err);
+      showMessage('Delete Error', `❌ Error deleting recipe: ${err.message}`, 'error');
     }
   };
 
@@ -2098,18 +2160,32 @@ export default function MainHMI() {
     };
     
     // Transform program steps if they exist (swap axis assignments between sides)
-    // Check for steps in both locations: recipe.steps (direct) or recipe.program.steps (AutoTeach format)
-    const sourceSteps = sourceRecipe.steps || sourceRecipe.program?.steps;
+    // Prefer non-empty direct steps; fall back to AutoTeach program steps
+    const directSteps = sourceRecipe.steps;
+    const programSteps = sourceRecipe.program?.steps;
+    const hasDirectSteps = Array.isArray(directSteps)
+      ? directSteps.length > 0
+      : directSteps && Object.keys(directSteps).length > 0;
+    const hasProgramSteps = Array.isArray(programSteps)
+      ? programSteps.length > 0
+      : programSteps && Object.keys(programSteps).length > 0;
+    const sourceSteps = hasDirectSteps ? directSteps : hasProgramSteps ? programSteps : null;
     if (sourceSteps) {
       const transformedSteps = {};
-      Object.keys(sourceSteps).forEach(stepKey => {
-        const sourceStep = sourceSteps[stepKey];
+      const stepEntries = Array.isArray(sourceSteps)
+        ? sourceSteps.map((s, index) => [String(s?.step ?? s?.stepNumber ?? index + 1), s])
+        : Object.entries(sourceSteps);
+      stepEntries.forEach(([stepKey, sourceStep]) => {
         const transformedStep = { 
           ...sourceStep,
           // Explicitly preserve step-level dwell time
           dwell: sourceStep.dwell || 0
         };
-        const stepNumber = parseInt(stepKey);
+        const stepNumber = Number(sourceStep?.step ?? stepKey);
+        if (!Number.isFinite(stepNumber)) return;
+        if (transformedStep.step == null) {
+          transformedStep.step = stepNumber;
+        }
         
         // Transform axis positions based on side
         if (sourceStep.positions) {
@@ -2145,7 +2221,7 @@ export default function MainHMI() {
           };
         }
         
-        transformedSteps[stepKey] = transformedStep;
+        transformedSteps[stepNumber] = transformedStep;
       });
       
       copiedRecipe.steps = transformedSteps;
@@ -2225,8 +2301,8 @@ export default function MainHMI() {
         { tag: `${sidePrefix}.l${headSuffix}PosStep1[2]`, value: 0.0 }
       ];
 
-      // Add Steps 2-10 position arrays (2D arrays: [step, retract/extend])
-      for (let step = 2; step <= 10; step++) {
+      // Add Steps 2-20 position arrays (2D arrays: [step, retract/extend])
+      for (let step = 2; step <= 20; step++) {
         // Red (OD) positions: retract and extend
         resetVariables.push({ tag: `${sidePrefix}.a${headSuffix}RedPos[${step},0]`, value: 0.0 });
         resetVariables.push({ tag: `${sidePrefix}.a${headSuffix}RedPos[${step},1]`, value: 0.0 });
@@ -2235,8 +2311,8 @@ export default function MainHMI() {
         resetVariables.push({ tag: `${sidePrefix}.a${headSuffix}ExpPos[${step},1]`, value: 0.0 });
       }
 
-      // Add step enable variables for all 10 steps
-      for (let step = 1; step <= 10; step++) {
+      // Add step enable variables for all 20 steps
+      for (let step = 1; step <= 20; step++) {
         resetVariables.push({ tag: `${sidePrefix}.aHmi${headSuffix}StepEna[${step}]`, value: false });
         resetVariables.push({ tag: `${sidePrefix}.a${headSuffix}RedExtEna[${step}]`, value: false });
         resetVariables.push({ tag: `${sidePrefix}.a${headSuffix}RedRetEna[${step}]`, value: false });
@@ -2681,16 +2757,16 @@ export default function MainHMI() {
         { tag: `${sidePrefix}.l${headSuffix}PosStep1[2]`, value: 0.0 }
       ];
 
-      // Add Steps 2-10 position arrays (2D arrays: [step, retract/extend])
-      for (let step = 2; step <= 10; step++) {
+      // Add Steps 2-20 position arrays (2D arrays: [step, retract/extend])
+      for (let step = 2; step <= 20; step++) {
         clearVariables.push({ tag: `${sidePrefix}.a${headSuffix}RedPos[${step},0]`, value: 0.0 });
         clearVariables.push({ tag: `${sidePrefix}.a${headSuffix}RedPos[${step},1]`, value: 0.0 });
         clearVariables.push({ tag: `${sidePrefix}.a${headSuffix}ExpPos[${step},0]`, value: 0.0 });
         clearVariables.push({ tag: `${sidePrefix}.a${headSuffix}ExpPos[${step},1]`, value: 0.0 });
       }
 
-      // Add step enable variables for all 10 steps
-      for (let step = 1; step <= 10; step++) {
+      // Add step enable variables for all 20 steps
+      for (let step = 1; step <= 20; step++) {
         clearVariables.push({ tag: `${sidePrefix}.aHmi${headSuffix}StepEna[${step}]`, value: false });
         clearVariables.push({ tag: `${sidePrefix}.a${headSuffix}RedExtEna[${step}]`, value: false });
         clearVariables.push({ tag: `${sidePrefix}.a${headSuffix}RedRetEna[${step}]`, value: false });
@@ -2878,8 +2954,8 @@ export default function MainHMI() {
         <div className="panels-container">
           <AxisPanel
             side="Left"
-            axis1Name="Axis3 (ID)"
-            axis2Name="Axis4 (OD)"
+            axis1Name="ID"
+            axis2Name="OD"
             onAxisChange={handleAxisChange}
             axis1State={axis3State}
             axis2State={axis4State}
@@ -2900,8 +2976,8 @@ export default function MainHMI() {
           />
           <AxisPanel
             side="Right"
-            axis1Name="Axis1 (ID)"
-            axis2Name="Axis2 (OD)"
+            axis1Name="ID"
+            axis2Name="OD"
             onAxisChange={handleAxisChange}
             axis1State={axis1State}
             axis2State={axis2State}
@@ -3513,6 +3589,7 @@ export default function MainHMI() {
         stepCount={programToEdit ? Object.keys(programToEdit.steps).length : 10}
         stroke={programToEdit?.side === 'right' ? parametersOpen ? undefined : undefined : undefined}
         program={programToEdit}
+        unitSystem={unitSystem}
         onProgramUpdate={(updatedProgram) => {
           console.log('[MainHMI] Auto-adjusted program received:', updatedProgram);
           setProgramToEdit(updatedProgram);
@@ -3610,6 +3687,7 @@ export default function MainHMI() {
           onWriteToPLC={handlePLCWrite}
           jogSpeed={autoTeachSide === 'left' ? jogSpeedLeft : jogSpeedRight}
           onJogSpeedChange={autoTeachSide === 'left' ? setJogSpeedLeft : setJogSpeedRight}
+          unitSystem={unitSystem}
         />
 
         {/* Jog Mode Dialog */}

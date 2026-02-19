@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import ModernDialog from './ModernDialog';
 import NumericKeypad from './NumericKeypad';
+import { convertToInches } from '../services/unitConversionService';
 import '../styles/AutoAdjustProgram.css';
 
-export default function AutoAdjustProgram({ isOpen, onClose, side = 'right', stepCount = 10, stroke, program, onProgramUpdate }) {
+export default function AutoAdjustProgram({ isOpen, onClose, side = 'right', stepCount = 10, stroke, program, onProgramUpdate, unitSystem = 'inch' }) {
   const [currentSize, setCurrentSize] = useState('');
   const [desiredSize, setDesiredSize] = useState('');
   const [keypadOpen, setKeypadOpen] = useState(false);
@@ -22,7 +23,7 @@ export default function AutoAdjustProgram({ isOpen, onClose, side = 'right', ste
     const desiredSizeValue = parseFloat(desiredSize);
     const ratio = desiredSizeValue / currentSizeValue;
 
-    console.log('[AutoAdjust] Adjusting program. Current size:', currentSizeValue, 'Desired size:', desiredSizeValue, 'Ratio:', ratio);
+    console.log('[AutoAdjust] Adjusting program. Current size:', currentSizeValue, 'Desired size:', desiredSizeValue, 'Ratio:', ratio, 'UnitSystem:', unitSystem);
 
     const updatedSteps = { ...program.steps };
 

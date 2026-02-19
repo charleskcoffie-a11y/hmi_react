@@ -26,8 +26,8 @@ export default function GenericProgramStep({
   const [axisFeedback, setAxisFeedback] = useState([]);
 
   const sideLabel = side === 'right' ? 'Right Side' : 'Left Side';
-  const axis1Name = side === 'right' ? 'Axis 1 (ID)' : 'Axis 3 (ID)';
-  const axis2Name = side === 'right' ? 'Axis 2 (OD)' : 'Axis 4 (OD)';
+  const axis1Name = 'ID';
+  const axis2Name = 'OD';
 
   const handleAxis1Enable = async () => {
     console.log('[GenericProgramStep] ===== handleAxis1Enable CLICKED =====');

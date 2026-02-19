@@ -17,6 +17,11 @@ export default function ModernDialog({
   onClose,
 }) {
   const resolvedOpen = typeof open === 'boolean' ? open : !!isOpen;
+  
+  if (resolvedOpen) {
+    console.log('[ModernDialog] Rendering dialog - title:', title, 'has children:', !!children);
+  }
+  
   if (!resolvedOpen) return null;
   const overlayStyle = zIndex ? { zIndex } : undefined;
   

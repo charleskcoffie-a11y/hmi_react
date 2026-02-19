@@ -35,9 +35,7 @@ export default function ProgramNameModal({ isOpen, side, onConfirm, onCancel }) 
   if (!isOpen) return null;
 
   const sideLabel = side === 'right' ? 'Right Side' : 'Left Side';
-  const sideAxes = side === 'right' 
-    ? ['Axis 1 (ID)', 'Axis 2 (OD)']
-    : ['Axis 3 (ID)', 'Axis 4 (OD)'];
+  const sideAxes = ['ID', 'OD'];
 
   return (
     <div className="program-name-overlay" onClick={onCancel}>

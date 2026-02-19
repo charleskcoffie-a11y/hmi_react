@@ -96,36 +96,43 @@ export const deleteRecipeFile = async (recipeName, side) => {
     return false;
   }
   
+  console.log(`[recipeService] Starting deletion for "${recipeName}" on ${side} side`);
   let fileDeleted = false;
+  let localStorageDeleted = false;
   
   // Delete from Electron filesystem if available
   if (isElectron() && window.electron && window.electron.deleteRecipe) {
     try {
+      console.log(`[recipeService] Calling window.electron.deleteRecipe...`);
       const result = await window.electron.deleteRecipe(recipeName, side);
+      console.log(`[recipeService] deleteRecipe result:`, result);
       if (result.success) {
-        console.log(`[recipeService] Deleted recipe file "${recipeName}" for ${side} side`);
+        console.log(`[recipeService] ✓ Successfully deleted recipe file "${recipeName}" for ${side} side`);
         fileDeleted = true;
       } else {
-        console.error(`[recipeService] Failed to delete recipe file: ${result.error}`);
-        return false;
+        console.error(`[recipeService] ✗ File deletion failed: ${result.error}`);
       }
     } catch (err) {
-      console.error('[recipeService] Error deleting recipe from file system:', err.message);
-      return false;
+      console.error('[recipeService] Exception during file deletion:', err.message);
     }
+  } else {
+    console.log(`[recipeService] Electron not available or deleteRecipe not implemented`);
   }
   
-  // Also remove from localStorage cache
+  // Also remove from localStorage cache (always try this)
   try {
+    console.log(`[recipeService] Removing from localStorage...`);
     const recipes = readStore(side).filter((r) => r.name !== recipeName);
     writeStore(side, recipes);
-    console.log(`[recipeService] Removed recipe "${recipeName}" from localStorage`);
+    console.log(`[recipeService] ✓ Removed recipe "${recipeName}" from localStorage`);
+    localStorageDeleted = true;
   } catch (err) {
     console.error('[recipeService] Error removing recipe from localStorage:', err.message);
-    // Don't return false here - localStorage deletion is secondary
   }
   
-  return fileDeleted;
+  const success = fileDeleted || localStorageDeleted;
+  console.log(`[recipeService] Deletion complete - fileDeleted: ${fileDeleted}, localStorageDeleted: ${localStorageDeleted}, returning: ${success}`);
+  return success;
 };
 
 export const getLastRecipe = async () => {

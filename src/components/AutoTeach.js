@@ -4,6 +4,7 @@ import NumericKeypad from './NumericKeypad';
 import PatternSelectionModal from './PatternSelectionModal';
 import AxisSelectionModal from './AxisSelectionModal';
 import { writePLCVar } from '../services/plcApiService';
+import { convertPositionsToInches, convertRecipeParametersToInches } from '../services/unitConversionService';
 import '../styles/AutoTeach.css';
 
 export default function AutoTeach({
@@ -17,6 +18,7 @@ export default function AutoTeach({
   onWriteToPLC,
   jogSpeed = 100,
   onJogSpeedChange = () => {},
+  unitSystem = 'inch',
 }) {
   const safeActualPositions = actualPositions ?? { axis1: 0, axis2: 0 };
 
@@ -419,14 +421,32 @@ export default function AutoTeach({
 
   const pushProgramToPLC = async (stepsArray) => {
     if (!side || !Array.isArray(stepsArray) || stepsArray.length === 0) return;
-    const payload = buildProgramPayload(stepsArray);
+    let payload = buildProgramPayload(stepsArray);
+    
+    // Convert positions and parameters from mm to inches if needed
+    if (unitSystem === 'mm' && payload.steps) {
+      console.log('[AutoTeach] Converting program positions from mm to inches');
+      payload = {
+        ...payload,
+        steps: payload.steps.map(step => ({
+          ...step,
+          positions: convertPositionsToInches(step.positions || {}, unitSystem)
+        }))
+      };
+    }
+    
+    let convertedParams = parameters;
+    if (unitSystem === 'mm' && parameters) {
+      convertedParams = convertRecipeParametersToInches(parameters, unitSystem);
+    }
+    
     try {
       setLoading(true);
       // Use downloadProgram command to write to PLC
       await writePLCVar({
         command: 'downloadProgram',
         program: payload,
-        parameters: parameters
+        parameters: convertedParams
       });
       setPlcStatus('good');
       onWriteToPLC?.(payload);

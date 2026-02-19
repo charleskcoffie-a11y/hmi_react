@@ -81,8 +81,7 @@ function AxisPanel({ side, axis1Name, axis2Name, onAxisChange, axis1State, axis2
         </div>
       </div>
 
-      <div className="step-info-row">
-        <div className="step-num">Step {step}</div>
+      <div className={`step-info-row ${runMode ? 'step-running' : ''}`}>
         <div className="step-desc">{stepDescription}</div>
       </div>
     </div>

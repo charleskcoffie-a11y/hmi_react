@@ -150,7 +150,7 @@ function createWindow() {
 
   win.setMenuBarVisibility(false);
 
-  // Open DevTools for debugging (commented out for production)
+  // Open DevTools for debugging (disabled for production)
   // win.webContents.openDevTools();
 
   // Ensure the window becomes visible and focused when ready
@@ -286,16 +286,39 @@ ipcMain.handle('load-recipes', async (event, side) => {
 
 ipcMain.handle('delete-recipe', async (event, recipeName, side) => {
   try {
+    console.log(`[electron] DELETE-RECIPE received - name: "${recipeName}", side: "${side}"`);
     const fileName = `${side}_${recipeName.replace(/[^a-zA-Z0-9_-]/g, '_')}.json`;
     const filePath = path.join(recipesDir, fileName);
+    console.log(`[electron] Looking for file: ${filePath}`);
+    console.log(`[electron] File exists: ${fs.existsSync(filePath)}`);
+    
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
-      console.log(`[electron] Recipe deleted: ${filePath}`);
+      console.log(`[electron] SUCCESS - Recipe deleted: ${filePath}`);
       return { success: true };
     }
+
+    // Fallback: find by recipe name inside files (handles legacy filenames)
+    const files = fs.existsSync(recipesDir) ? fs.readdirSync(recipesDir) : [];
+    const sideFiles = files.filter((f) => f.startsWith(`${side}_`));
+    for (const f of sideFiles) {
+      try {
+        const content = fs.readFileSync(path.join(recipesDir, f), 'utf8');
+        const parsed = JSON.parse(content);
+        if (parsed?.name === recipeName) {
+          fs.unlinkSync(path.join(recipesDir, f));
+          console.log(`[electron] SUCCESS - Recipe deleted by name match: ${f}`);
+          return { success: true };
+        }
+      } catch (readErr) {
+        console.warn('[electron] Skipping unreadable recipe file:', f, readErr.message || readErr);
+      }
+    }
+
+    console.log(`[electron] File not found - listing directory contents:`, files);
     return { success: false, error: 'File not found' };
   } catch (err) {
-    console.error(`[electron] Failed to delete recipe:`, err);
+    console.error(`[electron] ERROR deleting recipe:`, err);
     return { success: false, error: err.message };
   }
 });

@@ -9,65 +9,8 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
   const isOperator = userRole === 'operator';
   const isAdmin = userRole === 'admin';
   const isEditLocked = !editLockEnabled && !isAdmin; // Admin bypasses edit lock
-    // Auto-close modal if isOpen becomes false (e.g., navigation)
-    useEffect(() => {
-      if (!isOpen) {
-        setAction(null);
-        setSelectedRecipe(null);
-        setPendingDelete(null);
-        setDialog({ open: false, title: '', message: '', mode: 'info' });
-        setSearchKeypadOpen(false);
-        setEditorKeypadOpen(false);
-        setKeypadField(null);
-      }
-    }, [isOpen]);
-
-    // Auto-close modal if user clicks outside the modal
-    const modalRef = useRef();
-    useEffect(() => {
-      function handleClickOutside(event) {
-        if (modalRef.current && !modalRef.current.contains(event.target)) {
-          onClose();
-        }
-      }
-      if (isOpen) {
-        document.addEventListener('mousedown', handleClickOutside);
-      }
-      return () => {
-        document.removeEventListener('mousedown', handleClickOutside);
-      };
-    }, [isOpen, onClose]);
-
-    // Close modal with ESC key
-    useEffect(() => {
-      function handleEscKey(event) {
-        if (event.key === 'Escape' && isOpen) {
-          onClose();
-        }
-      }
-      if (isOpen) {
-        document.addEventListener('keydown', handleEscKey);
-      }
-      return () => {
-        document.removeEventListener('keydown', handleEscKey);
-      };
-    }, [isOpen, onClose]);
-
-    // Validate selectedRecipe still exists after recipes update
-    useEffect(() => {
-      if (selectedRecipe && recipes && recipes.length > 0) {
-        const selectedName = typeof selectedRecipe === 'string' ? selectedRecipe : selectedRecipe?.name;
-        const stillExists = recipes.some(r => {
-          const name = typeof r === 'string' ? r : r?.name;
-          return name === selectedName;
-        });
-        if (!stillExists) {
-          // Recipe was deleted, select a new one
-          setSelectedRecipe(recipes[0] || null);
-        }
-      }
-    }, [recipes]);
-
+  
+  // State declarations first
   const [selectedRecipe, setSelectedRecipe] = useState(recipes && recipes.length > 5 ? recipes[5] : recipes?.[0] || null);
   const [searchInput, setSearchInput] = useState('');
   const [searchKeypadOpen, setSearchKeypadOpen] = useState(false);
@@ -81,6 +24,78 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
 
   // Ref for file input (import)
   const fileInputRef = useRef(null);
+  const modalRef = useRef();
+  
+  // Log when recipes prop changes
+  useEffect(() => {
+    console.log('[RecipeManager] Recipes prop updated:', recipes?.length, 'recipes');
+    console.log('[RecipeManager] Recipe names:', recipes?.map(r => r.name || r));
+  }, [recipes]);
+  
+  // Effects after state declarations
+  // Auto-close modal if isOpen becomes false (e.g., navigation)
+  useEffect(() => {
+    if (!isOpen) {
+      setAction(null);
+      setSelectedRecipe(null);
+      setPendingDelete(null);
+      setDialog({ open: false, title: '', message: '', mode: 'info' });
+      setSearchKeypadOpen(false);
+      setEditorKeypadOpen(false);
+      setKeypadField(null);
+    }
+  }, [isOpen]);
+
+  // Log dialog state changes
+  useEffect(() => {
+    console.log('[RecipeManager] Dialog state changed:', dialog);
+  }, [dialog]);
+
+  // Auto-close modal if user clicks outside the modal
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dialog.open) return;
+      if (modalRef.current && !modalRef.current.contains(event.target)) {
+        onClose();
+      }
+    }
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen, onClose, dialog.open]);
+
+  // Close modal with ESC key
+  useEffect(() => {
+    function handleEscKey(event) {
+      if (event.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    }
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscKey);
+    }
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+    };
+  }, [isOpen, onClose]);
+
+  // Validate selectedRecipe still exists after recipes update
+  useEffect(() => {
+    if (selectedRecipe && recipes && recipes.length > 0) {
+      const selectedName = typeof selectedRecipe === 'string' ? selectedRecipe : selectedRecipe?.name;
+      const stillExists = recipes.some(r => {
+        const name = typeof r === 'string' ? r : r?.name;
+        return name === selectedName;
+      });
+      if (!stillExists) {
+        // Recipe was deleted, select a new one
+        setSelectedRecipe(recipes[0] || null);
+      }
+    }
+  }, [recipes, selectedRecipe]);
 
   const handleLoad = () => {
     if (selectedRecipe) {
@@ -130,12 +145,19 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
 
   const handleDelete = () => {
     if (selectedRecipe) {
-      if (isOperator || isEditLocked) return;
-      setPendingDelete(selectedRecipe);
+      if (isOperator || isEditLocked) {
+        return;
+      }
+      
+      // Extract recipe name from selectedRecipe (could be string or object)
+      const recipeName = typeof selectedRecipe === 'string' 
+        ? selectedRecipe 
+        : selectedRecipe?.name;
+      setPendingDelete(recipeName);
       setDialog({
         open: true,
         title: 'Delete Recipe?',
-        message: `Are you sure you want to delete "${selectedRecipe}"? This cannot be undone.`,
+        message: `Are you sure you want to delete "${recipeName}"?\n\nThis cannot be undone.`,
         mode: 'confirm'
       });
     }
@@ -157,7 +179,21 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
     if (isOperator) return;
     const recipeObj = typeof selectedRecipe === 'object' ? selectedRecipe : recipes.find(r => r.name === selectedRecipe);
     if (!recipeObj) return;
-    const dataStr = JSON.stringify(recipeObj, null, 2);
+    const directSteps = recipeObj.steps;
+    const programSteps = recipeObj.program?.steps;
+    const hasDirectSteps = Array.isArray(directSteps)
+      ? directSteps.length > 0
+      : directSteps && Object.keys(directSteps).length > 0;
+    const hasProgramSteps = Array.isArray(programSteps)
+      ? programSteps.length > 0
+      : programSteps && Object.keys(programSteps).length > 0;
+
+    const exportRecipe = {
+      ...recipeObj,
+      steps: hasProgramSteps ? programSteps : hasDirectSteps ? directSteps : recipeObj.steps
+    };
+
+    const dataStr = JSON.stringify(exportRecipe, null, 2);
     const blob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -191,6 +227,25 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
           return;
         }
         
+        const directSteps = importedRecipe.steps;
+        const programSteps = importedRecipe.program?.steps;
+        const hasDirectSteps = Array.isArray(directSteps)
+          ? directSteps.length > 0
+          : directSteps && Object.keys(directSteps).length > 0;
+        const hasProgramSteps = Array.isArray(programSteps)
+          ? programSteps.length > 0
+          : programSteps && Object.keys(programSteps).length > 0;
+
+        const steps = hasProgramSteps
+          ? programSteps
+          : hasDirectSteps
+            ? directSteps
+            : {};
+
+        const program = importedRecipe.program
+          ? { ...importedRecipe.program, steps }
+          : undefined;
+
         // Create complete recipe object with all properties
         const completeRecipe = {
           name: importedRecipe.name,
@@ -207,7 +262,8 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
             recipeSpeed: 100,
             stepDelay: 500
           },
-          steps: importedRecipe.steps || {},
+          steps,
+          program,
           speed: importedRecipe.speed,
           dwell: importedRecipe.dwell,
           createdAt: importedRecipe.createdAt || new Date().toISOString()
@@ -552,65 +608,102 @@ export default function RecipeManager({ isOpen, onClose, recipes, side, onLoadRe
         isOpen={dialog.open}
         title={dialog.title}
         onClose={() => {
-          // Don't delete on close - only delete when user clicks Delete button
           setPendingDelete(null);
           setDialog({ open: false, title: '', message: '', mode: 'info' });
         }}
+        width="450px"
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <span>{dialog.message}</span>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-            {dialog.mode === 'confirm' && (
-              <button
-                className="delete-confirm-btn"
-                onClick={() => {
-                  console.log('[RecipeManager] Confirming delete for:', pendingDelete, 'side:', side);
-                  if (pendingDelete) {
-                    const recipeName = typeof pendingDelete === 'string' ? pendingDelete : pendingDelete?.name;
-                    console.log('[RecipeManager] Deleting recipe name:', recipeName);
-                    onDeleteRecipe && onDeleteRecipe(pendingDelete, side);
-                    setSelectedRecipe((prev) => {
-                      const prevName = typeof prev === 'string' ? prev : prev?.name;
-                      const pendingName = typeof pendingDelete === 'string' ? pendingDelete : pendingDelete?.name;
-                      return prevName === pendingName ? null : prev;
-                    });
+        <div style={{ textAlign: 'center', padding: '20px 0' }}>
+          {dialog.mode === 'confirm' && (
+            <>
+              <div style={{
+                fontSize: '48px',
+                marginBottom: '16px',
+                color: '#ff6b35'
+              }}>
+                🗑
+              </div>
+              <p style={{
+                fontSize: '16px',
+                color: '#333',
+                marginBottom: '24px',
+                whiteSpace: 'pre-wrap',
+                lineHeight: '1.5'
+              }}>
+                {dialog.message}
+              </p>
+              <div style={{
+                display: 'flex',
+                gap: '12px',
+                justifyContent: 'center'
+              }}>
+                <button
+                  onClick={() => {
                     setPendingDelete(null);
-                  }
-                  setDialog({ open: false, title: '', message: '', mode: 'info' });
-                }}
-                style={{
-                  backgroundColor: '#ff6b35',
-                  color: 'white',
-                  border: 'none',
-                  padding: '8px 16px',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontWeight: '600',
-                  fontSize: '14px'
-                }}
-              >
-                Delete
-              </button>
-            )}
-            <button 
-              onClick={() => {
-                setPendingDelete(null);
-                setDialog({ open: false, title: '', message: '', mode: 'info' });
-              }}
-              style={{
-                backgroundColor: '#0066cc',
-                color: 'white',
-                border: 'none',
-                padding: '8px 16px',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontWeight: '600',
-                fontSize: '14px'
-              }}
-            >
-              {dialog.mode === 'confirm' ? 'Cancel' : 'Close'}
-            </button>
-          </div>
+                    setDialog({ open: false, title: '', message: '', mode: 'info' });
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '10px 20px',
+                    backgroundColor: '#e0e0e0',
+                    color: '#333',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontWeight: '600',
+                    fontSize: '14px',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.target.style.backgroundColor = '#d0d0d0'}
+                  onMouseLeave={(e) => e.target.style.backgroundColor = '#e0e0e0'}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      if (pendingDelete) {
+                        if (onDeleteRecipe) {
+                          await onDeleteRecipe(pendingDelete, side);
+                        } else {
+                          console.error('[RecipeManager] onDeleteRecipe is not a function!');
+                        }
+                        setSelectedRecipe((prev) => {
+                          const prevName = typeof prev === 'string' ? prev : prev?.name;
+                          return prevName === pendingDelete ? null : prev;
+                        });
+                        setPendingDelete(null);
+                      } else {
+                        console.warn('[RecipeManager] pendingDelete is null/empty!');
+                      }
+                      setDialog({ open: false, title: '', message: '', mode: 'info' });
+                    } catch (err) {
+                      console.error('[RecipeManager] ERROR in delete button onClick:', err);
+                    }
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '10px 20px',
+                    backgroundColor: '#ff6b35',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontWeight: '600',
+                    fontSize: '14px',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.target.style.backgroundColor = '#e55a1f'}
+                  onMouseLeave={(e) => e.target.style.backgroundColor = '#ff6b35'}
+                >
+                  Delete
+                </button>
+              </div>
+            </>
+          )}
+          {dialog.mode !== 'confirm' && (
+            <p style={{ fontSize: '16px', color: '#333' }}>{dialog.message}</p>
+          )}
         </div>
       </ModernDialog>
     </div>

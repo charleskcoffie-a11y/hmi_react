@@ -1,6 +1,8 @@
 ; NSIS Installer Script - Force installation to C:\CNC\
 ; This script is included by electron-builder to customize the installation
 
+RequestExecutionLevel admin
+
 !define INSTALL_PATH "C:\CNC"
 !define APPDATA_CACHE "$APPDATA\CNC Dual head"
 !define LOCALAPPDATA_CACHE "$LOCALAPPDATA\CNC Dual head"
