@@ -165,12 +165,6 @@ export default function ProgramCreationStep3({ programName, side, onStepComplete
       timestamp: new Date().toISOString()
     });
   };
-      },
-      pattern: patternCode,
-      dwell: dwellMs,
-      timestamp: new Date().toISOString()
-    });
-  };
 
   const canComplete = idExpandRecorded && idRetractRecorded && odExpandRecorded && odRetractRecorded;
 
