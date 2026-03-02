@@ -11,12 +11,18 @@ export function getMachineParameters() {
   const saved = localStorage.getItem('machineParameters');
   if (saved) {
     try {
-      return JSON.parse(saved);
+      const params = JSON.parse(saved);
+      console.log('[positionValidationService] Loaded from Machine Parameters page:', {
+        minPosition: params.minPosition,
+        maxPosition: params.maxPosition
+      });
+      return params;
     } catch (e) {
-      console.warn('[positionValidationService] Failed to parse machine parameters');
+      console.warn('[positionValidationService] Failed to parse machine parameters:', e);
     }
   }
-  // Default values (stored in inches)
+  console.warn('[positionValidationService] No machine parameters in localStorage, using defaults');
+  // Default values (stored in inches) - ONLY used if Machine Parameters page has never been opened
   return {
     minPosition: 0,
     maxPosition: 100,
@@ -32,7 +38,14 @@ export function getMachineParameters() {
 export function validatePosition(position, axisName = 'Axis') {
   const params = getMachineParameters();
   const min = params.minPosition ?? 0;
-  const max = params.maxPosition ?? 100;
+  const max = params.maxPosition ?? 999999;
+
+  console.log(`[positionValidationService] Validating ${axisName}:`, {
+    position,
+    min,
+    max,
+    isValid: position >= min && position <= max
+  });
 
   if (position < min) {
     return {
