@@ -726,7 +726,7 @@ function createServer() {
   // Write 10-step program to PLC arrays
   app.post('/write-program', async (req, res) => {
     try {
-      const { side, program } = req.body;
+      const { side, program, machineParameters } = req.body;
       
       // If not connected, simulate success for offline testing
       if (!connected) {
@@ -744,6 +744,53 @@ function createServer() {
         numSteps: Object.keys(program.steps).length,
         stepNumbers: Object.keys(program.steps).sort((a, b) => Number(a) - Number(b))
       });
+
+      // Validate positions against machine parameters
+      const validationErrors = [];
+      const minPosition = machineParameters?.minPosition ?? 0;
+      const maxPosition = machineParameters?.maxPosition ?? 999999;
+      
+      console.log(`[plc-server] Position validation limits: min=${minPosition}, max=${maxPosition}`);
+      
+      for (let stepNum = 1; stepNum <= 20; stepNum++) {
+        const step = program.steps[stepNum];
+        if (!step || !step.positions) continue;
+        
+        const positions = step.positions;
+        
+        // Get axis values based on side
+        const axis1Cmd = side === 'left' ? positions.axis3Cmd : positions.axis1Cmd;
+        const axis2Cmd = side === 'left' ? positions.axis4Cmd : positions.axis2Cmd;
+        
+        // Check axis1 (ID)
+        if (axis1Cmd !== undefined && axis1Cmd !== null) {
+          if (axis1Cmd < minPosition) {
+            validationErrors.push(`Step ${stepNum} ID position ${axis1Cmd.toFixed(2)} is below minimum ${minPosition.toFixed(2)}`);
+          } else if (axis1Cmd > maxPosition) {
+            validationErrors.push(`Step ${stepNum} ID position ${axis1Cmd.toFixed(2)} exceeds maximum ${maxPosition.toFixed(2)}`);
+          }
+        }
+        
+        // Check axis2 (OD)
+        if (axis2Cmd !== undefined && axis2Cmd !== null) {
+          if (axis2Cmd < minPosition) {
+            validationErrors.push(`Step ${stepNum} OD position ${axis2Cmd.toFixed(2)} is below minimum ${minPosition.toFixed(2)}`);
+          } else if (axis2Cmd > maxPosition) {
+            validationErrors.push(`Step ${stepNum} OD position ${axis2Cmd.toFixed(2)} exceeds maximum ${maxPosition.toFixed(2)}`);
+          }
+        }
+      }
+      
+      if (validationErrors.length > 0) {
+        console.error('[plc-server] Position validation errors:', validationErrors);
+        return res.json({ 
+          success: false, 
+          error: `Position validation failed: ${validationErrors.join('; ')}`,
+          validationErrors 
+        });
+      }
+      
+      console.log('[plc-server] Position validation passed');
 
       const gvlPrefix = side === 'left' ? 'GLEFTHEAD' : 'GRIGHTHEAD';
       const headPrefix = side === 'left' ? 'Left' : 'Right';

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import ModernDialog from './ModernDialog';
 import NumericKeypad from './NumericKeypad';
 import { pulseBoolTag } from '../services/plcApiService';
+import { validatePosition, getMachineParameters } from '../services/positionValidationService';
 import '../styles/ProgramCreationStep3.css';
 
 export default function ProgramCreationStep3({ programName, side, onStepComplete, onCancel, onPrevious }) {
@@ -21,6 +22,14 @@ export default function ProgramCreationStep3({ programName, side, onStepComplete
   const [keypadOpen, setKeypadOpen] = useState(false);
   const [keypadTarget, setKeypadTarget] = useState(null);
   const [keypadVal, setKeypadVal] = useState(0);
+  const [warnings, setWarnings] = useState({
+    idExpand: '',
+    idRetract: '',
+    odExpand: '',
+    odRetract: ''
+  });
+  const [validationDialogOpen, setValidationDialogOpen] = useState(false);
+  const [validationMessage, setValidationMessage] = useState('');
 
   const sideLabel = side === 'right' ? 'Right Side' : 'Left Side';
   const axis1Name = 'ID';
@@ -49,6 +58,40 @@ export default function ProgramCreationStep3({ programName, side, onStepComplete
   };
 
   const handleRecord = (type) => {
+    let value, axisName, label;
+    
+    if (type === 'idExpand') {
+      value = idExpandValue;
+      axisName = 'ID';
+      label = 'ID Expand';
+    } else if (type === 'idRetract') {
+      value = idRetractValue;
+      axisName = 'ID';
+      label = 'ID Retract';
+    } else if (type === 'odExpand') {
+      value = odExpandValue;
+      axisName = 'OD';
+      label = 'OD Expand';
+    } else if (type === 'odRetract') {
+      value = odRetractValue;
+      axisName = 'OD';
+      label = 'OD Retract';
+    }
+    
+    const validation = validatePosition(value, label);
+    
+    if (!validation.isValid) {
+      const params = getMachineParameters();
+      const min = params.minPosition ?? 0;
+      const max = params.maxPosition ?? 100;
+      setValidationMessage(
+        `${label} position ${value.toFixed(2)} is invalid.\nValid range: ${min.toFixed(2)} to ${max.toFixed(2)}`
+      );
+      setValidationDialogOpen(true);
+      setWarnings(prev => ({ ...prev, [type]: validation.message }));
+      return;
+    }
+    
     const messageMap = {
       idExpand: () => {
         setIdExpandRecorded(true);
@@ -68,6 +111,7 @@ export default function ProgramCreationStep3({ programName, side, onStepComplete
       }
     };
     
+    setWarnings(prev => ({ ...prev, [type]: '' }));
     messageMap[type]?.();
     setTimeout(() => setStepMessage(''), 3000);
   };
@@ -79,6 +123,23 @@ export default function ProgramCreationStep3({ programName, side, onStepComplete
         title: 'Positions Required',
         message: 'Please record all four positions (ID Expand, ID Retract, OD Expand, OD Retract) before continuing.'
       });
+      return;
+    }
+    
+    const val1 = validatePosition(idExpandValue, 'ID Expand');
+    const val2 = validatePosition(idRetractValue, 'ID Retract');
+    const val3 = validatePosition(odExpandValue, 'OD Expand');
+    const val4 = validatePosition(odRetractValue, 'OD Retract');
+    
+    if (!val1.isValid || !val2.isValid || !val3.isValid || !val4.isValid) {
+      const messages = [
+        val1.isValid ? '' : val1.message,
+        val2.isValid ? '' : val2.message,
+        val3.isValid ? '' : val3.message,
+        val4.isValid ? '' : val4.message
+      ].filter(Boolean).join('\n');
+      setValidationMessage(`Cannot proceed:\n${messages}`);
+      setValidationDialogOpen(true);
       return;
     }
 
@@ -98,6 +159,12 @@ export default function ProgramCreationStep3({ programName, side, onStepComplete
           expand: odExpandValue,
           retract: odRetractValue
         }
+      },
+      pattern: patternCode,
+      dwell: dwellMs,
+      timestamp: new Date().toISOString()
+    });
+  };
       },
       pattern: patternCode,
       dwell: dwellMs,
@@ -387,6 +454,19 @@ export default function ProgramCreationStep3({ programName, side, onStepComplete
           <span>{dialog.message}</span>
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <button onClick={() => setDialog({ open: false, title: '', message: '' })}>Close</button>
+          </div>
+        </div>
+      </ModernDialog>
+      
+      <ModernDialog
+        isOpen={validationDialogOpen}
+        title="Position Out of Range"
+        onClose={() => setValidationDialogOpen(false)}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <span style={{ whiteSpace: 'pre-line', color: '#ff6b6b', fontWeight: '600' }}>{validationMessage}</span>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button onClick={() => setValidationDialogOpen(false)}>Close</button>
           </div>
         </div>
       </ModernDialog>

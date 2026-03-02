@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import ModernDialog from './ModernDialog';
+import { validatePosition, getMachineParameters } from '../services/positionValidationService';
 import '../styles/GenericProgramStep.css';
 
 export default function GenericProgramStep({ 
@@ -24,6 +25,10 @@ export default function GenericProgramStep({
   const [dialog, setDialog] = useState({ open: false, title: '', message: '' });
   const [enablingAxis, setEnablingAxis] = useState(false);
   const [axisFeedback, setAxisFeedback] = useState([]);
+  const [axis1Warning, setAxis1Warning] = useState('');
+  const [axis2Warning, setAxis2Warning] = useState('');
+  const [validationDialogOpen, setValidationDialogOpen] = useState(false);
+  const [validationMessage, setValidationMessage] = useState('');
 
   const sideLabel = side === 'right' ? 'Right Side' : 'Left Side';
   const axis1Name = 'ID';
@@ -136,7 +141,22 @@ export default function GenericProgramStep({
   };
 
   const handleAxis1Record = () => {
+    const validation = validatePosition(axis1Value, axis1Name);
+    
+    if (!validation.isValid) {
+      const params = getMachineParameters();
+      const min = params.minPosition ?? 0;
+      const max = params.maxPosition ?? 100;
+      setValidationMessage(
+        `${axis1Name} position ${axis1Value.toFixed(2)} is invalid.\nValid range: ${min.toFixed(2)} to ${max.toFixed(2)}`
+      );
+      setValidationDialogOpen(true);
+      setAxis1Warning(validation.message);
+      return;
+    }
+    
     setAxis1Recorded(true);
+    setAxis1Warning('');
     setRecordedPositions(prev => ({
       ...prev,
       [axis1Name]: axis1Value
@@ -146,7 +166,22 @@ export default function GenericProgramStep({
   };
 
   const handleAxis2Record = () => {
+    const validation = validatePosition(axis2Value, axis2Name);
+    
+    if (!validation.isValid) {
+      const params = getMachineParameters();
+      const min = params.minPosition ?? 0;
+      const max = params.maxPosition ?? 100;
+      setValidationMessage(
+        `${axis2Name} position ${axis2Value.toFixed(2)} is invalid.\nValid range: ${min.toFixed(2)} to ${max.toFixed(2)}`
+      );
+      setValidationDialogOpen(true);
+      setAxis2Warning(validation.message);
+      return;
+    }
+    
     setAxis2Recorded(true);
+    setAxis2Warning('');
     setRecordedPositions(prev => ({
       ...prev,
       [axis2Name]: axis2Value
@@ -158,6 +193,16 @@ export default function GenericProgramStep({
   const handleComplete = () => {
     if (!axis1Recorded || !axis2Recorded) {
       setDialog({ open: true, title: 'Positions Required', message: 'Please record positions for both axes before continuing.' });
+      return;
+    }
+    
+    const val1 = validatePosition(axis1Value, axis1Name);
+    const val2 = validatePosition(axis2Value, axis2Name);
+    
+    if (!val1.isValid || !val2.isValid) {
+      const messages = [val1.isValid ? '' : val1.message, val2.isValid ? '' : val2.message].filter(Boolean).join('\n');
+      setValidationMessage(`Cannot proceed:\n${messages}`);
+      setValidationDialogOpen(true);
       return;
     }
 
@@ -205,6 +250,19 @@ export default function GenericProgramStep({
             <div className="axis-display">
               <div className="position-label">Current Position</div>
               <div className="position-value">{axis1Value.toFixed(2)} mm</div>
+              {axis1Warning && (
+                <div style={{
+                  color: '#ff6b6b',
+                  fontSize: '12px',
+                  marginTop: '8px',
+                  padding: '6px',
+                  backgroundColor: 'rgba(255, 107, 107, 0.15)',
+                  borderRadius: '4px',
+                  fontWeight: '600'
+                }}>
+                  {axis1Warning}
+                </div>
+              )}
             </div>
 
             {axisFeedback.length > 0 && (
@@ -257,6 +315,19 @@ export default function GenericProgramStep({
             <div className="axis-display">
               <div className="position-label">Current Position</div>
               <div className="position-value">{axis2Value.toFixed(2)} mm</div>
+              {axis2Warning && (
+                <div style={{
+                  color: '#ff6b6b',
+                  fontSize: '12px',
+                  marginTop: '8px',
+                  padding: '6px',
+                  backgroundColor: 'rgba(255, 107, 107, 0.15)',
+                  borderRadius: '4px',
+                  fontWeight: '600'
+                }}>
+                  {axis2Warning}
+                </div>
+              )}
             </div>
 
             {axisFeedback.length > 0 && (
@@ -376,6 +447,19 @@ export default function GenericProgramStep({
           <span>{dialog.message}</span>
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <button onClick={() => setDialog({ open: false, title: '', message: '' })}>Close</button>
+          </div>
+        </div>
+      </ModernDialog>
+      
+      <ModernDialog
+        isOpen={validationDialogOpen}
+        title="Position Out of Range"
+        onClose={() => setValidationDialogOpen(false)}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <span style={{ whiteSpace: 'pre-line', color: '#ff6b6b', fontWeight: '600' }}>{validationMessage}</span>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button onClick={() => setValidationDialogOpen(false)}>Close</button>
           </div>
         </div>
       </ModernDialog>

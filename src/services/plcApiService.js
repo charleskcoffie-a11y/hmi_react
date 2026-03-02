@@ -81,10 +81,26 @@ async function downloadProgram(payload) {
     throw new Error('Missing program data');
   }
   
+  // Get machine parameters for validation on backend
+  let machineParameters = null;
+  try {
+    const saved = localStorage.getItem('machineParameters');
+    if (saved) {
+      machineParameters = JSON.parse(saved);
+    }
+  } catch (e) {
+    console.warn('[plcApiService] Failed to get machine parameters:', e);
+  }
+  
   const res = await fetch(`${API_BASE}/write-program`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ side: program.side, program, parameters })
+    body: JSON.stringify({ 
+      side: program.side, 
+      program, 
+      parameters,
+      machineParameters 
+    })
   });
   
   const data = await res.json();
