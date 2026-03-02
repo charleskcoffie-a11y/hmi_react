@@ -454,13 +454,35 @@ export default function ProgramCreationStep3({ programName, side, onStepComplete
       
       <ModernDialog
         isOpen={validationDialogOpen}
-        title="Position Out of Range"
-        onClose={() => setValidationDialogOpen(false)}
+        title="⚠️  Position Out of Range"
+        variant="warning-variant"
+        confirmText="UNDERSTOOD"
+        onConfirm={() => setValidationDialogOpen(false)}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <span style={{ whiteSpace: 'pre-line', color: '#ff6b6b', fontWeight: '600' }}>{validationMessage}</span>
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <button onClick={() => setValidationDialogOpen(false)}>Close</button>
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 16,
+          textAlign: 'left',
+          padding: '8px 0'
+        }}>
+          <span style={{
+            whiteSpace: 'pre-line',
+            color: '#fff9e6',
+            fontWeight: '600',
+            fontSize: '1.0rem',
+            lineHeight: '1.6'
+          }}>
+            {validationMessage}
+          </span>
+          <div style={{
+            padding: '12px',
+            borderLeft: '4px solid #ffa94d',
+            background: 'rgba(255, 165, 77, 0.1)',
+            borderRadius: '6px',
+            color: '#ffedb3'
+          }}>
+            ℹ️ Please enter a position within the configured range.
           </div>
         </div>
       </ModernDialog>
