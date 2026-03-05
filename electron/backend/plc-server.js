@@ -3,12 +3,19 @@ const { Client } = require('ads-client');
 const fs = require('fs');
 const path = require('path');
 
-let DEFAULT_NET_ID = process.env.AMS_NET_ID || '169.254.109.230.1.1';
+// NET ID can be set via savedNetId parameter from Electron config, or env variable, or default
+let DEFAULT_NET_ID = null;  // Will be set by initializeNetId()
+const FALLBACK_NET_ID = '169.254.109.230.1.1';
 const DEFAULT_ADS_PORT = parseInt(process.env.AMS_PORT || '851', 10);
 const DEFAULT_HTTP_PORT = parseInt(process.env.ADS_HTTP_PORT || '3001', 10);
 const READ_SYMBOL = process.env.ADS_READ_SYMBOL || 'MAIN.myVar';
 const WRITE_SYMBOL = process.env.ADS_WRITE_SYMBOL || 'MAIN.myVar';
 const IO_MAP_PATH = path.join(__dirname, 'io-map.json');
+
+function initializeNetId(savedNetId) {
+  DEFAULT_NET_ID = savedNetId || process.env.AMS_NET_ID || FALLBACK_NET_ID;
+  console.log(`[plc-server] Initialized with NET ID: ${DEFAULT_NET_ID}`);
+}
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -177,14 +184,16 @@ function createServer() {
       DEFAULT_NET_ID = netId;
       console.log(`[plc-server] Net ID updated to: ${DEFAULT_NET_ID}`);
       
-      // Disconnect and reconnect with new Net ID
+      // Properly disconnect old ADS client
       try {
         await ads.disconnect();
+        console.log('[plc-server] Old ADS client disconnected');
       } catch (e) {
-        // Ignore disconnect errors
+        console.warn('[plc-server] Error disconnecting old ADS client:', e.message);
       }
       
-      // Create new client with updated Net ID
+      // Create completely new ADS client instance with updated Net ID
+      // Do NOT use Object.assign - it doesn't properly transfer connection state
       const newAds = new Client({
         targetAmsNetId: DEFAULT_NET_ID,
         targetAdsPort: DEFAULT_ADS_PORT,
@@ -192,11 +201,20 @@ function createServer() {
       
       try {
         await newAds.connect();
-        Object.assign(ads, newAds);
+        // Replace the ads reference with the new client
+        // All pending operations on old ads will fail, but future operations use new client
+        for (const key in ads) {
+          delete ads[key];
+        }
+        Object.setPrototypeOf(ads, Object.getPrototypeOf(newAds));
+        for (const key in newAds) {
+          ads[key] = newAds[key];
+        }
         connected = true;
-        console.log(`[plc-server] Connected to ADS at ${DEFAULT_NET_ID}:${DEFAULT_ADS_PORT}`);
+        console.log(`[plc-server] Successfully connected to ADS at ${DEFAULT_NET_ID}:${DEFAULT_ADS_PORT}`);
         res.json({ success: true, message: 'Net ID updated and connected', amsNetId: DEFAULT_NET_ID });
       } catch (connErr) {
+        connected = false;
         console.error('[plc-server] Failed to connect with new Net ID:', connErr.message);
         res.json({ success: true, message: 'Net ID updated (connection failed)', amsNetId: DEFAULT_NET_ID, warning: connErr.message });
       }
@@ -964,13 +982,20 @@ function createServer() {
   let server;
 
   async function start() {
-    // Start HTTP server first (don't wait for ADS connection)
+    // Start HTTP server first
     server = app.listen(DEFAULT_HTTP_PORT, () => {
       console.log(`[plc-server] ADS Express server running on port ${DEFAULT_HTTP_PORT}`);
     });
     
-    // Connect to ADS in background
-    connectAds();
+    // Wait for ADS connection to be established (with timeout)
+    // This ensures the backend is ready before React app starts calling endpoints
+    await Promise.race([
+      connectAds(),
+      new Promise(resolve => setTimeout(() => {
+        console.warn('[plc-server] ADS connection timeout (5s) - continuing anyway');
+        resolve();
+      }, 5000))
+    ]);
     
     return { port: DEFAULT_HTTP_PORT };
   }
@@ -993,7 +1018,10 @@ function createServer() {
   return { start, stop };
 }
 
-async function startServer() {
+async function startServer(savedNetId) {
+  // Initialize NET ID from saved config or defaults
+  initializeNetId(savedNetId);
+  
   const srv = createServer();
   const result = await srv.start();
   console.log('[plc-server] Backend server started successfully');

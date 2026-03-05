@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('electron', {
   loadRecipes: (side) => ipcRenderer.invoke('load-recipes', side),
   deleteRecipe: (recipeName, side) => ipcRenderer.invoke('delete-recipe', recipeName, side),
   getNetId: () => ipcRenderer.invoke('get-net-id'),
+  saveNetId: (netId) => ipcRenderer.invoke('save-net-id', netId),
   getLastRecipe: () => ipcRenderer.invoke('get-last-recipe'),
   setLastRecipe: (side, recipeName) => ipcRenderer.invoke('set-last-recipe', side, recipeName),
   getPasswords: () => ipcRenderer.invoke('get-passwords'),

@@ -219,7 +219,14 @@ app.whenReady().then(async () => {
       console.log('[electron] After cleanup - localStorage folder contents:', fs.readdirSync(localStoragePath));
     }
     
-    backendServer = await startServer();
+    // Load saved NET ID from config and pass to backend
+    const config = loadConfig();
+    const savedNetId = config.amsNetId || null;
+    if (savedNetId) {
+      console.log('[electron] Loaded saved NET ID from config:', savedNetId);
+    }
+    
+    backendServer = await startServer(savedNetId);
   } catch (err) {
     console.error('Failed to start PLC backend:', err.message);
   }

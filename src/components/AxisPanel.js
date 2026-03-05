@@ -1,11 +1,15 @@
 import React from 'react';
 import '../styles/AxisPanel.css';
 
-function AxisPanel({ side, axis1Name, axis2Name, onAxisChange, axis1State, axis2State, actualPositions, step, stepDescription, recipe, recipes, onRecipeChange, onOpenRecipeSelector, unitSystem = 'mm', userRole, runMode = false, jogMode = false, sequenceActive = false, headCount = 0, onResetHeadCount = () => {} }) {
+function AxisPanel({ side, axis1Name, axis2Name, onAxisChange, axis1State, axis2State, actualPositions, step, stepDescription, recipe, recipes, onRecipeChange, onOpenRecipeSelector, unitSystem = 'mm', userRole, runMode = false, jogMode = false, sequenceActive = false, headCount = 0, onResetHeadCount = () => {}, recipeSyncStatus = null }) {
   const canChangeRecipe = userRole !== 'operator';
   
   const selectedRecipe = recipes?.find(r => r.name === recipe);
   const recipeDescription = selectedRecipe?.description || 'No recipe selected';
+  
+  // Determine sync status for this recipe
+  const isSynced = recipeSyncStatus?.synced && recipeSyncStatus?.recipeName === recipe;
+  const hasSyncInfo = recipeSyncStatus?.recipeName === recipe;
 
   const displayAxis1 = actualPositions?.axis1 ?? 0;
   const displayAxis2 = actualPositions?.axis2 ?? 0;
@@ -41,7 +45,17 @@ function AxisPanel({ side, axis1Name, axis2Name, onAxisChange, axis1State, axis2
         <label className="recipe-label">Recipe:</label>
         {recipe ? (
           <div className="selected-recipe-display">
-            <div className="selected-recipe-name">{recipe}</div>
+            <div className="selected-recipe-name">
+              {recipe}
+              {hasSyncInfo && (
+                <span 
+                  className={`recipe-sync-indicator ${isSynced ? 'synced' : 'not-synced'}`}
+                  title={isSynced ? 'Recipe synced with PLC' : 'Recipe NOT synced with PLC (offline)'}
+                >
+                  {isSynced ? '✓' : '⚠'}
+                </span>
+              )}
+            </div>
             <button 
               className="change-recipe-btn"
               onClick={() => onOpenRecipeSelector && onOpenRecipeSelector(side.toLowerCase())}

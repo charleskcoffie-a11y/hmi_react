@@ -678,10 +678,10 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
 
   const getAxisLabelForKeypad = () => {
     const map = {
-      axis1Cmd: 'Axis 1',
-      axis2Cmd: 'Axis 2',
-      axis3Cmd: 'Axis 3',
-      axis4Cmd: 'Axis 4'
+      axis1Cmd: 'ID (Right)',
+      axis2Cmd: 'OD (Right)',
+      axis3Cmd: 'ID (Left)',
+      axis4Cmd: 'OD (Left)'
     };
     return map[keypadTarget?.field] || 'Axis';
   };
@@ -837,12 +837,12 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                           const isRightSide = program.side === 'right';
                           const axisMap = isRightSide
                             ? {
-                                axis1: { label: 'Axis 1 Cmd:', value: step.positions.axis1Cmd, field: 'axis1Cmd' },
-                                axis2: { label: 'Axis 2 Cmd:', value: step.positions.axis2Cmd, field: 'axis2Cmd' }
+                                axis1: { label: 'ID Cmd:', value: step.positions.axis1Cmd, field: 'axis1Cmd' },
+                                axis2: { label: 'OD Cmd:', value: step.positions.axis2Cmd, field: 'axis2Cmd' }
                               }
                             : {
-                                axis1: { label: 'Axis 3 Cmd:', value: step.positions.axis3Cmd ?? step.positions.axis1Cmd, field: 'axis3Cmd' },
-                                axis2: { label: 'Axis 4 Cmd:', value: step.positions.axis4Cmd ?? step.positions.axis2Cmd, field: 'axis4Cmd' }
+                                axis1: { label: 'ID Cmd:', value: step.positions.axis3Cmd ?? step.positions.axis1Cmd, field: 'axis3Cmd' },
+                                axis2: { label: 'OD Cmd:', value: step.positions.axis4Cmd ?? step.positions.axis2Cmd, field: 'axis4Cmd' }
                               };
 
                           return axes.map((axis) => {
@@ -1657,7 +1657,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
               <div className="positions-header">Current Positions:</div>
               <div className="positions-grid">
                 <div className="position-item">
-                  <label className="position-label">Axis 1 (X)</label>
+                  <label className="position-label">ID</label>
                   <div className="position-value">{currentTeachPositions.axis1Cmd.toFixed(2)}</div>
                   <input
                     type="number"
@@ -1668,7 +1668,7 @@ export default function ProgramEditor({ isOpen, onClose, program, onSaveProgram,
                   />
                 </div>
                 <div className="position-item">
-                  <label className="position-label">Axis 2 (Y)</label>
+                  <label className="position-label">OD</label>
                   <div className="position-value">{currentTeachPositions.axis2Cmd.toFixed(2)}</div>
                   <input
                     type="number"

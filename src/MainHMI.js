@@ -26,7 +26,6 @@ import DigitalIOPage from './components/DigitalIOPage';
 import './styles/MainHMI.css';
 import { readPLCVar, writePLCVar, readAxisPositions, pulseBoolTag, writeScreenIndex } from './services/plcApiService';
 import { saveRecipeToFile, loadRecipesFromFolder, deleteRecipeFile, getLastRecipe, setLastRecipe } from './services/recipeService';
-import { initializeBackendNetId } from './services/netIdService';
 import { convertToInches, convertPositionsToInches, convertRecipeParametersToInches } from './services/unitConversionService';
 import packageJson from '../package.json';
 
@@ -497,10 +496,6 @@ export default function MainHMI() {
       }
     };
   }, [alarmBannerTimeout]);
-  // Initialize backend with saved Net ID on mount
-  useEffect(() => {
-    initializeBackendNetId();
-  }, []);
   
   // Write current screen index to PLC whenever it changes
   useEffect(() => {
@@ -1212,41 +1207,21 @@ export default function MainHMI() {
         const lastRightRecipeName = lastRecipe?.right || null;
         const lastLeftRecipeName = lastRecipe?.left || null;
         
+        // Update currentRecipe state with last used recipe names
+        setCurrentRecipe({
+          right: lastRightRecipeName,
+          left: lastLeftRecipeName
+        });
+        
         if (lastRightRecipeName && rightRecipes.length > 0) {
           const lastRightRecipe = rightRecipes.find(r => r.name === lastRightRecipeName);
           if (lastRightRecipe) {
             console.log(`[MainHMI] Auto-loading last right recipe to PLC: ${lastRightRecipeName}`);
-            setCurrentRecipe(prev => ({ ...prev, right: lastRightRecipeName }));
-            try {
-              // Send recipe parameters if available
-              if (lastRightRecipe.parameters) {
-                await sendRecipeParametersToPLC(lastRightRecipe.parameters, 'right');
-                console.log(`[MainHMI] Successfully auto-loaded right recipe parameters to PLC`);
-              }
-              
-              // Send program steps if available
-              if (lastRightRecipe.steps) {
-                const program = {
-                  name: lastRightRecipeName,
-                  side: 'right',
-                  steps: lastRightRecipe.steps,
-                  speed: lastRightRecipe.speed,
-                  dwell: lastRightRecipe.dwell
-                };
-                
-                await writePLCVar({
-                  command: 'downloadProgram',
-                  program: program,
-                  parameters: lastRightRecipe.parameters || undefined
-                });
-                
-                console.log(`[MainHMI] Successfully auto-loaded right recipe program steps to PLC`);
-                setProgramValid(prev => ({ ...prev, right: true }));
-              }
-            } catch (err) {
-              console.warn(`[MainHMI] Failed to auto-load right recipe to PLC:`, err);
-              setProgramValid(prev => ({ ...prev, right: false }));
-            }
+            const syncSuccess = await loadRecipeToPLC(lastRightRecipe, 'right', rightRecipes);
+            setRecipeSyncStatus(prev => ({
+              ...prev,
+              right: { synced: syncSuccess, recipeName: lastRightRecipeName }
+            }));
           }
         }
         
@@ -1254,37 +1229,11 @@ export default function MainHMI() {
           const lastLeftRecipe = leftRecipes.find(r => r.name === lastLeftRecipeName);
           if (lastLeftRecipe) {
             console.log(`[MainHMI] Auto-loading last left recipe to PLC: ${lastLeftRecipeName}`);
-            setCurrentRecipe(prev => ({ ...prev, left: lastLeftRecipeName }));
-            try {
-              // Send recipe parameters if available
-              if (lastLeftRecipe.parameters) {
-                await sendRecipeParametersToPLC(lastLeftRecipe.parameters, 'left');
-                console.log(`[MainHMI] Successfully auto-loaded left recipe parameters to PLC`);
-              }
-              
-              // Send program steps if available
-              if (lastLeftRecipe.steps) {
-                const program = {
-                  name: lastLeftRecipeName,
-                  side: 'left',
-                  steps: lastLeftRecipe.steps,
-                  speed: lastLeftRecipe.speed,
-                  dwell: lastLeftRecipe.dwell
-                };
-                
-                await writePLCVar({
-                  command: 'downloadProgram',
-                  program: program,
-                  parameters: lastLeftRecipe.parameters || undefined
-                });
-                
-                console.log(`[MainHMI] Successfully auto-loaded left recipe program steps to PLC`);
-                setProgramValid(prev => ({ ...prev, left: true }));
-              }
-            } catch (err) {
-              console.warn(`[MainHMI] Failed to auto-load left recipe to PLC:`, err);
-              setProgramValid(prev => ({ ...prev, left: false }));
-            }
+            const syncSuccess = await loadRecipeToPLC(lastLeftRecipe, 'left', leftRecipes);
+            setRecipeSyncStatus(prev => ({
+              ...prev,
+              left: { synced: syncSuccess, recipeName: lastLeftRecipeName }
+            }));
           }
         }
       } catch (err) {
@@ -1298,28 +1247,69 @@ export default function MainHMI() {
 
   const [recipesLeft, setRecipesLeft] = useState([]);
 
-  const [currentRecipe, setCurrentRecipe] = useState(() => {
-    // Initialize from localStorage immediately so UI shows recipe names on mount
-    const lastRightRecipeName = localStorage.getItem('lastRecipe_right');
-    const lastLeftRecipeName = localStorage.getItem('lastRecipe_left');
-    return {
-      right: lastRightRecipeName || null,
-      left: lastLeftRecipeName || null
-    };
+  const [currentRecipe, setCurrentRecipe] = useState({ right: null, left: null });
+
+  // Track recipe sync status with PLC (whether current recipe is written to PLC)
+  const [recipeSyncStatus, setRecipeSyncStatus] = useState({ 
+    right: { synced: false, recipeName: null }, 
+    left: { synced: false, recipeName: null } 
   });
 
-  // Ensure last recipe is loaded from Electron appData (if available)
+  // Track previous PLC connection state for detecting reconnection
+  const prevPlcConnected = useRef(false);
+
+  // Monitor PLC connection changes - auto-reload recipes when PLC reconnects
   useEffect(() => {
-    (async () => {
-      const lastRecipe = await getLastRecipe();
-      if (lastRecipe?.right || lastRecipe?.left) {
-        setCurrentRecipe(prev => ({
-          right: lastRecipe?.right ?? prev.right,
-          left: lastRecipe?.left ?? prev.left
-        }));
+    // Detect PLC reconnection (previous: false, current: true)
+    if (!prevPlcConnected.current && plcConnected) {
+      console.log('[MainHMI] PLC reconnected - checking if recipes need to be reloaded');
+      
+      // Check if we have recipes that aren't synced
+      const needsRightSync = currentRecipe.right && !recipeSyncStatus.right.synced;
+      const needsLeftSync = currentRecipe.left && !recipeSyncStatus.left.synced;
+      
+      if (needsRightSync || needsLeftSync) {
+        console.log('[MainHMI] Reloading recipes to PLC after reconnection:', {
+          right: needsRightSync ? currentRecipe.right : 'already synced',
+          left: needsLeftSync ? currentRecipe.left : 'already synced'
+        });
+        
+        // Reload recipes that need sync
+        (async () => {
+          if (needsRightSync) {
+            const recipe = recipesRight.find(r => r.name === currentRecipe.right);
+            if (recipe) {
+              const syncSuccess = await loadRecipeToPLC(recipe, 'right', recipesRight);
+              setRecipeSyncStatus(prev => ({
+                ...prev,
+                right: { synced: syncSuccess, recipeName: currentRecipe.right }
+              }));
+              if (syncSuccess) {
+                console.log(`[MainHMI] Successfully re-synced right recipe "${currentRecipe.right}" after PLC reconnection`);
+              }
+            }
+          }
+          
+          if (needsLeftSync) {
+            const recipe = recipesLeft.find(r => r.name === currentRecipe.left);
+            if (recipe) {
+              const syncSuccess = await loadRecipeToPLC(recipe, 'left', recipesLeft);
+              setRecipeSyncStatus(prev => ({
+                ...prev,
+                left: { synced: syncSuccess, recipeName: currentRecipe.left }
+              }));
+              if (syncSuccess) {
+                console.log(`[MainHMI] Successfully re-synced left recipe "${currentRecipe.left}" after PLC reconnection`);
+              }
+            }
+          }
+        })();
       }
-    })();
-  }, []);
+    }
+    
+    // Update previous connection state
+    prevPlcConnected.current = plcConnected;
+  }, [plcConnected, currentRecipe, recipeSyncStatus, recipesRight, recipesLeft]);
 
   const [messageModal, setMessageModal] = useState({
     isOpen: false,
@@ -1509,6 +1499,7 @@ export default function MainHMI() {
    * Send recipe parameters to PLC
    * @param {Object} parameters - Recipe parameters object
    * @param {String} side - 'left' or 'right'
+   * @returns {Boolean} true if successfully written to PLC, false if mock/failed
    */
   const sendRecipeParametersToPLC = async (parameters, side) => {
     if (!parameters || !side) return false;
@@ -1518,7 +1509,7 @@ export default function MainHMI() {
       // Convert recipe parameters from mm to inches if needed
       const convertedParams = convertRecipeParametersToInches(parameters, unitSystem);
       
-      await writePLCVar({
+      const response = await writePLCVar({
         command: 'setRecipeParameters',
         side,
         parameters: {
@@ -1533,12 +1524,80 @@ export default function MainHMI() {
           depth: convertedParams.depth || 0
         }
       });
+      
+      // Check if response indicates mock mode (PLC not connected)
+      const isMockWrite = response?.source === 'mock' || response?.source === 'mock-error';
+      if (isMockWrite) {
+        console.warn(`[MainHMI] Recipe parameters write was MOCK (PLC not connected) for ${side} side`);
+        return false;
+      }
+      
       console.log(`[MainHMI] Recipe parameters sent successfully to PLC for ${side} side (converted to inches)`);
       return true;
     } catch (error) {
       console.error(`[MainHMI] Failed to send recipe parameters to PLC for ${side} side:`, error.message);
       return false;
     }
+  };
+
+  /**
+   * Load recipe to PLC (parameters and program steps)
+   * Helper function to load recipe data to PLC with proper error handling
+   * @param {Object} recipe - Recipe object
+   * @param {String} side - 'left' or 'right'
+   * @param {Array} recipeList - List of recipes for this side
+   * @returns {Boolean} true if successfully loaded, false otherwise
+   */
+  const loadRecipeToPLC = async (recipe, side, recipeList) => {
+    let paramsSynced = false;
+    let programSynced = false;
+
+    try {
+      // Send recipe parameters if available
+      if (recipe.parameters) {
+        paramsSynced = await sendRecipeParametersToPLC(recipe.parameters, side);
+        if (paramsSynced) {
+          console.log(`[MainHMI] Successfully loaded ${side} recipe parameters to PLC`);
+        } else {
+          console.warn(`[MainHMI] Failed to load ${side} recipe parameters (PLC not connected or error)`);
+        }
+      }
+      
+      // Send program steps if available
+      const steps = recipe.steps || recipe.program?.steps;
+      if (steps) {
+        const program = {
+          name: recipe.name,
+          side: side,
+          steps: steps,
+          speed: recipe.speed || recipe.program?.speed,
+          dwell: recipe.dwell || recipe.program?.dwell
+        };
+        
+        const response = await writePLCVar({
+          command: 'downloadProgram',
+          program: program,
+          parameters: recipe.parameters || undefined
+        });
+        
+        // Check if response indicates mock mode
+        const isMockWrite = response?.source === 'mock' || response?.source === 'mock-error';
+        if (isMockWrite) {
+          console.warn(`[MainHMI] Program download was MOCK (PLC not connected) for ${side} side`);
+          setProgramValid(prev => ({ ...prev, [side]: false }));
+        } else {
+          console.log(`[MainHMI] Successfully loaded ${side} recipe program steps to PLC`);
+          setProgramValid(prev => ({ ...prev, [side]: true }));
+          programSynced = true;
+        }
+      }
+    } catch (err) {
+      console.warn(`[MainHMI] Failed to auto-load ${side} recipe to PLC:`, err);
+      setProgramValid(prev => ({ ...prev, [side]: false }));
+    }
+
+    // Return true only if at least one component was successfully synced
+    return paramsSynced || programSynced;
   };
 
   const handleLoadRecipe = (recipe, side) => {
@@ -1562,42 +1621,35 @@ export default function MainHMI() {
     // Send recipe parameters and program steps to PLC
     (async () => {
       try {
-        // Send recipe parameters if available
-        if (parameters) {
-          const paramsSent = await sendRecipeParametersToPLC(parameters, side);
-          if (!paramsSent) {
-            console.warn('[MainHMI] Recipe load: failed to send recipe parameters');
-          }
-        }
+        const syncSuccess = await loadRecipeToPLC(recipeObj, side, side === 'right' ? recipesRight : recipesLeft);
         
-        // Send program steps if available in recipe
-        // Check for steps in both locations: recipeObj.steps (direct) or recipeObj.program.steps (AutoTeach format)
-        const steps = recipeObj?.steps || recipeObj?.program?.steps;
-        if (steps) {
-          const program = {
-            name: recipeName,
-            side: side,
-            steps: steps,
-            speed: recipeObj.speed || recipeObj.program?.speed,
-            dwell: recipeObj.dwell || recipeObj.program?.dwell
-          };
-          
-          await writePLCVar({
-            command: 'downloadProgram',
-            program: program,
-            parameters: parameters || undefined
-          });
-          
-          setProgramValid(prev => ({ ...prev, [side]: true }));
-          showMessage('Recipe Loaded', `Recipe "${recipeName}" with program loaded and sent to ${side} side`, 'success');
-        } else if (parameters) {
-          showMessage('Recipe Loaded', `Recipe "${recipeName}" parameters sent to ${side} side`, 'success');
+        // Update sync status
+        setRecipeSyncStatus(prev => ({
+          ...prev,
+          [side]: { synced: syncSuccess, recipeName }
+        }));
+        
+        if (syncSuccess) {
+          const steps = recipeObj?.steps || recipeObj?.program?.steps;
+          if (steps && parameters) {
+            showMessage('Recipe Loaded', `Recipe "${recipeName}" with program loaded and sent to ${side} side`, 'success');
+          } else if (steps) {
+            showMessage('Recipe Loaded', `Recipe "${recipeName}" program sent to ${side} side`, 'success');
+          } else if (parameters) {
+            showMessage('Recipe Loaded', `Recipe "${recipeName}" parameters sent to ${side} side`, 'success');
+          } else {
+            showMessage('Recipe Loaded', `Recipe "${recipeName}" loaded for ${side} side`, 'success');
+          }
         } else {
-          showMessage('Recipe Loaded', `Recipe "${recipeName}" loaded for ${side} side`, 'success');
+          showMessage('Recipe Loaded (Not Synced)', `Recipe "${recipeName}" loaded but NOT sent to PLC (offline)`, 'warning');
         }
       } catch (error) {
         console.error('[MainHMI] Recipe load error:', error.message);
         setProgramValid(prev => ({ ...prev, [side]: false }));
+        setRecipeSyncStatus(prev => ({
+          ...prev,
+          [side]: { synced: false, recipeName }
+        }));
         showMessage('Recipe Loaded (PLC Error)', `Recipe loaded but failed to sync PLC: ${error.message}`, 'warning');
       }
     })();
@@ -2988,6 +3040,7 @@ export default function MainHMI() {
             sequenceActive={sequenceActive.left}
             headCount={headCounts.left}
             onResetHeadCount={() => handleResetHeadCount('left')}
+            recipeSyncStatus={recipeSyncStatus.left}
           />
           <AxisPanel
             side="Right"
@@ -3010,6 +3063,7 @@ export default function MainHMI() {
             sequenceActive={sequenceActive.right}
             headCount={headCounts.right}
             onResetHeadCount={() => handleResetHeadCount('right')}
+            recipeSyncStatus={recipeSyncStatus.right}
           />
         </div>
       </div>

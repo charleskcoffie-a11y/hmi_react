@@ -244,11 +244,11 @@ function JogModeDialog({
         <div className="axis-speed-container">
           <div className="axis-position-display">
             <div className="axis-info">
-              <span className="axis-label">Axis 1 Pos:</span>
+              <span className="axis-label">ID Pos:</span>
               <span className="axis-value">{axisDisplay1}</span>
             </div>
             <div className="axis-info">
-              <span className="axis-label">Axis 2 Pos:</span>
+              <span className="axis-label">OD Pos:</span>
               <span className="axis-value">{axisDisplay2}</span>
             </div>
           </div>
@@ -277,7 +277,7 @@ function JogModeDialog({
         <div className="progress-section">
           <div className={`progress-item ${selectedMode === 'id' ? 'active' : ''}`}>
             <div className="progress-label">
-              <span>Axis 1 Progress</span>
+              <span>ID Progress</span>
               <span>{idStrokeMax > 0 ? `${axisDisplay1} / ${idStrokeMax.toFixed(3)}` : `${axisDisplay1} / --`}</span>
             </div>
             <div className="progress-bar">
@@ -286,7 +286,7 @@ function JogModeDialog({
           </div>
           <div className={`progress-item ${selectedMode === 'od' ? 'active' : ''}`}>
             <div className="progress-label">
-              <span>Axis 2 Progress</span>
+              <span>OD Progress</span>
               <span>{odStrokeMax > 0 ? `${axisDisplay2} / ${odStrokeMax.toFixed(3)}` : `${axisDisplay2} / --`}</span>
             </div>
             <div className="progress-bar">

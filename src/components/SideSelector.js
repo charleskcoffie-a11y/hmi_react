@@ -25,8 +25,8 @@ export default function SideSelector({ onSelectSide, onCancel, title, showBothOp
               <div className="side-icon">🔵</div>
               <h3>Left Side</h3>
               <div className="side-axes">
-                <div className="axis-item">Axis 3 (ID)</div>
-                <div className="axis-item">Axis 4 (OD)</div>
+                <div className="axis-item">ID</div>
+                <div className="axis-item">OD</div>
               </div>
               <button className="select-btn">Select Left</button>
             </div>
@@ -40,8 +40,8 @@ export default function SideSelector({ onSelectSide, onCancel, title, showBothOp
               <div className="side-icon">🔴</div>
               <h3>Right Side</h3>
               <div className="side-axes">
-                <div className="axis-item">Axis 1 (ID)</div>
-                <div className="axis-item">Axis 2 (OD)</div>
+                <div className="axis-item">ID</div>
+                <div className="axis-item">OD</div>
               </div>
               <button className="select-btn">Select Right</button>
             </div>
